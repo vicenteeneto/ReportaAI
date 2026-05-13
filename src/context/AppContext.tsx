@@ -110,23 +110,23 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             };
             const { data: insertedUser, error: insertError } = await supabase.from('users').insert([newUser]).select().single();
             if (insertError) {
-              console.error('Error creating user:', insertError);
+              console.error('Error creating user. If RLS is enabled, please add policies.', insertError);
             }
-            user = insertedUser;
+            user = insertedUser || newUser; // Fallback to session data if table insert fails
           }
           
           if (user) {
-            console.log('User found or created:', user);
+            console.log('User found or created (or fallback used):', user);
             setCurrentUser({
-              id: user.id,
+              id: user.id || session.user.id,
               name: user.name,
-              email: user.email,
-              phone: user.phone,
-              cpf: user.cpf,
-              neighborhood: user.neighborhood,
+              email: user.email || email,
+              phone: user.phone || '',
+              cpf: user.cpf || '',
+              neighborhood: user.neighborhood || '',
               role: user.role || 'citizen',
-              departmentId: user.departmentid,
-              avatarUrl: user.avatarurl
+              departmentId: user.departmentid || user.departmentId || null,
+              avatarUrl: user.avatarurl || user.avatarUrl || null
             });
           } else {
              console.error("User object is null after fetch and insert attempts.");

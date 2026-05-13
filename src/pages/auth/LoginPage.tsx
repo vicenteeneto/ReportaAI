@@ -14,17 +14,6 @@ export function LoginPage() {
   const [isRegistering, setIsRegistering] = useState(searchParams.get('flow') === 'register');
   const asAdmin = searchParams.get('role') === 'admin';
 
-  // Automatically redirect when currentUser becomes available
-  React.useEffect(() => {
-    if (currentUser) {
-      if (currentUser.role === 'admin' || currentUser.role === 'secretary' || currentUser.role === 'mayor') {
-        navigate('/admin/dashboard');
-      } else {
-        navigate('/citizen');
-      }
-    }
-  }, [currentUser, navigate]);
-
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) {

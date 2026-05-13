@@ -21,10 +21,19 @@ const AdminReports = () => <div className="p-8">Relatórios em desenvolvimento</
 const AppRoutes = () => {
   const { currentUser } = useAppContext();
 
+  // Determine the default dashboard route based on user role
+  const getDashboardRoute = () => {
+    if (!currentUser) return '/login';
+    if (currentUser.role === 'admin' || currentUser.role === 'secretary' || currentUser.role === 'mayor') {
+      return '/admin/dashboard';
+    }
+    return '/citizen';
+  };
+
   return (
     <Routes>
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/login" element={<LoginPage />} />
+      <Route path="/" element={currentUser ? <Navigate to={getDashboardRoute()} replace /> : <LandingPage />} />
+      <Route path="/login" element={currentUser ? <Navigate to={getDashboardRoute()} replace /> : <LoginPage />} />
 
       {/* Citizen Area */}
       <Route path="/citizen" element={currentUser ? <CitizenLayout /> : <Navigate to="/login" />}>

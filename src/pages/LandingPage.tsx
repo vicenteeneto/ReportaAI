@@ -8,16 +8,6 @@ export function LandingPage() {
   const navigate = useNavigate();
   const { currentUser } = useAppContext();
 
-  useEffect(() => {
-    if (currentUser) {
-      if (currentUser.role === 'admin' || currentUser.role === 'secretary' || currentUser.role === 'mayor') {
-        navigate('/admin/dashboard', { replace: true });
-      } else {
-        navigate('/citizen', { replace: true });
-      }
-    }
-  }, [currentUser, navigate]);
-
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
       <header className="h-16 bg-[#1E3A8A] flex items-center justify-between px-6 text-white shrink-0">
