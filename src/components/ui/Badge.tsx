@@ -2,8 +2,10 @@ import React from 'react';
 import { cn } from '../../lib/utils';
 import { TicketStatus, Priority } from '../../data/types';
 
-interface BadgeProps extends React.HTMLAttributes<HTMLDivElement> {
+interface BadgeProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'color'> {
   variant?: 'blue' | 'green' | 'yellow' | 'red' | 'gray' | 'purple' | 'orange';
+  className?: string;
+  children?: React.ReactNode;
 }
 
 export function Badge({ className, variant = 'gray', ...props }: BadgeProps) {

@@ -2,11 +2,13 @@ import React from 'react';
 import { cn } from '../../lib/utils';
 import { LucideIcon } from 'lucide-react';
 
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface ButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'color'> {
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
   size?: 'sm' | 'md' | 'lg';
   icon?: LucideIcon;
   isLoading?: boolean;
+  className?: string;
+  children?: React.ReactNode;
 }
 
 export function Button({ 
