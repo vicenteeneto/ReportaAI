@@ -1,0 +1,212 @@
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Card, CardContent } from '../../components/ui/Card';
+import { Button } from '../../components/ui/Button';
+import { Input, Textarea, Select } from '../../components/ui/Input';
+import { useAppContext } from '../../context/AppContext';
+import { Camera, MapPin, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { Ticket } from '../../data/types';
+
+export function CitizenNewTicket() {
+  const navigate = useNavigate();
+  const { categories, currentUser, addTicket } = useAppContext();
+  
+  const [step, setStep] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [newProtocol, setNewProtocol] = useState('');
+
+  const [formData, setFormData] = useState({
+    categoryId: '',
+    title: '',
+    description: '',
+    address: '',
+    neighborhood: '',
+    priority: 'medium' as any,
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    
+    // Simulate API call
+    setTimeout(() => {
+      const generatedProtocol = `RD-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
+      
+      const newTicket: Ticket = {
+        id: `tkt-new-${Date.now()}`,
+        protocol: generatedProtocol,
+        userId: currentUser?.id || 'usr-1',
+        categoryId: formData.categoryId,
+        departmentId: categories.find(c => c.id === formData.categoryId)?.defaultDepartmentId || 'dep-infra',
+        title: formData.title,
+        description: formData.description,
+        address: formData.address || 'Localização obtida pelo GPS',
+        neighborhood: formData.neighborhood || 'Bairro Não Informado',
+        priority: formData.priority,
+        status: 'received',
+        latitude: -16.4716 + (Math.random() * 0.01 - 0.005), // Mock nearby
+        longitude: -54.6369 + (Math.random() * 0.01 - 0.005),
+        createdAt: new Date().toISOString()
+      };
+
+      addTicket(newTicket);
+      setNewProtocol(generatedProtocol);
+      setSuccess(true);
+      setIsSubmitting(false);
+    }, 1500);
+  };
+
+  if (success) {
+    return (
+      <div className="p-4 md:p-6 lg:max-w-2xl mx-auto flex flex-col items-center justify-center min-h-[70vh] text-center space-y-6 animate-in fade-in zoom-in-95 duration-500 font-sans">
+        <div className="w-20 h-20 bg-green-50 rounded border border-green-200 flex items-center justify-center text-green-600 mb-2">
+          <CheckCircle2 className="w-10 h-10" />
+        </div>
+        <h2 className="text-2xl font-bold text-slate-900 tracking-tight uppercase">Chamado Efetuado</h2>
+        <div className="bg-slate-100 border border-slate-200 rounded p-4 w-full">
+          <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">Seu Protocolo</p>
+          <p className="text-xl font-bold tracking-widest text-[#1E3A8A] font-mono">{newProtocol}</p>
+        </div>
+        <p className="text-sm text-slate-600 font-medium leading-relaxed max-w-sm">
+          Sua solicitação foi registrada e encaminhada para a secretaria correspondente. Acompanhe a resolução.
+        </p>
+        <div className="w-full space-y-2 pt-2">
+          <Button className="w-full font-bold uppercase tracking-wide text-xs h-12" onClick={() => navigate('/citizen/tickets')}>
+            Acompanhar Solicitação
+          </Button>
+          <Button variant="outline" className="w-full font-bold uppercase tracking-wide text-xs h-12 border-slate-300" onClick={() => navigate('/citizen')}>
+            Retornar
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 md:p-6 lg:max-w-2xl mx-auto space-y-6 font-sans">
+      <button 
+        onClick={() => navigate(-1)}
+        className="flex items-center text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-[#1E3A8A] transition-colors -mb-2"
+      >
+        <ArrowLeft className="w-4 h-4 mr-1" /> Retornar
+      </button>
+
+      <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-3">
+        <h2 className="text-lg font-bold text-slate-900 uppercase tracking-tight">Nova Ocorrência</h2>
+        <span className="text-[10px] font-bold text-[#1E3A8A] uppercase tracking-wider bg-blue-50 px-2 py-0.5 rounded border border-blue-100">Etapa {step} de 2</span>
+      </div>
+
+      {/* Progress Line */}
+      <div className="w-full bg-slate-200 h-1 mb-8">
+        <div className="bg-[#1E3A8A] h-1 transition-all duration-300" style={{ width: step === 1 ? '50%' : '100%' }}></div>
+      </div>
+
+      <form onSubmit={step === 1 ? (e) => { e.preventDefault(); setStep(2); } : handleSubmit}>
+        {step === 1 && (
+          <div className="space-y-5 animate-in slide-in-from-right-8">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Qual problema você identificou?</label>
+              <Select 
+                required 
+                value={formData.categoryId} 
+                onChange={(e) => setFormData({...formData, categoryId: e.target.value})}
+              >
+                <option value="">Selecione uma categoria...</option>
+                {categories.map(cat => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Registro Fotográfico Físico (Opcional)</label>
+              <div className="border border-dashed border-slate-300 rounded bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer text-slate-500 h-28 flex flex-col items-center justify-center">
+                <Camera className="w-6 h-6 mb-1 text-slate-400" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Adicionar Foto</span>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Endereço do Local</label>
+              <div className="flex gap-2 relative">
+                <Input 
+                  placeholder="Logradouro e número" 
+                  className="flex-1"
+                  required
+                  value={formData.address}
+                  onChange={(e) => setFormData({...formData, address: e.target.value})}
+                />
+                <Button type="button" variant="outline" className="px-3 border-slate-300 bg-white" title="Localizar via Satélite">
+                  <MapPin className="w-5 h-5 text-[#1E3A8A]" />
+                </Button>
+              </div>
+            </div>
+             <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Região Administrativa (Bairro)</label>
+              <Input 
+                placeholder="Ex. Centro" 
+                required
+                value={formData.neighborhood}
+                onChange={(e) => setFormData({...formData, neighborhood: e.target.value})}
+              />
+            </div>
+
+            <Button type="submit" className="w-full mt-6 h-12 font-bold uppercase tracking-wide text-xs">Continuar Informações</Button>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="space-y-5 animate-in slide-in-from-right-8">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Resumo do Problema</label>
+              <Input 
+                placeholder="Ex: Luminária queimada e quebrada" 
+                required
+                value={formData.title}
+                onChange={(e) => setFormData({...formData, title: e.target.value})}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Detalhamento para a Equipe</label>
+              <Textarea 
+                placeholder="Informações adicionais relevantes..." 
+                className="h-28"
+                required
+                value={formData.description}
+                onChange={(e) => setFormData({...formData, description: e.target.value})}
+              />
+              <p className="text-[9px] text-slate-500 font-medium">Os dados informados alimentam o sistema central de triagem da prefeitura.</p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Avaliação de Risco / Urgência</label>
+              <div className="grid grid-cols-3 gap-2">
+                {(['low', 'medium', 'high'] as const).map(p => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setFormData({...formData, priority: p})}
+                    className={`py-2 rounded border text-[10px] uppercase tracking-wider font-bold transition-colors ${
+                      formData.priority === p 
+                        ? 'bg-[#1E3A8A] border-[#1E3A8A] text-white' 
+                        : 'border-slate-300 text-slate-600 hover:bg-slate-50 bg-white'
+                    }`}
+                  >
+                    {p === 'low' ? 'Baixo' : p === 'medium' ? 'Médio' : 'Crítico'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-4">
+              <Button type="button" variant="outline" className="flex-1 font-bold uppercase tracking-wide text-xs" onClick={() => setStep(1)}>Recuar</Button>
+              <Button type="submit" className="flex-[2] font-bold uppercase tracking-wide text-xs" isLoading={isSubmitting}>Confirmar Solicitação</Button>
+            </div>
+          </div>
+        )}
+      </form>
+    </div>
+  );
+}

@@ -1,0 +1,60 @@
+import React from 'react';
+import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Home, PlusSquare, MapPinned, List, LogOut } from 'lucide-react';
+import { useAppContext } from '../../context/AppContext';
+
+export function CitizenLayout() {
+  const location = useLocation();
+  const { currentUser, logout } = useAppContext();
+
+  const navItems = [
+    { label: 'Início', icon: Home, path: '/citizen' },
+    { label: 'Novo', icon: PlusSquare, path: '/citizen/new' },
+    { label: 'Chamados', icon: List, path: '/citizen/tickets' },
+    { label: 'Mapa', icon: MapPinned, path: '/citizen/map' },
+  ];
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+      <header className="h-14 bg-[#1E3A8A] flex items-center justify-between px-4 text-white shrink-0 sticky top-0 z-20">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-white rounded flex items-center justify-center">
+            <div className="w-4 h-4 border-[3px] border-[#1E3A8A] rounded-full"></div>
+          </div>
+          <div>
+            <h1 className="font-bold text-sm leading-tight uppercase tracking-tight">Cidade Conecta</h1>
+            <p className="text-[9px] opacity-80 uppercase tracking-widest leading-none">Cidadão</p>
+          </div>
+        </div>
+        {currentUser && (
+          <button onClick={logout} className="p-1.5 rounded bg-white/10 hover:bg-white/20 transition-colors">
+            <LogOut className="w-4 h-4" />
+          </button>
+        )}
+      </header>
+
+      <main className="flex-1 pb-[60px] md:pb-0 overflow-y-auto">
+        <Outlet />
+      </main>
+
+      <nav className="fixed bottom-0 w-full bg-white border-t border-slate-200 md:hidden pb-safe z-20 h-[60px]">
+        <ul className="flex justify-around items-center h-full">
+          {navItems.map((item) => {
+            const isActive = location.pathname === item.path || (item.path !== '/citizen' && location.pathname.startsWith(item.path));
+            return (
+              <li key={item.path} className="flex-1 h-full flex">
+                <Link
+                  to={item.path}
+                  className={`flex-1 flex flex-col items-center justify-center transition-colors ${isActive ? 'text-[#1E3A8A] bg-slate-50' : 'text-slate-500 hover:bg-slate-50'}`}
+                >
+                  <item.icon className={`w-5 h-5 mb-1 ${isActive ? 'stroke-[2.5]' : 'stroke-2'}`} />
+                  <span className={`text-[10px] uppercase tracking-wider ${isActive ? 'font-bold' : 'font-medium'}`}>{item.label}</span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
+    </div>
+  );
+}
