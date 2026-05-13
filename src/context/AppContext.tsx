@@ -93,21 +93,30 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         const { email, user_metadata } = session.user;
         if (email) {
           // Check if user exists in public.users
-          let { data: user } = await supabase.from('users').select('*').eq('email', email).single();
+          let { data: user, error: fetchError } = await supabase.from('users').select('*').eq('email', email).single();
           
+          if (fetchError && fetchError.code !== 'PGRST116') {
+            console.error('Error fetching user:', fetchError);
+          }
+
           if (!user) {
             // Create user
             const newUser = {
-              name: user_metadata.full_name || email.split('@')[0],
+              id: session.user.id, // Ensure we link Auth ID with Public User ID
+              name: (user_metadata && user_metadata.full_name) || email.split('@')[0],
               email: email,
               role: 'citizen',
-              avatarurl: user_metadata.avatar_url
+              avatarurl: user_metadata && user_metadata.avatar_url ? user_metadata.avatar_url : null
             };
-            const { data: insertedUser } = await supabase.from('users').insert([newUser]).select().single();
+            const { data: insertedUser, error: insertError } = await supabase.from('users').insert([newUser]).select().single();
+            if (insertError) {
+              console.error('Error creating user:', insertError);
+            }
             user = insertedUser;
           }
           
           if (user) {
+            console.log('User found or created:', user);
             setCurrentUser({
               id: user.id,
               name: user.name,
@@ -115,10 +124,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
               phone: user.phone,
               cpf: user.cpf,
               neighborhood: user.neighborhood,
-              role: user.role,
+              role: user.role || 'citizen',
               departmentId: user.departmentid,
               avatarUrl: user.avatarurl
             });
+          } else {
+             console.error("User object is null after fetch and insert attempts.");
           }
         }
       } else {
