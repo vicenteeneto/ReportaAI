@@ -8,11 +8,22 @@ import { useAppContext } from '../../context/AppContext';
 export function LoginPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { login, loginWithGoogle } = useAppContext();
+  const { login, loginWithGoogle, currentUser } = useAppContext();
   
   const [email, setEmail] = useState('');
   const [isRegistering, setIsRegistering] = useState(searchParams.get('flow') === 'register');
   const asAdmin = searchParams.get('role') === 'admin';
+
+  // Automatically redirect when currentUser becomes available
+  React.useEffect(() => {
+    if (currentUser) {
+      if (currentUser.role === 'admin' || currentUser.role === 'secretary' || currentUser.role === 'mayor') {
+        navigate('/admin/dashboard');
+      } else {
+        navigate('/citizen');
+      }
+    }
+  }, [currentUser, navigate]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,8 +34,7 @@ export function LoginPage() {
     } else {
       await login(email);
     }
-    
-    navigate(asAdmin ? '/admin' : '/citizen');
+    // Note: React.useEffect above will handle the redirect once login sets the user.
   };
 
   return (
