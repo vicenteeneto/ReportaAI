@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, Ticket, Category, Department } from '../data/types';
 import { mockUsers, mockTickets, mockCategories, mockDepartments } from '../data/mockData';
+import { supabase } from '../lib/supabase';
 
 interface AppContextType {
   currentUser: User | null;
@@ -11,6 +12,7 @@ interface AppContextType {
   updateTicketStatus: (id: string, status: Ticket['status']) => void;
   categories: Category[];
   departments: Department[];
+  loading?: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -18,16 +20,99 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [tickets, setTickets] = useState<Ticket[]>(mockTickets);
-  const [categories] = useState<Category[]>(mockCategories);
-  const [departments] = useState<Department[]>(mockDepartments);
+  const [categories, setCategories] = useState<Category[]>(mockCategories);
+  const [departments, setDepartments] = useState<Department[]>(mockDepartments);
+  const [loading, setLoading] = useState(true);
 
-  const login = (email: string) => {
-    // Simple mock login
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      try {
+        const [deptRes, catRes, ticketRes] = await Promise.all([
+          supabase.from('departments').select('*'),
+          supabase.from('categories').select('*'),
+          supabase.from('tickets').select('*').order('created_at', { ascending: false }) // note: unquoted postgres names are lowercase
+        ]);
+
+        if (deptRes.data && deptRes.data.length > 0) {
+          setDepartments(deptRes.data.map((d: any) => ({
+            id: d.id,
+            name: d.name,
+            acronym: d.acronym,
+            active: d.active,
+            color: d.color
+          })));
+        }
+
+        if (catRes.data && catRes.data.length > 0) {
+          setCategories(catRes.data.map((c: any) => ({
+            id: c.id,
+            name: c.name,
+            iconName: c.iconname,
+            color: c.color,
+            defaultDepartmentId: c.defaultdepartmentid,
+            defaultPriority: c.defaultpriority
+          })));
+        }
+
+        if (ticketRes.data && ticketRes.data.length > 0) {
+          setTickets(ticketRes.data.map((t: any) => ({
+            id: t.id,
+            protocol: t.protocol,
+            userId: t.userid,
+            categoryId: t.categoryid,
+            departmentId: t.departmentid,
+            title: t.title,
+            description: t.description,
+            status: t.status,
+            priority: t.priority,
+            latitude: t.latitude,
+            longitude: t.longitude,
+            address: t.address,
+            neighborhood: t.neighborhood,
+            createdAt: t.created_at || t.createdat,
+            updatedAt: t.updated_at || t.updatedat,
+            dueDate: t.due_date || t.duedate,
+            resolvedAt: t.resolved_at || t.resolvedat,
+            photoUrl: t.photourl,
+            resolvedPhotoUrl: t.resolvedphotourl
+          })));
+        }
+      } catch (err) {
+        console.error('Error fetching data from Supabase:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchInitialData();
+  }, []);
+
+  const login = async (email: string) => {
+    try {
+      const { data, error } = await supabase.from('users').select('*').eq('email', email).single();
+      if (data && !error) {
+        setCurrentUser({
+          id: data.id,
+          name: data.name,
+          email: data.email,
+          phone: data.phone,
+          cpf: data.cpf,
+          neighborhood: data.neighborhood,
+          role: data.role,
+          departmentId: data.departmentid,
+          avatarUrl: data.avatarurl
+        });
+        return;
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+    }
+
+    // Fallback to mock login
     const user = mockUsers.find(u => u.email === email);
     if (user) {
       setCurrentUser(user);
     } else {
-      // Default to citizen if not found, just for prototype ease
       setCurrentUser(mockUsers[0]);
     }
   };
@@ -36,16 +121,47 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setCurrentUser(null);
   };
 
-  const addTicket = (t: Ticket) => {
+  const addTicket = async (t: Ticket) => {
+    // Optimistic UI update
     setTickets(prev => [t, ...prev]);
+
+    try {
+      await supabase.from('tickets').insert([{
+        id: t.id,
+        protocol: t.protocol,
+        userid: t.userId,
+        categoryid: t.categoryId,
+        departmentid: t.departmentId,
+        title: t.title,
+        description: t.description,
+        status: t.status,
+        priority: t.priority,
+        latitude: t.latitude,
+        longitude: t.longitude,
+        address: t.address,
+        neighborhood: t.neighborhood,
+        photourl: t.photoUrl
+      }]);
+    } catch (err) {
+      console.error('Error saving ticket:', err);
+    }
   };
 
-  const updateTicketStatus = (id: string, status: Ticket['status']) => {
-    setTickets(prev => prev.map(t => t.id === id ? { ...t, status, updatedAt: new Date().toISOString() } : t));
+  const updateTicketStatus = async (id: string, status: Ticket['status']) => {
+    const updatedAt = new Date().toISOString();
+    setTickets(prev => prev.map(t => t.id === id ? { ...t, status, updatedAt } : t));
+
+    try {
+      // we use updated_at because postgres columns without quotes are stored in lowercase if created as such, or match exactly what was defined. (Here defined as updatedAt, but unquoted, so updatedat).
+      // well I defined updatedat in the schema script... wait, in schema script it was updatedAt unquoted which means updatedat. But I'll use updatedat to match raw postgres.
+      await supabase.from('tickets').update({ status, updatedat: updatedAt }).eq('id', id);
+    } catch (err) {
+      console.error('Error updating ticket:', err);
+    }
   };
 
   return (
-    <AppContext.Provider value={{ currentUser, login, logout, tickets, addTicket, updateTicketStatus, categories, departments }}>
+    <AppContext.Provider value={{ currentUser, login, logout, tickets, addTicket, updateTicketStatus, categories, departments, loading }}>
       {children}
     </AppContext.Provider>
   );

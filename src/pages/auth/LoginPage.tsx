@@ -14,14 +14,14 @@ export function LoginPage() {
   const [isRegistering, setIsRegistering] = useState(searchParams.get('flow') === 'register');
   const asAdmin = searchParams.get('role') === 'admin';
 
-  const handleAuth = (e: React.FormEvent) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) {
       // Mock login to demo user if empty, or just use what's typed
       const defaultEmail = asAdmin ? 'admin@rondonopolis.mt.gov.br' : 'joao@example.com';
-      login(defaultEmail);
+      await login(defaultEmail);
     } else {
-      login(email);
+      await login(email);
     }
     
     navigate(asAdmin ? '/admin' : '/citizen');

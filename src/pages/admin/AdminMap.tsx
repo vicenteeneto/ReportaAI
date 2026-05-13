@@ -1,16 +1,42 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { useAppContext } from '../../context/AppContext';
 import { StatusBadge, PriorityBadge } from '../../components/ui/Badge';
-import { Filter, X } from 'lucide-react';
+import { Filter, X, MapPin } from 'lucide-react';
 import { Ticket } from '../../data/types';
-import { MapContainer, TileLayer, Marker } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
+
+function MapController({ tickets }: { tickets: any[] }) {
+  const map = useMap();
+  useEffect(() => {
+    if (tickets.length === 0) return;
+    const bounds = L.latLngBounds(tickets.map(t => [t.latitude, t.longitude]));
+    if (bounds.isValid()) {
+      map.flyToBounds(bounds, { padding: [50, 50], duration: 1.5, maxZoom: 16 });
+    }
+  }, [tickets, map]);
+  return null;
+}
 
 export function AdminMap() {
   const { tickets, categories } = useAppContext();
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [selectedNeighborhood, setSelectedNeighborhood] = useState<string | null>(null);
+
+  const neighborhoods = useMemo(() => {
+    const counts: Record<string, number> = {};
+    tickets.forEach(t => {
+      counts[t.neighborhood] = (counts[t.neighborhood] || 0) + 1;
+    });
+    return Object.entries(counts).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
+  }, [tickets]);
+
+  const filteredTickets = useMemo(() => {
+    if (!selectedNeighborhood) return tickets;
+    return tickets.filter(t => t.neighborhood === selectedNeighborhood);
+  }, [tickets, selectedNeighborhood]);
 
   // Helper to map color string to hex for inline styles
   const getPinColor = (categoryColor: string) => {
@@ -36,9 +62,39 @@ export function AdminMap() {
 
   return (
     <div className="flex flex-col h-full space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Mapa de Ocorrências</h2>
-        <Button variant="outline" icon={Filter}>Filtros Avançados</Button>
+        <Button variant="outline" icon={Filter} className="shrink-0">Filtros Avançados</Button>
+      </div>
+
+      {/* Neighborhood Cards */}
+      <div className="w-full overflow-x-auto pb-2 flex gap-3 snap-x no-scrollbar">
+        <button
+          onClick={() => {
+            setSelectedNeighborhood(null);
+            setSelectedTicket(null);
+          }}
+          className={`snap-start shrink-0 min-w-[140px] p-3 rounded-lg border shadow-sm text-left transition-all flex flex-col justify-center
+            ${selectedNeighborhood === null ? 'bg-slate-800 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+        >
+          <span className={`text-2xl font-bold ${selectedNeighborhood === null ? 'text-white' : 'text-slate-900'}`}>{tickets.length}</span>
+          <span className={`text-xs mt-0.5 font-bold uppercase tracking-wider truncate w-full ${selectedNeighborhood === null ? 'text-slate-300' : 'text-slate-500'}`}>Toda Cidade</span>
+        </button>
+        {neighborhoods.map(n => (
+          <button
+            key={n.name}
+            onClick={() => {
+              setSelectedNeighborhood(selectedNeighborhood === n.name ? null : n.name);
+              setSelectedTicket(null);
+            }}
+            className={`snap-start shrink-0 min-w-[160px] max-w-[180px] p-3 rounded-lg border shadow-sm text-left transition-all flex flex-col justify-center relative overflow-hidden
+              ${selectedNeighborhood === n.name ? 'bg-slate-800 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+          >
+            <MapPin className={`absolute right-2 top-2 opacity-10 w-8 h-8 ${selectedNeighborhood === n.name ? 'text-white' : 'text-slate-900'}`} />
+            <span className={`text-2xl font-bold ${selectedNeighborhood === n.name ? 'text-white' : 'text-slate-900'}`}>{n.count}</span>
+            <span className={`text-xs mt-0.5 font-bold uppercase tracking-wider truncate w-full relative z-10 ${selectedNeighborhood === n.name ? 'text-slate-300' : 'text-slate-500'}`} title={n.name}>{n.name}</span>
+          </button>
+        ))}
       </div>
 
       <div className="flex-1 relative rounded-xl border border-slate-200 overflow-hidden bg-slate-100 flex">
@@ -48,7 +104,8 @@ export function AdminMap() {
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          {tickets.map(ticket => {
+          <MapController tickets={filteredTickets} />
+          {filteredTickets.map(ticket => {
             const cat = categories.find(c => c.id === ticket.categoryId);
             if (!cat) return null;
 

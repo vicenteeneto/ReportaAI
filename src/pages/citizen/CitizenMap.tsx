@@ -1,16 +1,42 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import { StatusBadge } from '../../components/ui/Badge';
 import { format } from 'date-fns';
-import { ArrowLeft } from 'lucide-react';
-import { MapContainer, TileLayer, Marker } from 'react-leaflet';
+import { ArrowLeft, MapPin } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
+
+function MapController({ tickets }: { tickets: any[] }) {
+  const map = useMap();
+  useEffect(() => {
+    if (tickets.length === 0) return;
+    const bounds = L.latLngBounds(tickets.map(t => [t.latitude, t.longitude]));
+    if (bounds.isValid()) {
+      map.flyToBounds(bounds, { padding: [50, 50], duration: 1.5, maxZoom: 16 });
+    }
+  }, [tickets, map]);
+  return null;
+}
 
 export function CitizenMap() {
   const navigate = useNavigate();
   const { tickets, categories } = useAppContext();
   const [selectedTicket, setSelectedTicket] = useState<any>(null);
+  const [selectedNeighborhood, setSelectedNeighborhood] = useState<string | null>(null);
+
+  const neighborhoods = useMemo(() => {
+    const counts: Record<string, number> = {};
+    tickets.forEach(t => {
+      counts[t.neighborhood] = (counts[t.neighborhood] || 0) + 1;
+    });
+    return Object.entries(counts).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
+  }, [tickets]);
+
+  const filteredTickets = useMemo(() => {
+    if (!selectedNeighborhood) return tickets;
+    return tickets.filter(t => t.neighborhood === selectedNeighborhood);
+  }, [tickets, selectedNeighborhood]);
 
   const getPinColor = (categoryColor: string) => {
     if (categoryColor.includes('orange')) return '#f97316';
@@ -18,7 +44,7 @@ export function CitizenMap() {
     if (categoryColor.includes('green')) return '#16a34a';
     if (categoryColor.includes('emerald')) return '#059669';
     if (categoryColor.includes('amber')) return '#d97706';
-    if (categoryColor.includes('blue')) return '#1d4ed8'; // darker blue for high density
+    if (categoryColor.includes('blue')) return '#1d4ed8';
     if (categoryColor.includes('purple')) return '#9333ea';
     if (categoryColor.includes('red')) return '#dc2626';
     return '#475569';
@@ -40,7 +66,8 @@ export function CitizenMap() {
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          {tickets.map(ticket => {
+          <MapController tickets={filteredTickets} />
+          {filteredTickets.map(ticket => {
             const cat = categories.find(c => c.id === ticket.categoryId);
             if (!cat) return null;
             return (
@@ -56,15 +83,50 @@ export function CitizenMap() {
           })}
         </MapContainer>
 
-        <div className="absolute top-4 left-4 right-4 md:right-auto md:w-80 bg-white border border-slate-200 rounded p-4 shadow-lg z-10 pointer-events-auto">
-          <button 
-            onClick={() => navigate(-1)}
-            className="flex items-center text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-[#1E3A8A] transition-colors mb-3"
-          >
-            <ArrowLeft className="w-4 h-4 mr-1" /> Retornar
-          </button>
-          <h2 className="font-bold text-slate-900 text-sm uppercase tracking-tight">Mapa de Ocorrências</h2>
-          <p className="text-[10px] text-slate-500 mt-0.5 font-medium leading-tight">Visão georreferenciada de chamados públicos em Rondonópolis.</p>
+        <div className="absolute top-0 left-0 right-0 z-10 p-4 pointer-events-none flex flex-col gap-3">
+          <div className="flex flex-col md:flex-row gap-3 items-start">
+            {/* Title Box */}
+            <div className="bg-white border border-slate-200 rounded p-4 shadow-lg pointer-events-auto w-full md:w-80 shrink-0">
+              <button 
+                onClick={() => navigate(-1)}
+                className="flex items-center text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-[#1E3A8A] transition-colors mb-3"
+              >
+                <ArrowLeft className="w-4 h-4 mr-1" /> Retornar
+              </button>
+              <h2 className="font-bold text-slate-900 text-sm uppercase tracking-tight">Mapa de Ocorrências</h2>
+              <p className="text-[10px] text-slate-500 mt-0.5 font-medium leading-tight">Visão georreferenciada de chamados por região em Rondonópolis.</p>
+            </div>
+
+            {/* Neighborhood Cards */}
+            <div className="flex-1 w-full overflow-x-auto pb-4 md:pb-0 -mb-4 md:mb-0 flex gap-3 pointer-events-auto snap-x no-scrollbar">
+              <button
+                onClick={() => {
+                  setSelectedNeighborhood(null);
+                  setSelectedTicket(null);
+                }}
+                className={`snap-start shrink-0 min-w-[120px] p-3 rounded-lg border shadow-sm text-left transition-all flex flex-col justify-center
+                  ${selectedNeighborhood === null ? 'bg-[#1E3A8A] border-[#1E3A8A] text-white ring-2 ring-blue-300 ring-offset-1' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+              >
+                <span className={`text-2xl font-bold ${selectedNeighborhood === null ? 'text-white' : 'text-slate-900'}`}>{tickets.length}</span>
+                <span className={`text-[10px] mt-0.5 font-bold uppercase tracking-wider truncate w-full ${selectedNeighborhood === null ? 'text-blue-100' : 'text-slate-500'}`}>Toda Cidade</span>
+              </button>
+              {neighborhoods.map(n => (
+                <button
+                  key={n.name}
+                  onClick={() => {
+                    setSelectedNeighborhood(selectedNeighborhood === n.name ? null : n.name);
+                    setSelectedTicket(null);
+                  }}
+                  className={`snap-start shrink-0 min-w-[140px] max-w-[160px] p-3 rounded-lg border shadow-sm text-left transition-all flex flex-col justify-center relative overflow-hidden
+                    ${selectedNeighborhood === n.name ? 'bg-[#1E3A8A] border-[#1E3A8A] text-white ring-2 ring-blue-300 ring-offset-1' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+                >
+                  <MapPin className={`absolute right-2 top-2 opacity-10 w-8 h-8 ${selectedNeighborhood === n.name ? 'text-white' : 'text-slate-900'}`} />
+                  <span className={`text-2xl font-bold ${selectedNeighborhood === n.name ? 'text-white' : 'text-slate-900'}`}>{n.count}</span>
+                  <span className={`text-[10px] mt-0.5 font-bold uppercase tracking-wider truncate w-full relative z-10 ${selectedNeighborhood === n.name ? 'text-blue-100' : 'text-slate-500'}`} title={n.name}>{n.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
         
         {/* Selected Ticket Card */}
