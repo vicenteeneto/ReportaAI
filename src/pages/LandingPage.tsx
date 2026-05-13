@@ -1,10 +1,22 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { MapPin, Camera, ClipboardCheck } from 'lucide-react';
+import { useAppContext } from '../context/AppContext';
 
 export function LandingPage() {
   const navigate = useNavigate();
+  const { currentUser } = useAppContext();
+
+  useEffect(() => {
+    if (currentUser) {
+      if (currentUser.role === 'admin' || currentUser.role === 'secretary' || currentUser.role === 'mayor') {
+        navigate('/admin/dashboard', { replace: true });
+      } else {
+        navigate('/citizen', { replace: true });
+      }
+    }
+  }, [currentUser, navigate]);
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
