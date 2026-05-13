@@ -5,8 +5,9 @@ import { supabase } from '../lib/supabase';
 
 interface AppContextType {
   currentUser: User | null;
-  login: (email: string) => void;
-  logout: () => void;
+  login: (email: string) => Promise<void> | void;
+  loginWithGoogle: () => Promise<void>;
+  logout: () => Promise<void> | void;
   tickets: Ticket[];
   addTicket: (t: Ticket) => void;
   updateTicketStatus: (id: string, status: Ticket['status']) => void;
@@ -85,7 +86,62 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     };
 
     fetchInitialData();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        // User logged in via OAuth or Magic Link
+        const { email, user_metadata } = session.user;
+        if (email) {
+          // Check if user exists in public.users
+          let { data: user } = await supabase.from('users').select('*').eq('email', email).single();
+          
+          if (!user) {
+            // Create user
+            const newUser = {
+              name: user_metadata.full_name || email.split('@')[0],
+              email: email,
+              role: 'citizen',
+              avatarurl: user_metadata.avatar_url
+            };
+            const { data: insertedUser } = await supabase.from('users').insert([newUser]).select().single();
+            user = insertedUser;
+          }
+          
+          if (user) {
+            setCurrentUser({
+              id: user.id,
+              name: user.name,
+              email: user.email,
+              phone: user.phone,
+              cpf: user.cpf,
+              neighborhood: user.neighborhood,
+              role: user.role,
+              departmentId: user.departmentid,
+              avatarUrl: user.avatarurl
+            });
+          }
+        }
+      } else {
+        setCurrentUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
+
+  const loginWithGoogle = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin + '/citizen'
+        }
+      });
+      if (error) throw error;
+    } catch (err) {
+      console.error('Google login error:', err);
+    }
+  };
 
   const login = async (email: string) => {
     try {
@@ -117,7 +173,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    await supabase.auth.signOut();
     setCurrentUser(null);
   };
 
@@ -161,7 +218,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AppContext.Provider value={{ currentUser, login, logout, tickets, addTicket, updateTicketStatus, categories, departments, loading }}>
+    <AppContext.Provider value={{ currentUser, login, loginWithGoogle, logout, tickets, addTicket, updateTicketStatus, categories, departments, loading }}>
       {children}
     </AppContext.Provider>
   );

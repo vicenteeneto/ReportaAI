@@ -24,6 +24,7 @@ export function AdminMap() {
   const { tickets, categories } = useAppContext();
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [selectedNeighborhood, setSelectedNeighborhood] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const neighborhoods = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -34,9 +35,15 @@ export function AdminMap() {
   }, [tickets]);
 
   const filteredTickets = useMemo(() => {
-    if (!selectedNeighborhood) return tickets;
-    return tickets.filter(t => t.neighborhood === selectedNeighborhood);
-  }, [tickets, selectedNeighborhood]);
+    let filtered = tickets;
+    if (selectedNeighborhood) {
+      filtered = filtered.filter(t => t.neighborhood === selectedNeighborhood);
+    }
+    if (selectedCategory) {
+      filtered = filtered.filter(t => t.categoryId === selectedCategory);
+    }
+    return filtered;
+  }, [tickets, selectedNeighborhood, selectedCategory]);
 
   // Helper to map color string to hex for inline styles
   const getPinColor = (categoryColor: string) => {
@@ -98,6 +105,45 @@ export function AdminMap() {
       </div>
 
       <div className="flex-1 relative rounded-xl border border-slate-200 overflow-hidden bg-slate-100 flex">
+        {/* Categories Sidebar */}
+        <div className="w-56 bg-white border-r border-slate-200 flex flex-col z-20 overflow-y-auto">
+          <div className="p-4 border-b border-slate-100">
+            <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Tipos de Problema</h3>
+          </div>
+          <div className="p-2 space-y-1">
+            <button
+              onClick={() => setSelectedCategory(null)}
+              className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                selectedCategory === null 
+                  ? 'bg-slate-100 text-slate-900' 
+                  : 'text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              Todos os Problemas
+            </button>
+            {categories.map(cat => {
+              const count = tickets.filter(t => t.categoryId === cat.id && (!selectedNeighborhood || t.neighborhood === selectedNeighborhood)).length;
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => setSelectedCategory(selectedCategory === cat.id ? null : cat.id)}
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors ${
+                    selectedCategory === cat.id 
+                      ? 'bg-slate-100 text-slate-900 font-bold' 
+                      : 'text-slate-600 hover:bg-slate-50 font-medium'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 truncate">
+                    <div className={`w-2.5 h-2.5 rounded-full ${cat.color.replace('bg-', 'bg-')} shadow-sm shrink-0`} style={{backgroundColor: getPinColor(cat.color)}} />
+                    <span className="truncate">{cat.name}</span>
+                  </div>
+                  <span className="text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{count}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Map Container */}
         <MapContainer center={[-16.4672, -54.6383]} zoom={13} className="relative flex-1 w-full h-full z-0">
           <TileLayer

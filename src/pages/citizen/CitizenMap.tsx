@@ -24,6 +24,7 @@ export function CitizenMap() {
   const { tickets, categories } = useAppContext();
   const [selectedTicket, setSelectedTicket] = useState<any>(null);
   const [selectedNeighborhood, setSelectedNeighborhood] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const neighborhoods = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -34,9 +35,15 @@ export function CitizenMap() {
   }, [tickets]);
 
   const filteredTickets = useMemo(() => {
-    if (!selectedNeighborhood) return tickets;
-    return tickets.filter(t => t.neighborhood === selectedNeighborhood);
-  }, [tickets, selectedNeighborhood]);
+    let filtered = tickets;
+    if (selectedNeighborhood) {
+      filtered = filtered.filter(t => t.neighborhood === selectedNeighborhood);
+    }
+    if (selectedCategory) {
+      filtered = filtered.filter(t => t.categoryId === selectedCategory);
+    }
+    return filtered;
+  }, [tickets, selectedNeighborhood, selectedCategory]);
 
   const getPinColor = (categoryColor: string) => {
     if (categoryColor.includes('orange')) return '#f97316';
@@ -86,15 +93,50 @@ export function CitizenMap() {
         <div className="absolute top-0 left-0 right-0 z-10 p-4 pointer-events-none flex flex-col gap-3">
           <div className="flex flex-col md:flex-row gap-3 items-start">
             {/* Title Box */}
-            <div className="bg-white border border-slate-200 rounded p-4 shadow-lg pointer-events-auto w-full md:w-80 shrink-0">
-              <button 
-                onClick={() => navigate(-1)}
-                className="flex items-center text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-[#1E3A8A] transition-colors mb-3"
-              >
-                <ArrowLeft className="w-4 h-4 mr-1" /> Retornar
-              </button>
-              <h2 className="font-bold text-slate-900 text-sm uppercase tracking-tight">Mapa de Ocorrências</h2>
-              <p className="text-[10px] text-slate-500 mt-0.5 font-medium leading-tight">Visão georreferenciada de chamados por região em Rondonópolis.</p>
+            <div className="bg-white border border-slate-200 rounded p-4 shadow-lg pointer-events-auto w-full md:w-80 shrink-0 max-h-[85vh] flex flex-col">
+              <div>
+                <button 
+                  onClick={() => navigate(-1)}
+                  className="flex items-center text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-[#1E3A8A] transition-colors mb-3"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-1" /> Retornar
+                </button>
+                <h2 className="font-bold text-slate-900 text-sm uppercase tracking-tight">Mapa de Ocorrências</h2>
+                <p className="text-[10px] text-slate-500 mt-0.5 font-medium leading-tight mb-4">Visão georreferenciada de chamados por região em Rondonópolis.</p>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+                <button
+                  onClick={() => setSelectedCategory(null)}
+                  className={`w-full text-left px-3 py-2 rounded-md text-xs font-bold transition-colors ${
+                    selectedCategory === null 
+                      ? 'bg-slate-100 text-[#1E3A8A]' 
+                      : 'text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  TODOS OS PROBLEMAS
+                </button>
+                {categories.map(cat => {
+                  const count = tickets.filter(t => t.categoryId === cat.id && (!selectedNeighborhood || t.neighborhood === selectedNeighborhood)).length;
+                  return (
+                    <button
+                      key={cat.id}
+                      onClick={() => setSelectedCategory(selectedCategory === cat.id ? null : cat.id)}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-xs transition-colors ${
+                        selectedCategory === cat.id 
+                          ? 'bg-slate-100 text-[#1E3A8A] font-bold' 
+                          : 'text-slate-600 hover:bg-slate-50 font-medium'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <div className={`w-2.5 h-2.5 rounded-full ${cat.color.replace('bg-', 'bg-')} shadow-sm shrink-0`} style={{backgroundColor: getPinColor(cat.color)}} />
+                        <span className="truncate">{cat.name}</span>
+                      </div>
+                      <span className="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded font-bold">{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Neighborhood Cards */}
