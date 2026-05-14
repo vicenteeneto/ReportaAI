@@ -105,9 +105,13 @@ export function LoginPage() {
             {asAdmin && (
               <p className="text-sm text-slate-500 mt-4">
                 Precisa criar os usuários iniciais?
-                <a href="/admin-setup" className="text-[#1E3A8A] font-bold ml-1 hover:underline">
+                <button 
+                  type="button"
+                  onClick={() => navigate('/admin-setup')}
+                  className="text-[#1E3A8A] font-bold ml-1 hover:underline"
+                >
                   Acessar Setup
-                </a>
+                </button>
               </p>
             )}
           </form>

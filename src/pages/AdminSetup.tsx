@@ -4,15 +4,20 @@ import { Button } from '../components/ui/Button';
 
 export function AdminSetup() {
   const [status, setStatus] = useState<string>('');
+  const [emailPrefix, setEmailPrefix] = useState('');
 
   const setupAdmins = async () => {
     setStatus('Iniciando criação...');
     
+    // allow bypass rate limit by appending a number if requested
+    const customEmail1 = `superuser${emailPrefix}@rondonopolis.mt.gov.br`;
+    const customEmail2 = `prefeituraroo${emailPrefix}@rondonopolis.mt.gov.br`;
+
     try {
       // Create Superuser
-      setStatus('Criando Superuser...');
+      setStatus(`Criando ${customEmail1}...`);
       const res1 = await supabase.auth.signUp({
-        email: 'superuser@rondonopolis.mt.gov.br',
+        email: customEmail1,
         password: 'A7x510682',
       });
       if (res1.error && !res1.error.message.includes('already registered')) throw res1.error;
@@ -21,16 +26,16 @@ export function AdminSetup() {
         await supabase.from('users').upsert({
           id: res1.data.user.id,
           name: 'Superuser',
-          email: 'superuser@rondonopolis.mt.gov.br',
+          email: customEmail1,
           role: 'admin',
           createdAt: Date.now()
         });
       }
 
       // Create Prefeituraroo
-      setStatus('Criando Prefeituraroo...');
+      setStatus(`Criando ${customEmail2}...`);
       const res2 = await supabase.auth.signUp({
-        email: 'prefeituraroo@rondonopolis.mt.gov.br',
+        email: customEmail2,
         password: 'testando2026',
       });
       if (res2.error && !res2.error.message.includes('already registered')) throw res2.error;
@@ -39,7 +44,7 @@ export function AdminSetup() {
         await supabase.from('users').upsert({
           id: res2.data.user.id,
           name: 'Prefeituraroo',
-          email: 'prefeituraroo@rondonopolis.mt.gov.br',
+          email: customEmail2,
           role: 'admin',
           createdAt: Date.now()
         });
@@ -48,11 +53,11 @@ export function AdminSetup() {
       // Log out just in case
       await supabase.auth.signOut();
       
-      setStatus('Sucesso! Usuários criados com a API do Supabase.\n\nVocê já pode acessar /auth/login?role=admin com as credenciais.');
+      setStatus(`Sucesso! Usuários criados com a API do Supabase.\n\nE-mails usados:\n- ${customEmail1}\n- ${customEmail2}\n\nVocê já pode voltar para a tela de login.`);
       
     } catch (e: any) {
       console.error(e);
-      setStatus(`Erro: ${e.message}`);
+      setStatus(`Erro: ${e.message}\n\nDICA: Se deu "email rate limit exceeded", insira um número abaixo e tente novamente para gerar um e-mail diferente.`);
     }
   };
 
@@ -70,6 +75,19 @@ export function AdminSetup() {
           <li>Clique no botão abaixo para usar a API nativa de SignIn.</li>
           <li>Depois, é só voltar para a tela de login normalmente.</li>
         </ol>
+
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            Mudar E-mail (Se já estourou o limite)
+          </label>
+          <input 
+            type="text" 
+            placeholder="Ex: 2 (Gera superuser2@...)"
+            value={emailPrefix}
+            onChange={(e) => setEmailPrefix(e.target.value)}
+            className="w-full border p-2 rounded"
+          />
+        </div>
 
         <Button onClick={setupAdmins} className="w-full mb-4 py-6 font-bold text-lg">Criar Usuários Admin</Button>
         

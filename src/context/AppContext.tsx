@@ -37,9 +37,51 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         supabase.from('tickets').select('*').order('createdAt', { ascending: false })
       ]);
       
-      if (depsRes.data) setDepartments(depsRes.data);
-      if (catsRes.data) setCategories(catsRes.data);
-      if (ticketsRes.data) setTickets(ticketsRes.data);
+      let deps = depsRes.data || [];
+      let cats = catsRes.data || [];
+
+      // Auto-seed para não ficar em branco caso o SQL não tenha rodado
+      if (deps.length === 0) {
+        const defaultDeps = [
+          { id: 'dep-infra', name: 'Secretaria Municipal de Infraestrutura', acronym: 'SINFRA', active: true, color: '#eab308' },
+          { id: 'dep-saude', name: 'Secretaria Municipal de Saúde', acronym: 'SMS', active: true, color: '#ef4444' },
+          { id: 'dep-meio', name: 'Secretaria Municipal de Meio Ambiente', acronym: 'SEMMA', active: true, color: '#22c55e' },
+          { id: 'dep-mobilidade', name: 'Secretaria de Transporte e Trânsito', acronym: 'SETAT', active: true, color: '#3b82f6' }
+        ];
+        try { await supabase.from('departments').insert(defaultDeps); deps = defaultDeps; } catch(e) {}
+      }
+
+      if (cats.length === 0) {
+        const defaultCats = [
+          { id: 'cat-buraco', name: 'Buraco na rua', "iconName": 'AlertTriangle', color: 'bg-orange-500', "defaultDepartmentId": 'dep-infra', "defaultPriority": 'high' },
+          { id: 'cat-iluminacao', name: 'Iluminação pública', "iconName": 'Lightbulb', color: 'bg-yellow-500', "defaultDepartmentId": 'dep-infra', "defaultPriority": 'medium' },
+          { id: 'cat-lixo', name: 'Lixo ou entulho', "iconName": 'Trash2', color: 'bg-amber-700', "defaultDepartmentId": 'dep-infra', "defaultPriority": 'medium' },
+          { id: 'cat-mato', name: 'Mato alto', "iconName": 'Leaf', color: 'bg-green-500', "defaultDepartmentId": 'dep-meio', "defaultPriority": 'low' },
+          { id: 'cat-arvore', name: 'Risco Ambiental / Árvore', "iconName": 'TreePine', color: 'bg-emerald-700', "defaultDepartmentId": 'dep-meio', "defaultPriority": 'high' }
+        ];
+        try { await supabase.from('categories').insert(defaultCats); cats = defaultCats; } catch(e) {}
+      }
+
+      // Handle raw cases from DB due to postgres unquoted columns
+      const mappedCats = cats.map(c => ({
+        ...c,
+        iconName: c.iconName || c.iconname || 'HelpCircle',
+        defaultDepartmentId: c.defaultDepartmentId || c.defaultdepartmentid,
+        defaultPriority: c.defaultPriority || c.defaultpriority || 'low',
+      }));
+
+      const mappedTickets = (ticketsRes.data || []).map(t => ({
+        ...t,
+        categoryId: t.categoryId || t.categoryid,
+        departmentId: t.departmentId || t.departmentid,
+        photoUrl: t.photoUrl || t.photourl,
+        resolvedPhotoUrl: t.resolvedPhotoUrl || t.resolvedphotourl,
+        userId: t.userId || t.userid,
+      }));
+
+      setDepartments(deps);
+      setCategories(mappedCats);
+      setTickets(mappedTickets);
       
       setLoading(false);
     };

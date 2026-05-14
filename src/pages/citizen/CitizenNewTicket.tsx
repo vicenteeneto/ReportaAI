@@ -104,16 +104,41 @@ export function CitizenNewTicket() {
         const lng = position.coords.longitude;
         
         try {
-          // Attempt reverse geocoding if maps API key is present via standard Google Maps API
-          // For now, we'll set the coordinates directly. We'll add the visual picker on map later if needed.
+          // Usando Nominatim (OpenStreetMap) para converter coordenadas em endereço
+          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
+          const data = await response.json();
+          
+          let addressLocal = `Coordenadas: ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+          let neighborhoodLocal = '';
+
+          if (data && data.address) {
+             const road = data.address.road || '';
+             const houseNumber = data.address.house_number || '';
+             const suburb = data.address.suburb || data.address.neighbourhood || '';
+             
+             if (road) {
+               addressLocal = houseNumber ? `${road}, ${houseNumber}` : road;
+             }
+             if (suburb) {
+               neighborhoodLocal = suburb;
+             }
+          }
+
+          setFormData({
+            ...formData, 
+            latitude: lat,
+            longitude: lng,
+            address: formData.address || addressLocal,
+            neighborhood: formData.neighborhood || neighborhoodLocal
+          });
+        } catch (e) {
+          console.error("Reverse geocoding failed", e);
           setFormData({
             ...formData, 
             latitude: lat,
             longitude: lng,
             address: `Coordenadas: ${lat.toFixed(4)}, ${lng.toFixed(4)}`
           });
-        } catch (e) {
-          console.error("Reverse geocoding failed", e);
         } finally {
           setIsLocating(false);
         }
