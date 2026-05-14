@@ -183,6 +183,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = async () => {
     await supabase.auth.signOut();
+    setTimeout(() => {
+      window.location.href = '/login';
+    }, 100);
   };
 
   const addTicket = async (t: Ticket) => {
