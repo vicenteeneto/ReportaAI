@@ -48,8 +48,30 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
         <div className="flex-1 overflow-y-auto p-6 flex flex-col md:flex-row gap-8">
           <div className="flex-[2] space-y-6">
             {ticket.photoUrl && (
-              <div className="w-full aspect-[16/9] rounded-xl overflow-hidden bg-slate-100 border border-slate-200">
-                <img src={ticket.photoUrl} alt="Problema" className="w-full h-full object-cover" />
+              <div className="w-full aspect-[16/9] rounded-xl overflow-hidden bg-slate-100 border border-slate-200 relative">
+                <img 
+                  src={ticket.photoUrl} 
+                  alt="Problema" 
+                  className="w-full h-full object-cover" 
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                    (e.target as HTMLImageElement).parentElement?.classList.add('broken-img-container');
+                  }}
+                />
+                <style>{`
+                  .broken-img-container::after {
+                    content: "Evidência não disponível ⚠️";
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 100%;
+                    height: 100%;
+                    background-color: #f1f5f9;
+                    color: #64748b;
+                    font-size: 0.875rem;
+                    font-weight: 500;
+                  }
+                `}</style>
               </div>
             )}
             

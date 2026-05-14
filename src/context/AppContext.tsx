@@ -203,7 +203,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       status: t.status,
       latitude: t.latitude,
       longitude: t.longitude,
-      photoUrl: t.photoUrl
+      photoUrl: t.photoUrl,
+      createdAt: t.createdAt,
+      updatedAt: t.createdAt
     };
 
     const { error, data } = await supabase.from('tickets').insert(insertPayload).select().single();

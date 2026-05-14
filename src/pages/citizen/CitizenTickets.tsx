@@ -57,11 +57,36 @@ export function CitizenTickets() {
           </div>
 
           {selectedTicket.photoUrl && (
-            <img 
-              src={selectedTicket.photoUrl} 
-              alt="Evidência fotográfica" 
-              className="w-full h-48 md:h-64 object-cover rounded shadow-sm border border-slate-200 bg-slate-100"
-            />
+            <div className="relative">
+              <img 
+                src={selectedTicket.photoUrl} 
+                alt="Evidência fotográfica" 
+                className="w-full h-48 md:h-64 object-cover rounded shadow-sm border border-slate-200 bg-slate-100"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none';
+                  (e.target as HTMLImageElement).parentElement?.classList.add('broken-img-container');
+                }}
+              />
+              <style>{`
+                .broken-img-container::after {
+                  content: "Evidência não disponível ⚠️";
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  width: 100%;
+                  height: 12rem;
+                  background-color: #f1f5f9;
+                  border: 1px dashed #cbd5e1;
+                  border-radius: 0.25rem;
+                  color: #64748b;
+                  font-size: 0.875rem;
+                  font-weight: 500;
+                }
+                @media (min-width: 768px) {
+                  .broken-img-container::after { height: 16rem; }
+                }
+              `}</style>
+            </div>
           )}
 
           <Card className="rounded shadow-sm">
