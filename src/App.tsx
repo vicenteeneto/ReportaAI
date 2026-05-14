@@ -15,6 +15,7 @@ import { AdminTickets } from './pages/admin/AdminTickets';
 import { AdminTriage } from './pages/admin/AdminTriage';
 import { AdminMap } from './pages/admin/AdminMap';
 import { AdminSettings } from './pages/admin/AdminSettings';
+import { AdminSetup } from './pages/AdminSetup';
 
 // Placeholder for reports
 const AdminReports = () => <div className="p-8">Relatórios em desenvolvimento</div>;
@@ -36,6 +37,7 @@ const AppRoutes = () => {
       <Route path="/" element={currentUser ? <Navigate to={getDashboardRoute()} replace /> : <LandingPage />} />
       <Route path="/login" element={currentUser ? <Navigate to={getDashboardRoute()} replace /> : <LoginPage />} />
       <Route path="/auth/login" element={<LoginPage />} />
+      <Route path="/admin-setup" element={<AdminSetup />} />
       <Route path="*" element={<Navigate to="/" replace />} />
 
       {/* Citizen Area */}
