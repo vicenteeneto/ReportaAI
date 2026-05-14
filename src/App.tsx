@@ -9,6 +9,7 @@ import { CitizenHome } from './pages/citizen/CitizenHome';
 import { CitizenNewTicket } from './pages/citizen/CitizenNewTicket';
 import { CitizenTickets } from './pages/citizen/CitizenTickets';
 import { CitizenMap } from './pages/citizen/CitizenMap';
+import { CitizenProfile } from './pages/citizen/CitizenProfile';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { ExecDashboard } from './pages/admin/ExecDashboard';
 import { AdminTickets } from './pages/admin/AdminTickets';
@@ -47,6 +48,7 @@ const AppRoutes = () => {
         <Route path="tickets" element={<CitizenTickets />} />
         <Route path="tickets/:id" element={<CitizenTickets />} />
         <Route path="map" element={<CitizenMap />} />
+        <Route path="profile" element={<CitizenProfile />} />
       </Route>
 
       {/* Admin Area */}

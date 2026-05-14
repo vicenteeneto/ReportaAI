@@ -99,11 +99,16 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           // In case user hasn't synced to users table, fetch profile email
            const { data: authData } = await supabase.auth.getUser();
            if (authData.user) {
+             const metadata = authData.user.user_metadata || {};
+             const name = metadata.full_name || metadata.name || authData.user.email?.split('@')[0] || 'Usuário';
+             const avatarUrl = metadata.avatar_url || metadata.picture || null;
+             
              const newUser = {
                id: userId,
-               name: authData.user.email?.split('@')[0] || 'Usuário',
+               name: name,
                email: authData.user.email || '',
-               role: 'citizen'
+               role: 'citizen',
+               avatarUrl: avatarUrl
              };
              const { error: insErr } = await supabase.from('users').upsert(newUser);
              if (insErr) console.error("Error creating user", insErr);

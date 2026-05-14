@@ -27,9 +27,18 @@ export function CitizenLayout() {
           </div>
         </div>
         {currentUser && (
-          <button onClick={async () => { await logout(); }} className="p-1.5 rounded bg-white/10 hover:bg-white/20 transition-colors">
-            <LogOut className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <Link to="/citizen/profile" className="flex items-center justify-center w-8 h-8 rounded bg-white/10 hover:bg-white/20 transition-colors overflow-hidden">
+              {currentUser.avatarUrl ? (
+                <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-sm font-bold uppercase">{currentUser.name.charAt(0)}</span>
+              )}
+            </Link>
+            <button onClick={async () => { await logout(); }} className="p-2 rounded bg-white/10 hover:bg-white/20 transition-colors text-white" title="Sair">
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
         )}
       </header>
 
