@@ -61,9 +61,9 @@ export function CitizenProfile() {
       setTimeout(() => {
         window.location.reload();
       }, 500);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating profile', error);
-      alert('Erro ao atualizar o perfil.');
+      alert('Erro ao atualizar o perfil. Certifique-se de executar o script SQL de atualização de campos no Supabase. Detalhes: ' + (error.message || ''));
     } finally {
       setIsSaving(false);
     }
@@ -98,30 +98,6 @@ export function CitizenProfile() {
               className="mb-2"
             />
           </div>
-        </div>
-
-        {/* Cidadão Cidadania - Pontuação */}
-        <div className="mb-8 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
-          <h3 className="text-sm font-bold text-[#1E3A8A] mb-3 uppercase tracking-wider flex items-center gap-2">
-            Minha Pontuação Cidadã
-          </h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-white p-3 rounded-lg border border-blue-100 shadow-sm flex flex-col items-center text-center">
-              <span className="text-2xl font-black text-amber-600">
-                {appTickets.filter(t => t.userId === currentUser?.id && ['open', 'in_progress'].includes(t.status)).length * 10}
-              </span>
-              <span className="text-[10px] font-bold text-slate-500 uppercase mt-1">Pontos em<br/>Validação</span>
-            </div>
-            <div className="bg-white p-3 rounded-lg border border-blue-100 shadow-sm flex flex-col items-center text-center">
-              <span className="text-2xl font-black text-emerald-600">
-                {appTickets.filter(t => t.userId === currentUser?.id && t.status === 'resolved').length * 10}
-              </span>
-              <span className="text-[10px] font-bold text-slate-500 uppercase mt-1">Pontos<br/>Validados</span>
-            </div>
-          </div>
-          <p className="text-xs text-slate-500 mt-3 text-center">
-            Pode ser usado para trocar por descontos na prefeitura.
-          </p>
         </div>
 
         <div className="space-y-4">

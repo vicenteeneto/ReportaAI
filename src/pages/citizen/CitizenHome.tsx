@@ -50,6 +50,30 @@ export function CitizenHome() {
         </div>
       </div>
 
+      {/* Cidadão Cidadania - Pontuação */}
+      <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+        <h3 className="text-sm font-bold text-[#1E3A8A] mb-3 uppercase tracking-wider flex items-center gap-2">
+          Minha Pontuação Cidadã
+        </h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="bg-white p-3 rounded-lg border border-blue-100 shadow-sm flex flex-col items-center text-center">
+            <span className="text-2xl font-black text-amber-600">
+              {stats.pending * 10}
+            </span>
+            <span className="text-[10px] font-bold text-slate-500 uppercase mt-1">Pontos em<br/>Validação</span>
+          </div>
+          <div className="bg-white p-3 rounded-lg border border-blue-100 shadow-sm flex flex-col items-center text-center">
+            <span className="text-2xl font-black text-emerald-600">
+              {stats.resolved * 10}
+            </span>
+            <span className="text-[10px] font-bold text-slate-500 uppercase mt-1">Pontos<br/>Validados</span>
+          </div>
+        </div>
+        <p className="text-xs text-slate-500 mt-3 text-center">
+          Pode ser usado para trocar por descontos na prefeitura.
+        </p>
+      </div>
+
       {/* Stats Cards */}
       <div className="grid grid-cols-3 gap-3 md:gap-4">
         <Card 
