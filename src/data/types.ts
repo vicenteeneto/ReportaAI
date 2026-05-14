@@ -10,6 +10,8 @@ export interface User {
   role: Role;
   departmentId?: string;
   avatarUrl?: string;
+  pointsValidating?: number;
+  pointsValidated?: number;
 }
 
 export interface Department {

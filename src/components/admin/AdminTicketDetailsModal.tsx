@@ -12,7 +12,7 @@ interface Props {
 }
 
 export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
-  const { categories, departments, updateTicketStatus } = useAppContext();
+  const { tickets, categories, departments, updateTicketStatus } = useAppContext();
   const category = categories.find(c => c.id === ticket.categoryId);
   const department = departments.find(d => d.id === ticket.departmentId);
 
@@ -83,6 +83,26 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
             <div>
               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Informações</p>
               <div className="space-y-4">
+                
+                {/* Score do Cidadão */}
+                <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                  <p className="text-[10px] text-[#1E3A8A] uppercase tracking-wider font-bold mb-2">Engajamento Cidadão</p>
+                  <div className="grid grid-cols-2 gap-2 text-center">
+                    <div>
+                      <span className="block text-lg font-black text-amber-600">
+                        {tickets.filter(t => t.userId === ticket.userId && ['open', 'in_progress'].includes(t.status)).length * 10}
+                      </span>
+                      <span className="text-[9px] font-bold text-slate-500 uppercase leading-tight">Pts em<br/>Validação</span>
+                    </div>
+                    <div>
+                      <span className="block text-lg font-black text-emerald-600">
+                        {tickets.filter(t => t.userId === ticket.userId && t.status === 'resolved').length * 10}
+                      </span>
+                      <span className="text-[9px] font-bold text-slate-500 uppercase leading-tight">Pts<br/>Validados</span>
+                    </div>
+                  </div>
+                </div>
+
                 <div>
                   <p className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1">Status Atual</p>
                   <StatusBadge status={ticket.status} />
