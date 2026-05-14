@@ -69,7 +69,7 @@ export function CitizenNewTicket() {
       const generatedProtocol = `RD-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
       
       const newTicket: Ticket = {
-        id: `tkt-new-${Date.now()}`,
+        id: crypto.randomUUID(),
         protocol: generatedProtocol,
         userId: userId,
         categoryId: formData.categoryId,

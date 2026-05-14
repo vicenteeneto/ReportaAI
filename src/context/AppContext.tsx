@@ -181,9 +181,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addTicket = async (t: Ticket) => {
-    const isTempId = t.id && t.id.startsWith('tkt-new');
-    
     const insertPayload: any = {
+      id: t.id,
       protocol: t.protocol,
       userId: t.userId,
       categoryId: t.categoryId,
@@ -198,10 +197,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       longitude: t.longitude,
       photoUrl: t.photoUrl
     };
-
-    if (!isTempId) {
-      insertPayload.id = t.id;
-    }
 
     const { error, data } = await supabase.from('tickets').insert(insertPayload).select().single();
 
