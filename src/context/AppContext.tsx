@@ -185,9 +185,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     
     const insertPayload: any = {
       protocol: t.protocol,
-      userid: t.userId,
-      categoryid: t.categoryId,
-      departmentid: t.departmentId,
+      userId: t.userId,
+      categoryId: t.categoryId,
+      departmentId: t.departmentId,
       title: t.title,
       description: t.description,
       address: t.address,
@@ -196,7 +196,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       status: t.status,
       latitude: t.latitude,
       longitude: t.longitude,
-      photourl: t.photoUrl
+      photoUrl: t.photoUrl
     };
 
     if (!isTempId) {
@@ -214,7 +214,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const savedTicket = data ? { 
       ...t, 
       id: data.id, 
-      createdAt: new Date(data.createdat).getTime() 
+      createdAt: new Date(data.createdAt || data.createdat || Date.now()).getTime() 
     } : { ...t, createdAt: Date.now() };
 
     setTickets(prev => [savedTicket, ...prev]);
