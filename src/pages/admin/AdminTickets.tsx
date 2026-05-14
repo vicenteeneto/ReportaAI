@@ -7,11 +7,14 @@ import { StatusBadge, PriorityBadge } from '../../components/ui/Badge';
 import { useAppContext } from '../../context/AppContext';
 import { Search, Filter, Eye } from 'lucide-react';
 import { format } from 'date-fns';
+import { AdminTicketDetailsModal } from '../../components/admin/AdminTicketDetailsModal';
+import { Ticket } from '../../data/types';
 
 export function AdminTickets() {
   const { tickets, categories, departments } = useAppContext();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
 
   const filteredTickets = tickets.filter(t => {
     const matchesSearch = t.protocol.includes(searchTerm) || t.title.toLowerCase().includes(searchTerm.toLowerCase());
@@ -76,7 +79,7 @@ export function AdminTickets() {
                     <td className="px-4 py-2.5"><PriorityBadge priority={ticket.priority} /></td>
                     <td className="px-4 py-2.5"><StatusBadge status={ticket.status} /></td>
                     <td className="px-4 py-2.5 text-right w-16">
-                      <Button variant="ghost" size="sm" icon={Eye} className="h-6 w-6 p-0" title="Ver Detalhes" />
+                      <Button variant="ghost" size="sm" icon={Eye} className="h-6 w-6 p-0" title="Ver Detalhes" onClick={() => setSelectedTicket(ticket)} />
                     </td>
                   </tr>
                 )
@@ -92,6 +95,13 @@ export function AdminTickets() {
           </table>
         </div>
       </Card>
+
+      {selectedTicket && (
+        <AdminTicketDetailsModal 
+          ticket={selectedTicket} 
+          onClose={() => setSelectedTicket(null)} 
+        />
+      )}
     </div>
   );
 }

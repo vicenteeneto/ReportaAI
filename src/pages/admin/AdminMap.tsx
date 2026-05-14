@@ -7,6 +7,7 @@ import { Filter, X, MapPin } from 'lucide-react';
 import { Ticket } from '../../data/types';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
+import { AdminTicketDetailsModal } from '../../components/admin/AdminTicketDetailsModal';
 
 function MapController({ tickets }: { tickets: any[] }) {
   const map = useMap();
@@ -25,6 +26,7 @@ export function AdminMap() {
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [selectedNeighborhood, setSelectedNeighborhood] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [showFullDetails, setShowFullDetails] = useState(false);
 
   const neighborhoods = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -203,13 +205,20 @@ export function AdminMap() {
               </div>
 
               <div className="pt-4 space-y-2">
-                <Button className="w-full">Ver Chamado Completo</Button>
+                <Button className="w-full" onClick={() => setShowFullDetails(true)}>Ver Chamado Completo</Button>
                 <Button variant="outline" className="w-full">Atribuir Equipe</Button>
               </div>
             </div>
           </div>
         )}
       </div>
+
+      {showFullDetails && selectedTicket && (
+        <AdminTicketDetailsModal 
+          ticket={selectedTicket} 
+          onClose={() => setShowFullDetails(false)} 
+        />
+      )}
     </div>
   );
 }

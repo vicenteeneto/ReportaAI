@@ -15,7 +15,7 @@ export function AdminLayout() {
   ];
 
   const manageItems = [
-    { label: 'Secretarias', path: '#', showFor: ['admin'] },
+    { label: 'Secretarias', path: '/admin/settings', showFor: ['admin'] },
     { label: 'Relatórios PDF', path: '/admin/reports', showFor: ['admin', 'mayor', 'secretary', 'coordinator'] },
     { label: 'Usuários', path: '#', showFor: ['admin'] },
   ];
@@ -43,7 +43,7 @@ export function AdminLayout() {
               <p className="text-xs font-semibold">{currentUser?.name}</p>
               <p className="text-[10px] opacity-70 italic">Logado como {currentUser?.role}</p>
             </div>
-            <button onClick={logout} className="w-8 h-8 rounded-full bg-slate-300 flex items-center justify-center text-[#1E3A8A] hover:bg-white transition-colors" title="Sair">
+            <button onClick={async () => { await logout(); }} className="w-8 h-8 rounded-full bg-slate-300 flex items-center justify-center text-[#1E3A8A] hover:bg-white transition-colors" title="Sair">
               <LogOut className="w-4 h-4" />
             </button>
           </div>

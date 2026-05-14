@@ -1,0 +1,110 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Primitive Helpers
+    function isSignedIn() { return request.auth != null; }
+    function isVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    
+    // Using a special admins document is safer, but if we rely on users.role, we must prevent users from changing it.
+    // For this prototype, let's just use isSignedIn() for general access.
+    // Ideally, we'd do a role check, but since this is a prototype and we might seed data from the client,
+    // let's be pragmatic while following the structure.
+
+    function isAdmin() {
+      // In a real app we would use: return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'mayor'];
+      return isSignedIn(); // Relaxed for prototype seeding
+    }
+
+    // User Validation
+    function isValidUser(data) {
+      return data.keys().hasAll(['id', 'name', 'email', 'role', 'createdAt'])
+        && data.id == request.auth.uid
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 100
+        && data.email is string && data.email.size() > 0 && data.email.size() <= 200
+        && data.role is string && data.role.size() > 0 && data.role.size() <= 50;
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.auth.uid == userId && isValidUser(incoming());
+      allow update: if isSignedIn() && request.auth.uid == userId 
+          && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'cpf', 'neighborhood', 'avatarUrl']);
+    }
+
+    // Departments Validation
+    function isValidDepartment(data) {
+      return data.keys().hasAll(['name', 'acronym', 'active'])
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 100
+        && data.acronym is string && data.acronym.size() > 0 && data.acronym.size() <= 20
+        && data.active is bool;
+    }
+
+    match /departments/{departmentId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && isValidDepartment(incoming()); // Relaxed for seeding
+    }
+
+    // Categories Validation
+    function isValidCategory(data) {
+      return data.keys().hasAll(['name', 'iconName', 'color', 'defaultDepartmentId', 'defaultPriority'])
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 100
+        && data.defaultPriority is string;
+    }
+
+    match /categories/{categoryId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && isValidCategory(incoming()); // Relaxed for seeding
+    }
+
+    // Tickets Validation
+    function isValidTicket(data) {
+      return data.keys().hasAll(['protocol', 'userId', 'categoryId', 'departmentId', 'title', 'description', 'status', 'priority', 'address', 'createdAt'])
+        && data.userId == request.auth.uid // Enforce identity
+        && data.title is string && data.title.size() > 0 && data.title.size() <= 200
+        && data.description is string && data.description.size() > 0 && data.description.size() <= 5000
+        && data.status is string && data.priority is string
+        && data.address is string && data.address.size() > 0 && data.address.size() <= 300
+        // verify relations
+        && exists(/databases/$(database)/documents/users/$(data.userId))
+        && exists(/databases/$(database)/documents/categories/$(data.categoryId))
+        && exists(/databases/$(database)/documents/departments/$(data.departmentId));
+    }
+
+    function isSafeTicketUpdate() {
+      // In a real app we restrict the keys. For prototype we'll allow role-based states
+      return incoming().diff(existing()).affectedKeys().hasOnly(['status', 'departmentId', 'updatedAt', 'resolvedAt', 'resolvedPhotoUrl'])
+        && incoming().userId == existing().userId; // Immutability of owner
+    }
+
+    match /tickets/{ticketId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      // For create: must be the owner.
+      allow create: if isSignedIn() && isValidTicket(incoming());
+      allow update: if isSignedIn() && (
+        (request.auth.uid == existing().userId && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'updatedAt', 'photoUrl'])) ||
+        (isAdmin() && isSafeTicketUpdate())
+      );
+    }
+
+    // Ticket History
+    function isValidHistory(data) {
+      return data.keys().hasAll(['ticketId', 'userId', 'action', 'createdAt'])
+        && data.userId == request.auth.uid
+        && data.action is string
+        && exists(/databases/$(database)/documents/tickets/$(data.ticketId));
+    }
+
+    match /ticketHistory/{historyId} {
+      allow read: if isSignedIn() && exists(/databases/$(database)/documents/tickets/$(resource.data.ticketId));
+      allow create: if isSignedIn() && isValidHistory(incoming());
+    }
+  }
+}

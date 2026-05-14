@@ -1,16 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '../../components/ui/Card';
 import { StatusBadge } from '../../components/ui/Badge';
 import { useAppContext } from '../../context/AppContext';
 import { format } from 'date-fns';
-import { ArrowLeft, Database } from 'lucide-react';
+import { ArrowLeft, Database, Filter } from 'lucide-react';
 import { Ticket } from '../../data/types';
 
 export function CitizenTickets() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const { currentUser, tickets, categories, departments } = useAppContext();
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  
+  // Read initial filter from location state if available
+  const initialFilter = location.state?.filter || 'all';
+  const [filter, setFilter] = useState<string>(initialFilter);
 
-  const myTickets = tickets.filter(t => t.userId === currentUser?.id);
+  useEffect(() => {
+    if (location.state?.filter) {
+      setFilter(location.state.filter);
+    }
+  }, [location.state]);
+
+  const allMyTickets = tickets.filter(t => t.userId === currentUser?.id);
+  
+  const myTickets = allMyTickets.filter(t => {
+    if (filter === 'all') return true;
+    if (filter === 'in_progress') return t.status !== 'received' && t.status !== 'resolved' && t.status !== 'closed';
+    if (filter === 'resolved') return t.status === 'resolved' || t.status === 'closed';
+    return true;
+  });
 
   if (selectedTicket) {
     const cat = categories.find(c => c.id === selectedTicket.categoryId);
@@ -109,8 +129,32 @@ export function CitizenTickets() {
 
   return (
     <div className="p-4 md:p-6 lg:max-w-4xl mx-auto space-y-4 font-sans">
-      <div className="border-b border-slate-200 pb-3 mb-2 pt-2">
+      <button 
+        type="button"
+        onClick={() => navigate('/citizen')}
+        className="flex items-center text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-[#1E3A8A] transition-colors mb-2"
+      >
+        <ArrowLeft className="w-4 h-4 mr-1" /> Retornar
+      </button>
+
+      <div className="flex justify-between items-center border-b border-slate-200 pb-3 mb-2 pt-2">
         <h2 className="text-lg font-bold text-slate-900 uppercase tracking-tight">Meus Registros</h2>
+      </div>
+
+      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+        {(['all', 'in_progress', 'resolved'] as const).map((f) => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            className={`whitespace-nowrap px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-colors ${
+              filter === f 
+                ? 'bg-[#1E3A8A] text-white' 
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            {f === 'all' ? 'Todos' : f === 'in_progress' ? 'Em Andamento' : 'Resolvidos'}
+          </button>
+        ))}
       </div>
       
       {myTickets.length === 0 ? (

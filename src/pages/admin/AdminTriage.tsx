@@ -1,14 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Select } from '../../components/ui/Input';
 import { useAppContext } from '../../context/AppContext';
 import { format } from 'date-fns';
 import { AlertCircle, Check, X, ArrowRight } from 'lucide-react';
+import { AdminTicketDetailsModal } from '../../components/admin/AdminTicketDetailsModal';
+import { Ticket } from '../../data/types';
 
 export function AdminTriage() {
   const { tickets, categories, updateTicketStatus } = useAppContext();
-  
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+
   const triageTickets = tickets.filter(t => t.status === 'received' || t.status === 'triage');
 
   if (triageTickets.length === 0) {
@@ -67,7 +70,7 @@ export function AdminTriage() {
                 </div>
               </CardContent>
               <CardFooter className="bg-slate-50 border-t border-slate-100 pt-4 flex flex-wrap gap-2 justify-end">
-                 <Button variant="ghost" size="sm" className="text-slate-500">Mais Detalhes</Button>
+                 <Button variant="ghost" size="sm" className="text-slate-500" onClick={() => setSelectedTicket(ticket)}>Mais Detalhes</Button>
                  <Button variant="outline" size="sm" icon={X} className="text-red-600 hover:bg-red-50 hover:text-red-700 focus:ring-red-500">Indeferir</Button>
                  <Button variant="outline" size="sm" icon={AlertCircle}>Duplicado</Button>
                  <Button size="sm" icon={ArrowRight} onClick={() => updateTicketStatus(ticket.id, 'forwarded')}>Encaminhar Sec.</Button>
@@ -76,6 +79,13 @@ export function AdminTriage() {
           );
         })}
       </div>
+
+      {selectedTicket && (
+        <AdminTicketDetailsModal 
+          ticket={selectedTicket} 
+          onClose={() => setSelectedTicket(null)} 
+        />
+      )}
     </div>
   );
 }

@@ -27,7 +27,7 @@ export function CitizenLayout() {
           </div>
         </div>
         {currentUser && (
-          <button onClick={logout} className="p-1.5 rounded bg-white/10 hover:bg-white/20 transition-colors">
+          <button onClick={async () => { await logout(); }} className="p-1.5 rounded bg-white/10 hover:bg-white/20 transition-colors">
             <LogOut className="w-4 h-4" />
           </button>
         )}

@@ -14,6 +14,7 @@ import { ExecDashboard } from './pages/admin/ExecDashboard';
 import { AdminTickets } from './pages/admin/AdminTickets';
 import { AdminTriage } from './pages/admin/AdminTriage';
 import { AdminMap } from './pages/admin/AdminMap';
+import { AdminSettings } from './pages/admin/AdminSettings';
 
 // Placeholder for reports
 const AdminReports = () => <div className="p-8">Relatórios em desenvolvimento</div>;
@@ -53,6 +54,7 @@ const AppRoutes = () => {
         <Route path="triage" element={<AdminTriage />} />
         <Route path="map" element={<AdminMap />} />
         <Route path="reports" element={<AdminReports />} />
+        <Route path="settings" element={<AdminSettings />} />
       </Route>
     </Routes>
   );

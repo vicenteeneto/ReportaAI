@@ -52,19 +52,28 @@ export function CitizenHome() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-3 gap-3 md:gap-4">
-        <Card className="bg-white hover:shadow-md transition-shadow cursor-default">
+        <Card 
+          className="bg-white hover:shadow-md transition-shadow cursor-pointer hover:border-[#1E3A8A]"
+          onClick={() => navigate('/citizen/tickets', { state: { filter: 'all' } })}
+        >
           <CardContent className="p-4 flex flex-col items-center justify-center text-center h-full">
             <span className="text-3xl font-black text-slate-800">{stats.total}</span>
             <span className="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider mt-1">Chamados</span>
           </CardContent>
         </Card>
-        <Card className="bg-amber-50 border-amber-100 hover:shadow-md transition-shadow cursor-default">
+        <Card 
+          className="bg-amber-50 border-amber-100 hover:shadow-md transition-shadow cursor-pointer hover:border-amber-300"
+          onClick={() => navigate('/citizen/tickets', { state: { filter: 'in_progress' } })}
+        >
           <CardContent className="p-4 flex flex-col items-center justify-center text-center h-full">
             <span className="text-3xl font-black text-amber-600">{stats.pending}</span>
             <span className="text-[10px] sm:text-xs font-semibold text-amber-700 uppercase tracking-wider mt-1">Em Andamento</span>
           </CardContent>
         </Card>
-        <Card className="bg-emerald-50 border-emerald-100 hover:shadow-md transition-shadow cursor-default">
+        <Card 
+          className="bg-emerald-50 border-emerald-100 hover:shadow-md transition-shadow cursor-pointer hover:border-emerald-300"
+          onClick={() => navigate('/citizen/tickets', { state: { filter: 'resolved' } })}
+        >
           <CardContent className="p-4 flex flex-col items-center justify-center text-center h-full">
             <span className="text-3xl font-black text-emerald-600">{stats.resolved}</span>
             <span className="text-[10px] sm:text-xs font-semibold text-emerald-700 uppercase tracking-wider mt-1">Resolvidos</span>

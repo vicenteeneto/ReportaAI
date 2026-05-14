@@ -4,8 +4,10 @@ import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input, Textarea, Select } from '../../components/ui/Input';
 import { useAppContext } from '../../context/AppContext';
-import { Camera, MapPin, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { Camera, MapPin, CheckCircle2, ArrowLeft, Loader2 } from 'lucide-react';
 import { Ticket } from '../../data/types';
+import { storage } from '../../lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 export function CitizenNewTicket() {
   const navigate = useNavigate();
@@ -15,6 +17,7 @@ export function CitizenNewTicket() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [newProtocol, setNewProtocol] = useState('');
+  const [isLocating, setIsLocating] = useState(false);
 
   const [formData, setFormData] = useState({
     categoryId: '',
@@ -23,38 +26,96 @@ export function CitizenNewTicket() {
     address: '',
     neighborhood: '',
     priority: 'medium' as any,
+    photoUrl: undefined as string | undefined,
+    latitude: undefined as number | undefined,
+    longitude: undefined as number | undefined,
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      let uploadedPhotoUrl = formData.photoUrl;
+
+      // Ensure we have a user
+      const userId = currentUser?.id;
+      if (!userId) throw new Error("Usuário não autenticado");
+
+      if (photoFile) {
+        const fileExtension = photoFile.name.split('.').pop();
+        const fileName = `tickets/${Date.now()}-${userId}.${fileExtension}`;
+        const storageRef = ref(storage, fileName);
+        const snapshot = await uploadBytes(storageRef, photoFile);
+        uploadedPhotoUrl = await getDownloadURL(snapshot.ref);
+      }
+
       const generatedProtocol = `RD-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
       
       const newTicket: Ticket = {
         id: `tkt-new-${Date.now()}`,
         protocol: generatedProtocol,
-        userId: currentUser?.id || 'usr-1',
+        userId: userId,
         categoryId: formData.categoryId,
         departmentId: categories.find(c => c.id === formData.categoryId)?.defaultDepartmentId || 'dep-infra',
         title: formData.title,
         description: formData.description,
-        address: formData.address || 'Localização obtida pelo GPS',
+        address: formData.address || 'Localização não informada',
         neighborhood: formData.neighborhood || 'Bairro Não Informado',
         priority: formData.priority,
         status: 'received',
-        latitude: -16.4716 + (Math.random() * 0.01 - 0.005), // Mock nearby
-        longitude: -54.6369 + (Math.random() * 0.01 - 0.005),
-        createdAt: new Date().toISOString()
+        latitude: formData.latitude || -16.4716 + (Math.random() * 0.01 - 0.005),
+        longitude: formData.longitude || -54.6369 + (Math.random() * 0.01 - 0.005),
+        photoUrl: uploadedPhotoUrl,
+        createdAt: Date.now()
       };
 
-      addTicket(newTicket);
+      await addTicket(newTicket);
       setNewProtocol(generatedProtocol);
       setSuccess(true);
+    } catch (err) {
+      console.error("Error creating ticket", err);
+      alert("Houve um erro ao registrar sua ocorrência.");
+    } finally {
       setIsSubmitting(false);
-    }, 1500);
+    }
+  };
+
+  const handleGetLocation = () => {
+    if (!navigator.geolocation) {
+      alert('Geolocalização não suportada no seu navegador.');
+      return;
+    }
+
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        
+        try {
+          // Attempt reverse geocoding if maps API key is present via standard Google Maps API
+          // For now, we'll set the coordinates directly. We'll add the visual picker on map later if needed.
+          setFormData({
+            ...formData, 
+            latitude: lat,
+            longitude: lng,
+            address: `Coordenadas: ${lat.toFixed(4)}, ${lng.toFixed(4)}`
+          });
+        } catch (e) {
+          console.error("Reverse geocoding failed", e);
+        } finally {
+          setIsLocating(false);
+        }
+      }, 
+      (err) => {
+        setIsLocating(false);
+        alert('Não foi possível acessar a localização. Verifique as permissões do navegador.');
+      },
+      { timeout: 10000 }
+    );
   };
 
   if (success) {
@@ -86,8 +147,9 @@ export function CitizenNewTicket() {
   return (
     <div className="p-4 md:p-6 lg:max-w-2xl mx-auto space-y-6 font-sans">
       <button 
+        type="button"
         onClick={() => navigate(-1)}
-        className="flex items-center text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-[#1E3A8A] transition-colors -mb-2"
+        className="flex items-center text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-[#1E3A8A] transition-colors mb-2"
       >
         <ArrowLeft className="w-4 h-4 mr-1" /> Retornar
       </button>
@@ -121,10 +183,35 @@ export function CitizenNewTicket() {
 
             <div className="space-y-1.5">
               <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Registro Fotográfico Físico (Opcional)</label>
-              <div className="border border-dashed border-slate-300 rounded bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer text-slate-500 h-28 flex flex-col items-center justify-center">
-                <Camera className="w-6 h-6 mb-1 text-slate-400" />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Adicionar Foto</span>
-              </div>
+              {!formData.photoUrl ? (
+                <label className="border border-dashed border-slate-300 rounded bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer text-slate-500 h-28 flex flex-col items-center justify-center relative overflow-hidden group">
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setPhotoFile(file);
+                      setFormData({...formData, photoUrl: URL.createObjectURL(file)});
+                    }
+                  }} />
+                  <div className="flex flex-col items-center group-hover:scale-105 transition-transform">
+                    <Camera className="w-6 h-6 mb-1 text-slate-400 group-hover:text-blue-500 transition-colors" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider group-hover:text-blue-600 transition-colors text-slate-500">Adicionar Foto</span>
+                  </div>
+                </label>
+              ) : (
+                <div className="relative h-40 rounded overflow-hidden border border-slate-200">
+                  <img src={formData.photoUrl} alt="Preview" className="w-full h-full object-cover" />
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      setPhotoFile(null);
+                      setFormData({...formData, photoUrl: undefined});
+                    }}
+                    className="absolute top-2 right-2 bg-slate-900/60 text-white rounded-full p-1.5 hover:bg-red-600 transition-colors backdrop-blur-sm"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -137,8 +224,15 @@ export function CitizenNewTicket() {
                   value={formData.address}
                   onChange={(e) => setFormData({...formData, address: e.target.value})}
                 />
-                <Button type="button" variant="outline" className="px-3 border-slate-300 bg-white" title="Localizar via Satélite">
-                  <MapPin className="w-5 h-5 text-[#1E3A8A]" />
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  className="px-3 border-slate-300 bg-white" 
+                  title="Localizar via Satélite"
+                  disabled={isLocating}
+                  onClick={handleGetLocation}
+                >
+                  {isLocating ? <Loader2 className="w-5 h-5 text-[#1E3A8A] animate-spin" /> : <MapPin className="w-5 h-5 text-[#1E3A8A]" />}
                 </Button>
               </div>
             </div>
@@ -201,7 +295,7 @@ export function CitizenNewTicket() {
             </div>
 
             <div className="flex gap-2 pt-4">
-              <Button type="button" variant="outline" className="flex-1 font-bold uppercase tracking-wide text-xs" onClick={() => setStep(1)}>Recuar</Button>
+              <Button type="button" disabled={isSubmitting} variant="outline" className="flex-1 font-bold uppercase tracking-wide text-xs" onClick={() => setStep(1)}>Voltar</Button>
               <Button type="submit" className="flex-[2] font-bold uppercase tracking-wide text-xs" isLoading={isSubmitting}>Confirmar Solicitação</Button>
             </div>
           </div>
@@ -210,3 +304,4 @@ export function CitizenNewTicket() {
     </div>
   );
 }
+

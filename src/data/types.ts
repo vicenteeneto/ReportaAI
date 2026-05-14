@@ -59,10 +59,10 @@ export interface Ticket {
   longitude: number;
   address: string;
   neighborhood: string;
-  createdAt: string;
-  updatedAt?: string;
-  dueDate?: string;
-  resolvedAt?: string;
+  createdAt: number | string;
+  updatedAt?: number | string;
+  dueDate?: number | string;
+  resolvedAt?: number | string;
   photoUrl?: string; // Simplification for prototype
   resolvedPhotoUrl?: string;
 }
@@ -75,5 +75,5 @@ export interface TicketHistory {
   oldStatus?: TicketStatus;
   newStatus?: TicketStatus;
   comment?: string;
-  createdAt: string;
+  createdAt: number | string;
 }
