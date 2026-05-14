@@ -48,18 +48,20 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           { id: 'dep-meio', name: 'Secretaria Municipal de Meio Ambiente', acronym: 'SEMMA', active: true, color: '#22c55e' },
           { id: 'dep-mobilidade', name: 'Secretaria de Transporte e Trânsito', acronym: 'SETAT', active: true, color: '#3b82f6' }
         ];
-        try { await supabase.from('departments').insert(defaultDeps); deps = defaultDeps; } catch(e) {}
+        deps = defaultDeps;
+        try { await supabase.from('departments').insert(defaultDeps); } catch(e) {}
       }
 
       if (cats.length === 0) {
-        const defaultCats = [
-          { id: 'cat-buraco', name: 'Buraco na rua', "iconName": 'AlertTriangle', color: 'bg-orange-500', "defaultDepartmentId": 'dep-infra', "defaultPriority": 'high' },
-          { id: 'cat-iluminacao', name: 'Iluminação pública', "iconName": 'Lightbulb', color: 'bg-yellow-500', "defaultDepartmentId": 'dep-infra', "defaultPriority": 'medium' },
-          { id: 'cat-lixo', name: 'Lixo ou entulho', "iconName": 'Trash2', color: 'bg-amber-700', "defaultDepartmentId": 'dep-infra', "defaultPriority": 'medium' },
-          { id: 'cat-mato', name: 'Mato alto', "iconName": 'Leaf', color: 'bg-green-500', "defaultDepartmentId": 'dep-meio', "defaultPriority": 'low' },
-          { id: 'cat-arvore', name: 'Risco Ambiental / Árvore', "iconName": 'TreePine', color: 'bg-emerald-700', "defaultDepartmentId": 'dep-meio', "defaultPriority": 'high' }
+        const defaultCatsDb = [
+          { id: 'cat-buraco', name: 'Buraco na rua', iconname: 'AlertTriangle', color: 'bg-orange-500', defaultdepartmentid: 'dep-infra', defaultpriority: 'high' },
+          { id: 'cat-iluminacao', name: 'Iluminação pública', iconname: 'Lightbulb', color: 'bg-yellow-500', defaultdepartmentid: 'dep-infra', defaultpriority: 'medium' },
+          { id: 'cat-lixo', name: 'Lixo ou entulho', iconname: 'Trash2', color: 'bg-amber-700', defaultdepartmentid: 'dep-infra', defaultpriority: 'medium' },
+          { id: 'cat-mato', name: 'Mato alto', iconname: 'Leaf', color: 'bg-green-500', defaultdepartmentid: 'dep-meio', defaultpriority: 'low' },
+          { id: 'cat-arvore', name: 'Risco Ambiental / Árvore', iconname: 'TreePine', color: 'bg-emerald-700', defaultdepartmentid: 'dep-meio', defaultpriority: 'high' }
         ];
-        try { await supabase.from('categories').insert(defaultCats); cats = defaultCats; } catch(e) {}
+        cats = defaultCatsDb;
+        try { await supabase.from('categories').insert(defaultCatsDb); } catch(e) { console.error('Failed to seed categories', e); }
       }
 
       // Handle raw cases from DB due to postgres unquoted columns
@@ -179,12 +181,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addTicket = async (t: Ticket) => {
-    const { error } = await supabase.from('tickets').insert({
-      id: t.id,
+    const isTempId = t.id && t.id.startsWith('tkt-new');
+    
+    const insertPayload: any = {
       protocol: t.protocol,
-      userId: t.userId,
-      categoryId: t.categoryId,
-      departmentId: t.departmentId,
+      userid: t.userId,
+      categoryid: t.categoryId,
+      departmentid: t.departmentId,
       title: t.title,
       description: t.description,
       address: t.address,
@@ -193,8 +196,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       status: t.status,
       latitude: t.latitude,
       longitude: t.longitude,
-      photoUrl: t.photoUrl
-    });
+      photourl: t.photoUrl
+    };
+
+    if (!isTempId) {
+      insertPayload.id = t.id;
+    }
+
+    const { error, data } = await supabase.from('tickets').insert(insertPayload).select().single();
 
     if (error) {
       console.error('Error saving ticket:', error);
@@ -202,7 +211,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
 
     // Refresh tickets locally
-    setTickets(prev => [{...t, createdAt: Date.now()}, ...prev]);
+    const savedTicket = data ? { 
+      ...t, 
+      id: data.id, 
+      createdAt: new Date(data.createdat).getTime() 
+    } : { ...t, createdAt: Date.now() };
+
+    setTickets(prev => [savedTicket, ...prev]);
   };
 
   const updateTicketStatus = async (id: string, status: TicketStatus) => {

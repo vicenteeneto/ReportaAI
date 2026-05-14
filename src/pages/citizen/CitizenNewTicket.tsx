@@ -34,6 +34,12 @@ export function CitizenNewTicket() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!formData.categoryId) {
+      alert("Por favor, selecione uma categoria.");
+      return;
+    }
+
     setIsSubmitting(true);
     
     try {
@@ -105,10 +111,14 @@ export function CitizenNewTicket() {
         
         try {
           // Usando Nominatim (OpenStreetMap) para converter coordenadas em endereço
-          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
+          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=18&addressdetails=1`, {
+            headers: {
+              'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8'
+            }
+          });
           const data = await response.json();
           
-          let addressLocal = `Coordenadas: ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+          let addressLocal = '';
           let neighborhoodLocal = '';
 
           if (data && data.address) {
@@ -128,7 +138,7 @@ export function CitizenNewTicket() {
             ...formData, 
             latitude: lat,
             longitude: lng,
-            address: formData.address || addressLocal,
+            address: formData.address || addressLocal || `Coordenadas: ${lat.toFixed(4)}, ${lng.toFixed(4)}`,
             neighborhood: formData.neighborhood || neighborhoodLocal
           });
         } catch (e) {
