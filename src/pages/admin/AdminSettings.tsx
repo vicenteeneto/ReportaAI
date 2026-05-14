@@ -2,9 +2,8 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { useAppContext } from '../../context/AppContext';
-import { db } from '../../lib/firebase';
-import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { Edit2, Trash2, Plus, Building2, Tag } from 'lucide-react';
+
 
 export function AdminSettings() {
   const { categories, departments } = useAppContext();

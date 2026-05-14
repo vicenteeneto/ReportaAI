@@ -8,11 +8,44 @@ import { useAppContext } from '../../context/AppContext';
 export function LoginPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { login, loginWithGoogle, currentUser } = useAppContext();
+  const { loginWithGoogle, loginWithEmail, registerWithEmail, currentUser } = useAppContext();
   
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isRegistering, setIsRegistering] = useState(searchParams.get('flow') === 'register');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const asAdmin = searchParams.get('role') === 'admin';
+
+  if (currentUser) {
+    navigate(asAdmin || currentUser.role !== 'citizen' ? '/admin/dashboard' : '/citizen/home');
+    return null;
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    
+    try {
+      if (isRegistering) {
+        await registerWithEmail(email, password, asAdmin ? 'admin' : 'citizen');
+      } else {
+        await loginWithEmail(email, password);
+      }
+    } catch (err: any) {
+      console.error(err);
+      if (err.message && err.message.includes('Invalid login credentials')) {
+        setError('Credenciais inválidas.');
+      } else if (err.message && err.message.includes('User already registered')) {
+        setError('Este e-mail já está em uso.');
+      } else {
+        setError(err.message || 'Ocorreu um erro ao tentar fazer login.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans">
@@ -30,10 +63,56 @@ export function LoginPage() {
         </CardHeader>
         <CardContent className="px-6 pb-8 text-center pt-2">
           
+          <form onSubmit={handleSubmit} className="space-y-4 mb-6">
+            <div className="space-y-3">
+              <Input 
+                type="email" 
+                placeholder="Seu e-mail" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="h-11"
+              />
+              <Input 
+                type="password" 
+                placeholder="Sua senha" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="h-11"
+              />
+            </div>
+            
+            {error && <p className="text-sm border border-red-500 bg-red-50 rounded-lg p-2 text-red-600 font-medium">{error}</p>}
+
+            <Button type="submit" className="w-full font-bold uppercase tracking-wide text-sm h-11" isLoading={loading}>
+              {isRegistering ? 'Criar Conta' : 'Entrar'}
+            </Button>
+            
+            {!asAdmin && (
+              <p className="text-sm text-slate-500 mt-4">
+                {isRegistering ? 'Já tem uma conta?' : 'Não tem conta?'}
+                <button 
+                  type="button" 
+                  onClick={() => setIsRegistering(!isRegistering)} 
+                  className="text-[#1E3A8A] font-bold ml-1 hover:underline"
+                >
+                  {isRegistering ? 'Faça login' : 'Registre-se'}
+                </button>
+              </p>
+            )}
+          </form>
+
+          <div className="relative flex py-2 items-center mb-6">
+            <div className="flex-grow border-t border-slate-200"></div>
+            <span className="flex-shrink-0 mx-4 text-xs font-bold text-slate-400 uppercase">ou</span>
+            <div className="flex-grow border-t border-slate-200"></div>
+          </div>
+
           <Button 
             type="button" 
             variant="outline" 
-            className="w-full gap-2 border-slate-300 font-bold text-slate-700 h-12 text-sm shadow-sm"
+            className="w-full gap-2 border-slate-300 font-bold text-slate-700 h-11 text-sm shadow-sm"
             onClick={() => loginWithGoogle()}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">

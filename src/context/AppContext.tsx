@@ -1,14 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, Ticket, Category, Department, TicketStatus } from '../data/types';
-import { mockCategories, mockDepartments } from '../data/mockData';
-import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
-import { collection, doc, setDoc, getDoc, updateDoc, addDoc, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { supabase } from '../lib/supabase';
 
 interface AppContextType {
   currentUser: User | null;
-  login: (email: string) => Promise<void> | void; // Keeping for compatibility, but we prefer Google Login
   loginWithGoogle: () => Promise<void>;
+  loginWithEmail: (email: string, password: string) => Promise<void>;
+  registerWithEmail: (email: string, password: string, role: string) => Promise<void>;
   logout: () => Promise<void> | void;
   tickets: Ticket[];
   addTicket: (t: Ticket) => void;
@@ -28,161 +26,165 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let depsUnsub: () => void = () => {};
-    let catsUnsub: () => void = () => {};
-    let ticketsUnsub: () => void = () => {};
-
-    const loadStaticData = () => {
-      depsUnsub = onSnapshot(collection(db, 'departments'), async (snapshot) => {
-        if (!snapshot.empty) {
-          setDepartments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Department)));
-        } else {
-          console.log('Seeding departments...');
-          for (const dep of mockDepartments) {
-            await setDoc(doc(db, 'departments', dep.id), dep);
-          }
-        }
-      }, (error) => handleFirestoreError(error, OperationType.LIST, 'departments'));
-
-      catsUnsub = onSnapshot(collection(db, 'categories'), async (snapshot) => {
-        if (!snapshot.empty) {
-          setCategories(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category)));
-        } else {
-          console.log('Seeding categories...');
-          for (const cat of mockCategories) {
-            await setDoc(doc(db, 'categories', cat.id), cat);
-          }
-        }
-      }, (error) => handleFirestoreError(error, OperationType.LIST, 'categories'));
+    let authListener: any;
+    
+    // Subscribe to database changes (optional depending on needs, but let's implement basic fetch for now)
+    const loadData = async () => {
+      setLoading(true);
+      const [depsRes, catsRes, ticketsRes] = await Promise.all([
+        supabase.from('departments').select('*').order('name'),
+        supabase.from('categories').select('*').order('name'),
+        supabase.from('tickets').select('*').order('createdAt', { ascending: false })
+      ]);
+      
+      if (depsRes.data) setDepartments(depsRes.data);
+      if (catsRes.data) setCategories(catsRes.data);
+      if (ticketsRes.data) setTickets(ticketsRes.data);
+      
+      setLoading(false);
     };
 
-    const fetchTickets = () => {
-      const q = query(collection(db, 'tickets'), orderBy('createdAt', 'desc'));
-      ticketsUnsub = onSnapshot(q, (snapshot) => {
-        setTickets(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Ticket)));
-        setLoading(false);
-      }, (error) => {
-        console.error('Error fetching tickets:', error);
-        setLoading(false);
-      });
-    };
-
-    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        const userRef = doc(db, 'users', firebaseUser.uid);
-        const userSnap = await getDoc(userRef);
-        
-        let userData: User;
-        if (userSnap.exists()) {
-          userData = userSnap.data() as User;
+    const subscribeAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const fetchUserProfile = async (userId: string) => {
+        const { data } = await supabase.from('users').select('*').eq('id', userId).single();
+        if (data) {
+          setCurrentUser(data as User);
         } else {
-          userData = {
-            id: firebaseUser.uid,
-            name: firebaseUser.displayName || 'Usuário Cidadão',
-            email: firebaseUser.email || '',
-            role: 'citizen',
-            avatarUrl: firebaseUser.photoURL || undefined,
-            createdAt: Date.now()
-          } as any;
-          await setDoc(userRef, userData);
+          // In case user hasn't synced to users table, fetch profile email
+           const { data: authData } = await supabase.auth.getUser();
+           if (authData.user) {
+             const newUser = {
+               id: userId,
+               name: authData.user.email?.split('@')[0] || 'Usuário',
+               email: authData.user.email || '',
+               role: 'citizen',
+               createdAt: Date.now()
+             } as any;
+             await supabase.from('users').insert(newUser);
+             setCurrentUser(newUser);
+           }
         }
-        setCurrentUser(userData);
-        loadStaticData();
-        fetchTickets();
+      };
+
+      if (session) {
+        await fetchUserProfile(session.user.id);
+        loadData();
       } else {
-        setCurrentUser(null);
-        setTickets([]);
-        setDepartments([]);
-        setCategories([]);
         setLoading(false);
-        depsUnsub();
-        catsUnsub();
-        ticketsUnsub();
       }
-    });
+
+      const { data: authSubscription } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (session) {
+          await fetchUserProfile(session.user.id);
+          loadData();
+        } else {
+          setCurrentUser(null);
+          setTickets([]);
+          setDepartments([]);
+          setCategories([]);
+        }
+      });
+      authListener = authSubscription;
+    };
+
+    subscribeAuth();
 
     return () => {
-      unsubscribeAuth();
-      depsUnsub();
-      catsUnsub();
-      ticketsUnsub();
+      if (authListener) authListener.subscription.unsubscribe();
     };
   }, []);
 
   const loginWithGoogle = async () => {
-    const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
+      await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin,
+        }
+      });
     } catch (err) {
       console.error('Google login error:', err);
     }
   };
 
-  const login = async (email: string) => {
-    // For local prototype mockup bypass if needed, but in standard FB Auth we use real login.
-    console.log('Login by email not implemented, use Google Auth');
+  const loginWithEmail = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+  };
+
+  const registerWithEmail = async (email: string, password: string, role: string) => {
+    const { data: authData, error: authError } = await supabase.auth.signUp({ 
+      email, 
+      password 
+    });
+    
+    if (authError) throw authError;
+
+    if (authData.user) {
+      await supabase.from('users').upsert({
+        id: authData.user.id,
+        name: email.split('@')[0], 
+        email: authData.user.email,
+        role: role,
+      });
+    }
   };
 
   const logout = async () => {
-    try {
-      await signOut(auth);
-    } catch (err) {
-      console.error('Logout error:', err);
-    }
+    await supabase.auth.signOut();
   };
 
   const addTicket = async (t: Ticket) => {
-    try {
-      const ticketRef = doc(db, 'tickets', t.id); // Forcing using the same ID as generated locally
-      await setDoc(ticketRef, {
-        ...t,
-        createdAt: Date.now(),
-        updatedAt: Date.now()
-      });
-      // add history
-      await addDoc(collection(db, 'ticketHistory'), {
-        ticketId: t.id,
-        userId: currentUser?.id,
-        action: 'Chamado Aberto',
-        newStatus: 'received',
-        createdAt: Date.now()
-      });
-    } catch (err) {
-      console.error('Error saving ticket:', err);
+    const { error } = await supabase.from('tickets').insert({
+      id: t.id,
+      protocol: t.protocol,
+      userId: t.userId,
+      categoryId: t.categoryId,
+      departmentId: t.departmentId,
+      title: t.title,
+      description: t.description,
+      address: t.address,
+      neighborhood: t.neighborhood,
+      priority: t.priority,
+      status: t.status,
+      latitude: t.latitude,
+      longitude: t.longitude,
+      photoUrl: t.photoUrl
+    });
+
+    if (error) {
+      console.error('Error saving ticket:', error);
+      throw error;
     }
+
+    // Refresh tickets locally
+    setTickets(prev => [{...t, createdAt: Date.now()}, ...prev]);
   };
 
   const updateTicketStatus = async (id: string, status: TicketStatus) => {
-    try {
-      const ticketRef = doc(db, 'tickets', id);
-      const ticketObj = tickets.find(t => t.id === id);
-      await updateDoc(ticketRef, { 
-        status, 
-        updatedAt: Date.now() 
-      });
-
-      // add history
-      if (ticketObj) {
-        await addDoc(collection(db, 'ticketHistory'), {
+    const { error } = await supabase.from('tickets').update({ status }).eq('id', id);
+    if (!error) {
+       setTickets(prev => prev.map(t => t.id === id ? { ...t, status } : t));
+       await supabase.from('ticket_history').insert({
           ticketId: id,
           userId: currentUser?.id,
           action: `Status alterado para ${status}`,
-          oldStatus: ticketObj.status,
-          newStatus: status,
-          createdAt: Date.now()
-        });
-      }
-    } catch (err) {
-      console.error('Error updating ticket:', err);
+          newStatus: status
+       });
+    } else {
+      console.error('Error updating ticket:', error);
     }
   };
 
   return (
-    <AppContext.Provider value={{ currentUser, login, loginWithGoogle, logout, tickets, addTicket, updateTicketStatus, categories, departments, loading }}>
+    <AppContext.Provider value={{ currentUser, loginWithEmail, registerWithEmail, loginWithGoogle, logout, tickets, addTicket, updateTicketStatus, categories, departments, loading }}>
       {children}
     </AppContext.Provider>
   );
 };
+
 
 export const useAppContext = () => {
   const context = useContext(AppContext);

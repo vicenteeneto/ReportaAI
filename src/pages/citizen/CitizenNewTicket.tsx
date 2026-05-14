@@ -6,8 +6,7 @@ import { Input, Textarea, Select } from '../../components/ui/Input';
 import { useAppContext } from '../../context/AppContext';
 import { Camera, MapPin, CheckCircle2, ArrowLeft, Loader2 } from 'lucide-react';
 import { Ticket } from '../../data/types';
-import { storage } from '../../lib/firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { supabase } from '../../lib/supabase';
 
 export function CitizenNewTicket() {
   const navigate = useNavigate();
@@ -45,11 +44,20 @@ export function CitizenNewTicket() {
       if (!userId) throw new Error("Usuário não autenticado");
 
       if (photoFile) {
+        // Upload to supabase storage if there's a bucket 'tickets', otherwise fail gracefully/skip
         const fileExtension = photoFile.name.split('.').pop();
-        const fileName = `tickets/${Date.now()}-${userId}.${fileExtension}`;
-        const storageRef = ref(storage, fileName);
-        const snapshot = await uploadBytes(storageRef, photoFile);
-        uploadedPhotoUrl = await getDownloadURL(snapshot.ref);
+        const fileName = `${Date.now()}-${userId}.${fileExtension}`;
+        
+        const { data, error } = await supabase.storage
+          .from('tickets')
+          .upload(fileName, photoFile);
+          
+        if (!error && data) {
+           const { data: { publicUrl } } = supabase.storage.from('tickets').getPublicUrl(fileName);
+           uploadedPhotoUrl = publicUrl;
+        } else {
+           console.warn('Storage upload failed, perhaps bucket "tickets" does not exist yet?', error);
+        }
       }
 
       const generatedProtocol = `RD-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
