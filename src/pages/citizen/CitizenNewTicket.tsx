@@ -89,9 +89,9 @@ export function CitizenNewTicket() {
       await addTicket(newTicket);
       setNewProtocol(generatedProtocol);
       setSuccess(true);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error creating ticket", err);
-      alert("Houve um erro ao registrar sua ocorrência.");
+      alert("Erro ao registrar a ocorrência: " + (err.message || JSON.stringify(err)));
     } finally {
       setIsSubmitting(false);
     }

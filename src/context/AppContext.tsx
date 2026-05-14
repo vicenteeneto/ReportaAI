@@ -103,11 +103,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
                id: userId,
                name: authData.user.email?.split('@')[0] || 'Usuário',
                email: authData.user.email || '',
-               role: 'citizen',
-               createdAt: Date.now()
-             } as any;
-             await supabase.from('users').insert(newUser);
-             setCurrentUser(newUser);
+               role: 'citizen'
+             };
+             const { error: insErr } = await supabase.from('users').upsert(newUser);
+             if (insErr) console.error("Error creating user", insErr);
+             setCurrentUser(newUser as any);
            }
         }
       };
