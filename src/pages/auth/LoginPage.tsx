@@ -89,18 +89,16 @@ export function LoginPage() {
               {isRegistering ? 'Criar Conta' : 'Entrar'}
             </Button>
             
-            {!asAdmin && (
-              <p className="text-sm text-slate-500 mt-4">
-                {isRegistering ? 'Já tem uma conta?' : 'Não tem conta?'}
-                <button 
-                  type="button" 
-                  onClick={() => setIsRegistering(!isRegistering)} 
-                  className="text-[#1E3A8A] font-bold ml-1 hover:underline"
-                >
-                  {isRegistering ? 'Faça login' : 'Registre-se'}
-                </button>
-              </p>
-            )}
+            <p className="text-sm text-slate-500 mt-4">
+              {isRegistering ? 'Já tem uma conta?' : 'Não tem conta?'}
+              <button 
+                type="button" 
+                onClick={() => setIsRegistering(!isRegistering)} 
+                className="text-[#1E3A8A] font-bold ml-1 hover:underline"
+              >
+                {isRegistering ? 'Faça login' : 'Registre-se'}
+              </button>
+            </p>
           </form>
 
           <div className="relative flex py-2 items-center mb-6">

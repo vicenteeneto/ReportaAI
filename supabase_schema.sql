@@ -1,9 +1,9 @@
 -- Drop tables if they exist to avoid conflicts (be careful in production!)
--- DROP TABLE IF EXISTS ticket_history;
--- DROP TABLE IF EXISTS tickets;
--- DROP TABLE IF EXISTS categories;
--- DROP TABLE IF EXISTS departments;
--- DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS ticket_history CASCADE;
+DROP TABLE IF EXISTS tickets CASCADE;
+DROP TABLE IF EXISTS categories CASCADE;
+DROP TABLE IF EXISTS departments CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
 
 -- 1. Create Users Table
 CREATE TABLE public.users (

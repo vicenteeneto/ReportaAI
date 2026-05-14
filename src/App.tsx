@@ -35,6 +35,8 @@ const AppRoutes = () => {
     <Routes>
       <Route path="/" element={currentUser ? <Navigate to={getDashboardRoute()} replace /> : <LandingPage />} />
       <Route path="/login" element={currentUser ? <Navigate to={getDashboardRoute()} replace /> : <LoginPage />} />
+      <Route path="/auth/login" element={<LoginPage />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
 
       {/* Citizen Area */}
       <Route path="/citizen" element={currentUser ? <CitizenLayout /> : <Navigate to="/login" />}>
