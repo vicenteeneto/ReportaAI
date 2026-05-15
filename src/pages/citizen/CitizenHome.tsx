@@ -29,8 +29,8 @@ export function CitizenHome() {
 
   const stats = {
     total: myTickets.length,
-    pending: myTickets.filter(t => ['open', 'in_progress'].includes(t.status)).length,
-    resolved: myTickets.filter(t => t.status === 'resolved').length,
+    pending: myTickets.filter(t => ['received', 'forwarded', 'in_progress', 'scheduled', 'analyzing', 'triage'].includes(t.status)).length,
+    resolved: myTickets.filter(t => ['resolved', 'closed'].includes(t.status)).length,
   };
 
   return (

@@ -121,7 +121,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
                name: name,
                email: authData.user.email || '',
                role: 'citizen',
-               avatarUrl: avatarUrl
+               avatarurl: avatarUrl
              };
              const { error: insErr } = await supabase.from('users').upsert(newUser);
              if (insErr) console.error("Error creating user", insErr);
@@ -205,21 +205,22 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const insertPayload: any = {
       id: t.id,
       protocol: t.protocol,
-      userId: t.userId,
-      categoryId: t.categoryId,
-      departmentId: t.departmentId,
+      userid: t.userId,
+      categoryid: t.categoryId,
+      departmentid: t.departmentId,
       title: t.title,
       description: t.description,
-      address: t.address,
-      neighborhood: t.neighborhood,
-      priority: t.priority,
       status: t.status,
+      priority: t.priority,
       latitude: t.latitude,
       longitude: t.longitude,
-      photoUrl: t.photoUrl,
-      createdAt: t.createdAt,
-      updatedAt: t.createdAt
+      address: t.address,
+      neighborhood: t.neighborhood,
+      photourl: t.photoUrl,
     };
+
+    // If createdAt is provided as number, let's not pass it and let DB defaults take over 
+    // or convert if needed. The schema has defaults.
 
     const { error, data } = await supabase.from('tickets').insert(insertPayload).select().single();
 
@@ -232,7 +233,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const savedTicket = data ? { 
       ...t, 
       id: data.id, 
-      createdAt: new Date(data.createdAt || data.createdat || Date.now()).getTime() 
+      userId: data.userid,
+      createdAt: new Date(data.created_at || Date.now()).getTime() 
     } : { ...t, createdAt: Date.now() };
 
     setTickets(prev => [savedTicket, ...prev]);
@@ -243,10 +245,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     if (!error) {
        setTickets(prev => prev.map(t => t.id === id ? { ...t, status } : t));
        await supabase.from('ticket_history').insert({
-          ticketId: id,
-          userId: currentUser?.id,
+          ticketid: id,
+          userid: currentUser?.id,
           action: `Status alterado para ${status}`,
-          newStatus: status
+          newstatus: status
        });
     } else {
       console.error('Error updating ticket:', error);

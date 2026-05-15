@@ -68,8 +68,14 @@ export function CitizenNewTicket() {
 
       // Sequential Protocol Fallback Logic (Count + 1)
       let nextNum = 1;
-      const { count } = await supabase.from('tickets').select('*', { count: 'exact', head: true });
-      if (count !== null) nextNum = count + 1;
+      try {
+        const { count, error } = await supabase.from('tickets').select('*', { count: 'exact', head: true }).limit(1);
+        if (error) throw error;
+        if (count !== null) nextNum = count + 1;
+      } catch (e) {
+        console.warn("Could not get ticket count for protocol, using random fallback", e);
+        nextNum = Math.floor(Math.random() * 900000) + 100000;
+      }
       
       const generatedProtocol = `RD-${new Date().getFullYear()}-${String(nextNum).padStart(6, '0')}`;
       

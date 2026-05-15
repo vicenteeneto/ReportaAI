@@ -8,6 +8,8 @@ import { AlertCircle, Check, X, ArrowRight } from 'lucide-react';
 import { AdminTicketDetailsModal } from '../../components/admin/AdminTicketDetailsModal';
 import { Ticket } from '../../data/types';
 
+import { supabase } from '../../lib/supabase';
+
 export function AdminTriage() {
   const { tickets, categories, updateTicketStatus } = useAppContext();
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);

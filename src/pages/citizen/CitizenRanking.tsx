@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '../../components/ui/Card';
 import { useAppContext } from '../../context/AppContext';
-import { Trophy, Medal, Award, TrendingUp, ArrowLeft, User as UserIcon } from 'lucide-react';
+import { Trophy, Medal, Award, TrendingUp, ArrowLeft, Info, User as UserIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 
@@ -27,7 +27,7 @@ export function CitizenRanking() {
         // 1. Fetch all users who are citizens
         const { data: usersData } = await supabase
           .from('users')
-          .select('id, name, avatarUrl')
+          .select('id, name, avatarurl')
           .eq('role', 'citizen');
 
         if (!usersData) return;
@@ -35,20 +35,20 @@ export function CitizenRanking() {
         // 2. Fetch all tickets to calculate scores
         const { data: ticketsData } = await supabase
           .from('tickets')
-          .select('userId, status');
+          .select('userid, status');
 
         if (!ticketsData) return;
 
         // 3. Process scores
-        const userScores = usersData.map(user => {
-          const userTickets = ticketsData.filter(t => (t.userId || t.userid) === user.id);
+        const userScores = usersData.map((user: any) => {
+          const userTickets = ticketsData.filter((t: any) => t.userid === user.id);
           const resolved = userTickets.filter(t => ['resolved', 'closed'].includes(t.status)).length;
           const ongoing = userTickets.filter(t => !['resolved', 'closed', 'rejected', 'duplicated'].includes(t.status)).length;
           
           return {
             id: user.id,
             name: user.name,
-            avatarUrl: user.avatarUrl,
+            avatarUrl: user.avatarurl || user.avatarUrl,
             ticketsResolved: resolved,
             points: (ongoing * 10) + (resolved * 50)
           };
