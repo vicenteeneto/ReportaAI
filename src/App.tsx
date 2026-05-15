@@ -24,12 +24,22 @@ import { AdminSetup } from './pages/AdminSetup';
 const AdminReports = () => <div className="p-8">Relatórios em desenvolvimento</div>;
 
 const AppRoutes = () => {
-  const { currentUser } = useAppContext();
+  const { currentUser, loading } = useAppContext();
+
+  // Se o contexto ainda estiver carregando a sessão, mostramos um loader para evitar redirecionamentos errados
+  if (loading) {
+    return (
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-50 gap-4">
+        <div className="w-12 h-12 border-4 border-[#1E3A8A] border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Carregando Cidade Conecta...</p>
+      </div>
+    );
+  }
 
   // Determine the default dashboard route based on user role
   const getDashboardRoute = () => {
     if (!currentUser) return '/login';
-    if (currentUser.role === 'admin' || currentUser.role === 'secretary' || currentUser.role === 'mayor') {
+    if (currentUser.role === 'admin' || currentUser.role === 'coordinator' || currentUser.role === 'mayor' || currentUser.role === 'secretary') {
       return '/admin/dashboard';
     }
     return '/citizen';

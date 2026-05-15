@@ -47,34 +47,44 @@ export function CitizenNewTicket() {
 
       // Ensure we have a user
       const userId = currentUser?.id;
-      if (!userId) throw new Error("Usuário não autenticado");
+      if (!userId) throw new Error("Usuário não autenticado. Por favor, faça login novamente.");
 
       if (photoFile) {
-        // Upload to supabase storage if there's a bucket 'tickets', otherwise fail gracefully/skip
-        const fileExtension = photoFile.name.split('.').pop();
-        const fileName = `${Date.now()}-${userId}.${fileExtension}`;
-        
-        const { data, error } = await supabase.storage
-          .from('tickets')
-          .upload(fileName, photoFile);
+        try {
+          const fileExtension = photoFile.name.split('.').pop();
+          const fileName = `${Date.now()}-${userId}.${fileExtension}`;
           
-        if (!error && data) {
-           const { data: { publicUrl } } = supabase.storage.from('tickets').getPublicUrl(fileName);
-           uploadedPhotoUrl = publicUrl;
-        } else {
-           console.warn('Storage upload failed, perhaps bucket "tickets" does not exist yet?', error);
+          // Timeout para upload de 15 segundos para não travar o mobile
+          const uploadPromise = supabase.storage
+            .from('tickets')
+            .upload(fileName, photoFile);
+            
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error("Timeout no upload da imagem")), 15000)
+          );
+
+          const { data, error }: any = await Promise.race([uploadPromise, timeoutPromise]);
+            
+          if (!error && data) {
+             const { data: { publicUrl } } = supabase.storage.from('tickets').getPublicUrl(fileName);
+             uploadedPhotoUrl = publicUrl;
+          } else {
+             console.warn('Storage upload error:', error);
+          }
+        } catch (storageErr) {
+          console.warn("Falha no upload, continuando sem foto:", storageErr);
         }
       }
 
-      // Sequential Protocol Fallback Logic (Count + 1)
-      let nextNum = 1;
+      // Sequential Protocol Logic melhorado
+      let nextNum = Math.floor(Math.random() * 900000) + 100000;
       try {
         const { count, error } = await supabase.from('tickets').select('*', { count: 'exact', head: true }).limit(1);
-        if (error) throw error;
-        if (count !== null) nextNum = count + 1;
+        if (!error && count !== null) {
+          nextNum = count + 1;
+        }
       } catch (e) {
-        console.warn("Could not get ticket count for protocol, using random fallback", e);
-        nextNum = Math.floor(Math.random() * 900000) + 100000;
+        console.warn("Protocol fallback used");
       }
       
       const generatedProtocol = `RD-${new Date().getFullYear()}-${String(nextNum).padStart(6, '0')}`;
@@ -102,7 +112,12 @@ export function CitizenNewTicket() {
       setSuccess(true);
     } catch (err: any) {
       console.error("Error creating ticket", err);
-      alert("Erro ao registrar a ocorrência: " + (err.message || JSON.stringify(err)));
+      // Extraindo mensagem amigável caso seja JSON
+      let errMsg = "Erro técnico no servidor.";
+      if (err.message) errMsg = err.message;
+      else if (typeof err === 'string') errMsg = err;
+      
+      alert("Atenção: " + errMsg);
     } finally {
       setIsSubmitting(false);
     }
