@@ -107,7 +107,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       const fetchUserProfile = async (userId: string) => {
         const { data } = await supabase.from('users').select('*').eq('id', userId).single();
         if (data) {
-          setCurrentUser(data as User);
+          const mappedUser: User = {
+            id: data.id,
+            name: data.name,
+            email: data.email,
+            role: data.role as any,
+            avatarUrl: data.avatarUrl || data.avatarurl,
+            departmentId: data.departmentId || data.departmentid
+          };
+          setCurrentUser(mappedUser);
         } else {
           // In case user hasn't synced to users table, fetch profile email
            const { data: authData } = await supabase.auth.getUser();
@@ -205,9 +213,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const insertPayload: any = {
       id: t.id,
       protocol: t.protocol,
-      userid: t.userId,
-      categoryid: t.categoryId,
-      departmentid: t.departmentId,
+      userId: t.userId,
+      categoryId: t.categoryId,
+      departmentId: t.departmentId,
       title: t.title,
       description: t.description,
       status: t.status,
@@ -216,7 +224,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       longitude: t.longitude,
       address: t.address,
       neighborhood: t.neighborhood,
-      photourl: t.photoUrl,
+      photoUrl: t.photoUrl,
     };
 
     // If createdAt is provided as number, let's not pass it and let DB defaults take over 
@@ -233,8 +241,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const savedTicket = data ? { 
       ...t, 
       id: data.id, 
-      userId: data.userid,
-      createdAt: new Date(data.created_at || Date.now()).getTime() 
+      userId: data.userId,
+      createdAt: new Date(data.createdAt || Date.now()).getTime() 
     } : { ...t, createdAt: Date.now() };
 
     setTickets(prev => [savedTicket, ...prev]);
@@ -245,10 +253,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     if (!error) {
        setTickets(prev => prev.map(t => t.id === id ? { ...t, status } : t));
        await supabase.from('ticket_history').insert({
-          ticketid: id,
-          userid: currentUser?.id,
+          ticketId: id,
+          userId: currentUser?.id,
           action: `Status alterado para ${status}`,
-          newstatus: status
+          newStatus: status
        });
     } else {
       console.error('Error updating ticket:', error);
