@@ -76,16 +76,28 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         defaultPriority: c.defaultPriority || c.defaultpriority || 'low',
       }));
 
-      const fetchedTickets = (ticketsRes.data || []).map(t => ({
-        ...t,
-        categoryId: t.categoryid || t.categoryId,
-        departmentId: t.departmentid || t.departmentId,
-        photoUrl: t.photourl || t.photoUrl,
-        resolvedPhotoUrl: t.resolvedphotourl || t.resolvedPhotoUrl,
-        userId: t.userid || t.userId,
-        createdAt: new Date(t.created_at || t.createdAt || Date.now()).getTime(),
-        updatedAt: new Date(t.updated_at || t.updatedAt || Date.now()).getTime(),
-      }));
+      const fetchedTickets = (ticketsRes.data || []).map(t => {
+        const mappedTicket = {
+          ...t,
+          categoryId: t.categoryid || t.categoryId || t.category_id,
+          departmentId: t.departmentid || t.departmentId || t.department_id,
+          photoUrl: t.photourl || t.photoUrl || t.photo_url,
+          resolvedPhotoUrl: t.resolvedphotourl || t.resolvedPhotoUrl || t.resolved_photo_url,
+          userId: t.userid || t.userId || t.user_id,
+          createdAt: new Date(t.created_at || t.createdAt || Date.now()).getTime(),
+          updatedAt: new Date(t.updated_at || t.updatedAt || Date.now()).getTime(),
+        };
+        return mappedTicket;
+      });
+
+      console.log("Fetched and mapped tickets:", fetchedTickets.length);
+      if (fetchedTickets.length > 0) {
+        console.log("First ticket sample:", { 
+          id: fetchedTickets[0].id, 
+          userId: fetchedTickets[0].userId,
+          protocol: fetchedTickets[0].protocol
+        });
+      }
 
       setDepartments(deps);
       setCategories(mappedCats);

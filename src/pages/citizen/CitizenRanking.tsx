@@ -35,13 +35,16 @@ export function CitizenRanking() {
         // 2. Fetch all tickets to calculate scores
         const { data: ticketsData } = await supabase
           .from('tickets')
-          .select('userid, status');
+          .select('userid, userId, user_id, status');
 
         if (!ticketsData) return;
 
         // 3. Process scores
         const userScores = usersData.map((user: any) => {
-          const userTickets = ticketsData.filter((t: any) => (t.userid || t.userId) === user.id);
+          const userTickets = ticketsData.filter((t: any) => {
+            const ticketUserId = t.userid || t.userId || t.user_id || t.user_id_fk;
+            return ticketUserId === user.id;
+          });
           const resolved = userTickets.filter(t => ['resolved', 'closed'].includes(t.status)).length;
           const ongoing = userTickets.filter(t => !['resolved', 'closed', 'rejected', 'duplicated'].includes(t.status)).length;
           

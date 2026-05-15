@@ -47,8 +47,8 @@ export function CitizenHome() {
   return (
     <div className="p-4 md:p-6 lg:max-w-5xl mx-auto space-y-4 sm:space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Header Profile */}
-      <div className="flex items-center gap-3 sm:gap-4 bg-white p-3 sm:p-4 rounded-xl border border-slate-200 shadow-sm transition-all">
-        <div className="w-12 h-12 sm:w-14 sm:h-14 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center font-bold text-lg sm:text-xl overflow-hidden shrink-0">
+      <div className="flex items-center gap-3 sm:gap-4 bg-white p-2 sm:p-4 rounded-xl border border-slate-200 shadow-sm transition-all sm:mt-0 mt-[-8px]">
+        <div className="w-10 h-10 sm:w-14 sm:h-14 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center font-bold text-base sm:text-xl overflow-hidden shrink-0">
           {currentUser?.avatarUrl ? (
              <img src={currentUser.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
           ) : (
@@ -56,43 +56,40 @@ export function CitizenHome() {
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight truncate">Olá, {currentUser?.name?.split(' ')[0]}!</h2>
-          <p className="text-[11px] sm:text-sm text-slate-500 font-medium truncate">Sua participação ajuda a melhorar nossa cidade.</p>
+          <h2 className="text-base sm:text-xl font-bold text-slate-900 tracking-tight truncate leading-tight">Olá, {currentUser?.name?.split(' ')[0]}!</h2>
+          <p className="text-[10px] sm:text-sm text-slate-500 font-medium truncate">Mantenha nossa cidade em dia.</p>
         </div>
       </div>
 
       {/* Cidadão Cidadania - Pontuação */}
-      <div className="bg-blue-50/50 p-3 sm:p-4 rounded-xl border border-blue-100">
-        <div className="flex justify-between items-center mb-2 sm:mb-3">
-          <h3 className="text-[10px] sm:text-sm font-bold text-[#1E3A8A] uppercase tracking-wider flex items-center gap-2 px-1">
-            Minha Pontuação Cidadã
+      <div className="bg-blue-50/50 p-2 sm:p-4 rounded-xl border border-blue-100">
+        <div className="flex justify-between items-center mb-1.5 sm:mb-3">
+          <h3 className="text-[9px] sm:text-sm font-bold text-[#1E3A8A] uppercase tracking-wider flex items-center gap-2 px-1">
+            Pontuação Cidadã
           </h3>
           <Button 
             variant="ghost" 
             size="sm" 
-            className="h-6 sm:h-7 text-[9px] sm:text-[10px] font-bold uppercase text-[#1E3A8A] hover:bg-blue-100 px-2"
+            className="h-5 sm:h-7 text-[8px] sm:text-[10px] font-bold uppercase text-[#1E3A8A] hover:bg-blue-100 px-1"
             onClick={() => navigate('/citizen/ranking')}
           >
-            Ranking <ChevronRight className="w-3 h-3 ml-1" />
+            Ver Ranking <ChevronRight className="w-2.5 h-2.5 ml-1" />
           </Button>
         </div>
         <div className="grid grid-cols-2 gap-2 sm:gap-4">
-          <div className="bg-white p-2.5 sm:p-3 rounded-lg border border-blue-50 shadow-sm flex flex-col items-center text-center">
-            <span className="text-xl sm:text-2xl font-black text-amber-600">
+          <div className="bg-white p-2 sm:p-3 rounded-lg border border-blue-50 shadow-sm flex flex-col items-center text-center">
+            <span className="text-lg sm:text-2xl font-black text-amber-600">
               {currentUser?.pointsValidating || 0}
             </span>
-            <span className="text-[8px] sm:text-[10px] font-bold text-slate-500 uppercase mt-0.5 leading-tight">Em Validação</span>
+            <span className="text-[7px] sm:text-[10px] font-bold text-slate-400 uppercase mt-0.5 leading-none">Em Validação</span>
           </div>
-          <div className="bg-white p-2.5 sm:p-3 rounded-lg border border-blue-50 shadow-sm flex flex-col items-center text-center">
-            <span className="text-xl sm:text-2xl font-black text-emerald-600">
+          <div className="bg-white p-2 sm:p-3 rounded-lg border border-blue-50 shadow-sm flex flex-col items-center text-center">
+            <span className="text-lg sm:text-2xl font-black text-emerald-600">
               {currentUser?.pointsValidated || 0}
             </span>
-            <span className="text-[8px] sm:text-[10px] font-bold text-slate-500 uppercase mt-0.5 leading-tight">Validados</span>
+            <span className="text-[7px] sm:text-[10px] font-bold text-slate-400 uppercase mt-0.5 leading-none">Validados</span>
           </div>
         </div>
-        <p className="text-[10px] sm:text-xs text-slate-400 mt-2 sm:mt-3 text-center font-medium">
-          Total acumulado: <span className="font-bold text-[#1E3A8A]/70 uppercase">{(currentUser?.pointsValidated || 0) + (currentUser?.pointsValidating || 0)} pts</span>
-        </p>
       </div>
 
       {/* Stats Cards */}
@@ -127,58 +124,56 @@ export function CitizenHome() {
       </div>
 
       {/* Main Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card className="bg-gradient-to-br from-[#1E3A8A] to-[#1e40af] text-white border-none shadow-md overflow-hidden relative min-h-[140px]">
-          <CardContent className="p-5 sm:p-6 h-full flex flex-col justify-center">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4">
+        <Card className="col-span-2 bg-gradient-to-br from-[#1E3A8A] to-[#1e40af] text-white border-none shadow-md overflow-hidden relative min-h-[110px] sm:min-h-[140px]">
+          <CardContent className="p-4 sm:p-6 h-full flex flex-col justify-center">
             <div className="relative z-10">
-              <h3 className="text-lg sm:text-xl font-bold mb-1 sm:mb-2 leading-tight">Viu algum problema?</h3>
-              <p className="text-blue-100 text-[11px] sm:text-sm mb-4 sm:mb-6 max-w-[180px] sm:max-w-[200px] leading-snug">
-                Relate agora buracos, mato, lixo ou iluminação.
+              <h3 className="text-base sm:text-xl font-bold mb-1 leading-tight">Relatar Problema</h3>
+              <p className="text-blue-100 text-[10px] sm:text-sm mb-3 sm:mb-6 max-w-[180px] sm:max-w-[200px] leading-snug">
+                Buracos, iluminação ou lixo?
               </p>
               <Button 
-                className="bg-white text-blue-900 hover:bg-slate-50 font-bold uppercase tracking-wider shadow-sm text-[10px] sm:text-xs h-9 sm:h-10 px-4"
+                className="bg-white text-blue-900 hover:bg-slate-50 font-bold uppercase tracking-wider shadow-sm text-[9px] sm:text-xs h-8 sm:h-10 px-4"
                 onClick={() => navigate('/citizen/new')}
               >
-                <PlusSquare className="w-4 h-4 mr-2" />
+                <PlusSquare className="w-3.5 h-3.5 mr-2" />
                 Registrar
               </Button>
             </div>
-            <Camera className="absolute right-[-15px] bottom-[-15px] w-28 h-28 sm:w-40 sm:h-40 text-blue-900/20 rotate-[-15deg] pointer-events-none" />
+            <Camera className="absolute right-[-10px] bottom-[-10px] w-24 h-24 sm:w-40 sm:h-40 text-blue-900/20 rotate-[-15deg] pointer-events-none" />
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-rows-2">
-          <Card className="cursor-pointer hover:border-slate-300 hover:shadow transition-all md:col-span-2 group" onClick={() => navigate('/citizen/map')}>
-            <CardContent className="p-3 sm:p-4 flex items-center gap-3 sm:gap-4 h-full">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center shrink-0 group-hover:bg-indigo-100 transition-colors">
-                <MapIcon className="w-5 h-5 sm:w-6 sm:h-6" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h4 className="font-bold text-slate-800 text-sm sm:text-base tracking-tight truncate">Mapa de Problemas</h4>
-                <p className="text-[10px] sm:text-xs text-slate-500 leading-tight mt-0.5 truncate">Explore ocorrências em tempo real</p>
-              </div>
-              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 group-hover:text-slate-600 transition-colors shrink-0" />
-            </CardContent>
-          </Card>
+        <Card className="col-span-2 cursor-pointer hover:border-slate-300 hover:shadow transition-all group" onClick={() => navigate('/citizen/map')}>
+          <CardContent className="p-3 sm:p-4 flex items-center gap-3 sm:gap-4 h-full">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center shrink-0 group-hover:bg-indigo-100 transition-colors">
+              <MapIcon className="w-5 h-5 sm:w-6 sm:h-6" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h4 className="font-bold text-slate-800 text-sm sm:text-base tracking-tight truncate">Mapa de Problemas</h4>
+              <p className="text-[10px] sm:text-xs text-slate-500 leading-tight mt-0.5 truncate">Explore ocorrências em tempo real</p>
+            </div>
+            <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 group-hover:text-slate-600 transition-colors shrink-0" />
+          </CardContent>
+        </Card>
 
-          <Card className="cursor-pointer hover:border-slate-300 hover:shadow transition-all group" onClick={() => navigate('/citizen/tickets')}>
-            <CardContent className="p-3 sm:p-4 flex flex-col items-center justify-center text-center h-full gap-2">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 bg-slate-50 rounded-full flex items-center justify-center group-hover:bg-slate-100 transition-colors">
-                <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-slate-600" />
-              </div>
-              <span className="font-bold text-[10px] sm:text-xs text-slate-800 uppercase tracking-tight leading-tight">Meus<br className="hidden xs:block"/> Registros</span>
-            </CardContent>
-          </Card>
+        <Card className="cursor-pointer hover:border-slate-300 hover:shadow transition-all group" onClick={() => navigate('/citizen/tickets')}>
+          <CardContent className="p-3 sm:p-4 flex flex-col items-center justify-center text-center h-full gap-1.5 sm:gap-2">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-slate-50 rounded-full flex items-center justify-center group-hover:bg-slate-100 transition-colors">
+              <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-slate-600" />
+            </div>
+            <span className="font-bold text-[9px] sm:text-xs text-slate-800 uppercase tracking-tight leading-tight">Meus<br/>Registros</span>
+          </CardContent>
+        </Card>
 
-          <Card className="cursor-pointer hover:border-slate-300 hover:shadow transition-all group" onClick={() => navigate('/citizen/news')}>
-            <CardContent className="p-3 sm:p-4 flex flex-col items-center justify-center text-center h-full gap-2">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 bg-slate-50 rounded-full flex items-center justify-center group-hover:bg-slate-100 transition-colors">
-                <Bell className="w-4 h-4 sm:w-5 sm:h-5 text-slate-600" />
-              </div>
-              <span className="font-bold text-[10px] sm:text-xs text-slate-800 uppercase tracking-tight leading-tight">Alertas &<br className="hidden xs:block"/> Notícias</span>
-            </CardContent>
-          </Card>
-        </div>
+        <Card className="cursor-pointer hover:border-slate-300 hover:shadow transition-all group" onClick={() => navigate('/citizen/news')}>
+          <CardContent className="p-3 sm:p-4 flex flex-col items-center justify-center text-center h-full gap-1.5 sm:gap-2">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-slate-50 rounded-full flex items-center justify-center group-hover:bg-slate-100 transition-colors">
+              <Bell className="w-4 h-4 sm:w-5 sm:h-5 text-slate-600" />
+            </div>
+            <span className="font-bold text-[9px] sm:text-xs text-slate-800 uppercase tracking-tight leading-tight">Alertas &<br/>Notícias</span>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Recent Activity */}
