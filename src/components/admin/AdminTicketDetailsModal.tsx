@@ -4,7 +4,8 @@ import { useAppContext } from '../../context/AppContext';
 import { Button } from '../ui/Button';
 import { StatusBadge, PriorityBadge } from '../ui/Badge';
 import { format } from 'date-fns';
-import { X, MapPin, Clock, MessageSquare, AlertCircle } from 'lucide-react';
+import { X, MapPin, Clock, MessageSquare, AlertCircle, Upload } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 
 interface Props {
   ticket: Ticket;
@@ -18,12 +19,53 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
 
   const [isUpdating, setIsUpdating] = useState(false);
   const [newStatus, setNewStatus] = useState<TicketStatus>(ticket.status as TicketStatus);
+  const [resolutionComment, setResolutionComment] = useState('');
+  const [resolutionFile, setResolutionFile] = useState<File | null>(null);
+  const [ticketHistory, setTicketHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  React.useEffect(() => {
+    const fetchHistory = async () => {
+      setLoadingHistory(true);
+      const { data } = await supabase.from('ticket_history').select('*').eq('ticketId', ticket.id).order('createdAt', { ascending: false });
+      if (data) setTicketHistory(data);
+      setLoadingHistory(false);
+    };
+    fetchHistory();
+  }, [ticket.id]);
 
   const handleUpdate = async () => {
     setIsUpdating(true);
     try {
-      await updateTicketStatus(ticket.id, newStatus);
+      let resolvedPhotoUrl = ticket.resolvedPhotoUrl;
+
+      if (newStatus === 'resolved' && resolutionFile) {
+        const fileExt = resolutionFile.name.split('.').pop();
+        const fileName = `resolution-${ticket.id}-${Date.now()}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage.from('tickets').upload(fileName, resolutionFile);
+        if (!uploadError) {
+          const { data: { publicUrl } } = supabase.storage.from('tickets').getPublicUrl(fileName);
+          resolvedPhotoUrl = publicUrl;
+        }
+      }
+
+      await supabase.from('tickets').update({ 
+        status: newStatus,
+        resolvedPhotoUrl: resolvedPhotoUrl,
+        updatedAt: new Date().toISOString()
+      }).eq('id', ticket.id);
+
+      await supabase.from('ticket_history').insert({
+        ticketId: ticket.id,
+        userId: (await supabase.auth.getUser()).data.user?.id,
+        action: `Status alterado para ${newStatus}`,
+        newStatus: newStatus,
+        comment: resolutionComment
+      });
+
+      // Update global context if needed - simplified reload for now or just close
       onClose();
+      window.location.reload(); 
     } catch (e) {
       console.error(e);
       alert('Erro ao atualizar chamado');
@@ -33,8 +75,8 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in-0 zoom-in-95">
+    <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-5xl my-4 flex flex-col overflow-hidden animate-in fade-in-0 zoom-in-95">
         <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
           <div>
             <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">{ticket.protocol}</p>
@@ -45,144 +87,174 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 flex flex-col md:flex-row gap-8">
-          <div className="flex-[2] space-y-6">
-            {ticket.photoUrl && (
-              <div className="w-full aspect-[16/9] rounded-xl overflow-hidden bg-slate-100 border border-slate-200 relative">
-                <img 
-                  src={ticket.photoUrl} 
-                  alt="Problema" 
-                  className="w-full h-full object-cover" 
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = 'none';
-                    (e.target as HTMLImageElement).parentElement?.classList.add('broken-img-container');
-                  }}
-                />
-                <style>{`
-                  .broken-img-container::after {
-                    content: "Evidência não disponível ⚠️";
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    width: 100%;
-                    height: 100%;
-                    background-color: #f1f5f9;
-                    color: #64748b;
-                    font-size: 0.875rem;
-                    font-weight: 500;
-                  }
-                `}</style>
+        <div className="flex-1 overflow-y-auto p-6 md:p-8 flex flex-col lg:flex-row gap-8">
+          <div className="flex-[3] space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Evidência do Cidadão</p>
+                {ticket.photoUrl ? (
+                  <div className="w-full aspect-video rounded-xl overflow-hidden bg-slate-100 border border-slate-200 relative">
+                    <img 
+                      src={ticket.photoUrl} 
+                      alt="Problema" 
+                      className="w-full h-full object-cover" 
+                    />
+                  </div>
+                ) : (
+                  <div className="w-full aspect-video rounded-xl bg-slate-50 border border-dashed border-slate-200 flex items-center justify-center text-slate-400 text-xs font-medium">
+                    Sem foto anexada
+                  </div>
+                )}
               </div>
-            )}
-            
-            <div>
-              <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-2">
-                <MessageSquare className="w-4 h-4 text-slate-400" />
-                Descrição do Problema
-              </h3>
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-slate-700 text-sm whitespace-pre-wrap">
-                {ticket.description}
+
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Evidência de Resolução</p>
+                {ticket.resolvedPhotoUrl ? (
+                  <div className="w-full aspect-video rounded-xl overflow-hidden bg-emerald-50 border border-emerald-100 relative">
+                    <img 
+                      src={ticket.resolvedPhotoUrl} 
+                      alt="Resolução" 
+                      className="w-full h-full object-cover" 
+                    />
+                  </div>
+                ) : (
+                  <div className="w-full aspect-video rounded-xl bg-white border border-dashed border-slate-200 flex items-center justify-center text-slate-400 text-xs font-medium">
+                    Aguardando resolução
+                  </div>
+                )}
               </div>
             </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div>
+                <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-3">
+                  <MessageSquare className="w-4 h-4 text-slate-400" />
+                  Detalhes Técnicos
+                </h3>
+                <div className="space-y-4">
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Relato do Cidadão</p>
+                    <p className="text-sm text-slate-700 whitespace-pre-wrap">{ticket.description}</p>
+                  </div>
 
-            <div>
-              <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-2">
-                <MapPin className="w-4 h-4 text-slate-400" />
-                Localização
-              </h3>
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-2">
-                <p className="text-sm font-medium text-slate-800">{ticket.address}</p>
-                <p className="text-sm text-slate-500">Bairro: {ticket.neighborhood}</p>
-                <div className="h-40 w-full bg-slate-200 rounded mt-2 flex items-center justify-center text-slate-400 text-xs">
-                  {/* We could embed a small static map here later */}
-                  [Mapa: {ticket.latitude.toFixed(4)}, {ticket.longitude.toFixed(4)}]
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Localização</p>
+                    <p className="text-sm font-bold text-slate-800 mb-1">{ticket.address}</p>
+                    <p className="text-xs text-slate-500 mb-2">Bairro: {ticket.neighborhood}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-3">
+                  <Clock className="w-4 h-4 text-slate-400" />
+                  Histórico de Tramitação
+                </h3>
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 max-h-64 overflow-y-auto space-y-4">
+                  {loadingHistory ? (
+                    <p className="text-xs text-center text-slate-400 py-4">Carregando...</p>
+                  ) : ticketHistory.length > 0 ? (
+                    ticketHistory.map((h, i) => (
+                      <div key={h.id} className="relative pl-4 pb-2 border-l border-slate-200 last:pb-0">
+                        <div className="absolute left-[-5px] top-1 w-2 h-2 rounded-full bg-slate-300"></div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                          {format(new Date(h.createdAt || h.createdat), 'dd/MM/yy HH:mm')}
+                        </p>
+                        <p className="text-xs font-bold text-slate-700">{h.action}</p>
+                        {h.comment && <p className="text-xs text-slate-500 italic mt-0.5">"{h.comment}"</p>}
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-xs text-center text-slate-400 py-4">Nenhuma movimentação registrada.</p>
+                  )}
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="flex-[1] space-y-6 md:border-l md:border-slate-100 md:pl-8">
-            <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Informações</p>
-              <div className="space-y-4">
-                
-                {/* Score do Cidadão */}
-                <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
-                  <p className="text-[10px] text-[#1E3A8A] uppercase tracking-wider font-bold mb-2">Engajamento Cidadão</p>
-                  <div className="grid grid-cols-2 gap-2 text-center">
-                    <div>
-                      <span className="block text-lg font-black text-amber-600">
-                        {tickets.filter(t => t.userId === ticket.userId && ['open', 'in_progress'].includes(t.status)).length * 10}
-                      </span>
-                      <span className="text-[9px] font-bold text-slate-500 uppercase leading-tight">Pts em<br/>Validação</span>
-                    </div>
-                    <div>
-                      <span className="block text-lg font-black text-emerald-600">
-                        {tickets.filter(t => t.userId === ticket.userId && t.status === 'resolved').length * 10}
-                      </span>
-                      <span className="text-[9px] font-bold text-slate-500 uppercase leading-tight">Pts<br/>Validados</span>
-                    </div>
+          <div className="flex-[1.5] space-y-6 lg:border-l lg:border-slate-100 lg:pl-8">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+              <div>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Painel de Decisão</p>
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1.5">Status do Atendimento</p>
+                    <StatusBadge status={ticket.status} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1.5">Prioridade</p>
+                    <PriorityBadge priority={ticket.priority} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1">Categoria / Secretaria</p>
+                    <p className="text-xs font-bold text-slate-900 leading-tight mb-1">{category?.name}</p>
+                    <p className="text-[11px] text-slate-500">{department?.name || 'Sem secretaria'}</p>
                   </div>
                 </div>
-
-                <div>
-                  <p className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1">Status Atual</p>
-                  <StatusBadge status={ticket.status} />
-                </div>
-                <div>
-                  <p className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1">Prioridade</p>
-                  <PriorityBadge priority={ticket.priority} />
-                </div>
-                <div>
-                  <p className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-0.5">Categoria</p>
-                  <p className="text-sm font-medium text-slate-800">{category?.name}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-0.5">Secretaria Resp.</p>
-                  <p className="text-sm font-medium text-slate-800">{department?.name || 'Não atribuída'}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-0.5">Abertura</p>
-                  <p className="text-sm font-medium text-slate-800 flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5 text-slate-400" />
-                    {format(new Date(ticket.createdAt), 'dd/MM/yyyy HH:mm')}
-                  </p>
-                </div>
               </div>
-            </div>
 
-            <div className="pt-6 border-t border-slate-100">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4" />
-                Ações de Gestão
-              </p>
-              <div className="space-y-3">
-                <label className="block text-xs font-bold text-slate-700">Atualizar Status</label>
-                <select 
-                  className="w-full h-10 px-3 py-2 text-sm rounded-lg border-slate-300 focus:ring-[#1E3A8A] focus:border-[#1E3A8A] bg-white text-slate-800 shadow-sm"
-                  value={newStatus}
-                  onChange={(e) => setNewStatus(e.target.value as TicketStatus)}
-                >
-                  <option value="received">Rascunho / Recebido</option>
-                  <option value="triage">Em Triagem</option>
-                  <option value="forwarded">Encaminhado Sec.</option>
-                  <option value="analyzing">Em Análise</option>
-                  <option value="scheduled">Agendado</option>
-                  <option value="in_progress">Em Execução</option>
-                  <option value="resolved">Resolvido</option>
-                  <option value="closed">Fechado</option>
-                  <option value="duplicated">Duplicado</option>
-                  <option value="rejected">Indeferido</option>
-                  <option value="waiting_info">Aguardando Cidadão</option>
-                </select>
+              <div className="pt-6 border-t border-slate-100 space-y-4 font-sans">
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Novo Status</label>
+                  <select 
+                    className="w-full h-10 px-3 py-2 text-sm rounded-lg border-slate-300 focus:ring-[#1E3A8A] focus:border-[#1E3A8A] bg-white text-slate-800 shadow-sm border"
+                    value={newStatus}
+                    onChange={(e) => setNewStatus(e.target.value as TicketStatus)}
+                  >
+                    <option value="received">Recebido</option>
+                    <option value="triage">Triagem</option>
+                    <option value="forwarded">Encaminhado</option>
+                    <option value="analyzing">Em Análise</option>
+                    <option value="scheduled">Agendado</option>
+                    <option value="in_progress">Em Execução</option>
+                    <option value="resolved">Resolvido ✅</option>
+                    <option value="closed">Finalizado</option>
+                    <option value="rejected">Indeferido ❌</option>
+                    <option value="waiting_info">Pendência Cidadão</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Observações / Comentários</label>
+                  <textarea 
+                    className="w-full text-sm rounded-lg border-slate-300 focus:ring-[#1E3A8A] focus:border-[#1E3A8A] bg-white text-slate-800 shadow-sm border p-3 min-h-[80px]"
+                    placeholder="Explique a ação tomada..."
+                    value={resolutionComment}
+                    onChange={(e) => setResolutionComment(e.target.value)}
+                  />
+                </div>
+
+                {newStatus === 'resolved' && (
+                  <div className="space-y-2 animate-in slide-in-from-top-2">
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Foto da Resolução (PNG/JPG)</label>
+                    <label className="w-full border-2 border-dashed border-slate-200 rounded-lg p-3 flex flex-col items-center justify-center cursor-pointer hover:bg-slate-50 transition-colors">
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={(e) => setResolutionFile(e.target.files?.[0] || null)}
+                      />
+                      {resolutionFile ? (
+                        <span className="text-xs font-medium text-emerald-600 truncate max-w-full">
+                          {resolutionFile.name}
+                        </span>
+                      ) : (
+                        <div className="flex flex-col items-center">
+                          <Upload className="w-4 h-4 text-slate-400 mb-1" />
+                          <span className="text-[10px] font-bold text-slate-500">Anexar Evidência</span>
+                        </div>
+                      )}
+                    </label>
+                  </div>
+                )}
 
                 <Button 
-                  className="w-full font-bold uppercase tracking-wide text-xs h-10 mt-2" 
-                  disabled={newStatus === ticket.status || isUpdating}
+                  className="w-full font-bold uppercase tracking-widest text-xs h-11 shadow-md bg-[#1E3A8A]" 
+                  disabled={newStatus === ticket.status && !resolutionComment && !resolutionFile || isUpdating}
                   onClick={handleUpdate}
                   isLoading={isUpdating}
                 >
-                  Salvar Alterações
+                  Confirmar Atualização
                 </Button>
               </div>
             </div>

@@ -8,24 +8,35 @@ export function ExecDashboard() {
   const { tickets, categories } = useAppContext();
 
   const total = tickets.length;
-  const resolved = tickets.filter(t => t.status === 'resolved' || t.status === 'closed').length;
-  const delayed = 1; // Mocked
+  const resolved = tickets.filter(t => ['resolved', 'closed'].includes(t.status)).length;
+  
+  // Real Delayed Logic: Tickets older than 7 days and NOT resolved/closed
+  const delayed = tickets.filter(t => {
+    const createdDate = new Date(t.createdAt).getTime();
+    const isOld = (Date.now() - createdDate) > (7 * 24 * 60 * 60 * 1000); 
+    return isOld && !['resolved', 'closed', 'rejected', 'duplicated'].includes(t.status);
+  }).length;
   
   const resolutionRate = total > 0 ? Math.round((resolved / total) * 100) : 0;
 
-  // Mock trend data
-  const trendData = [
-    { name: 'Jan', value: 40 },
-    { name: 'Fev', value: 30 },
-    { name: 'Mar', value: 45 },
-    { name: 'Abr', value: 50 },
-    { name: 'Mai', value: total },
-  ];
+  // Calculate real trend data for last 6 months
+  const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+  const now = new Date();
+  
+  const trendData = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+    const monthName = months[d.getMonth()];
+    const count = tickets.filter(t => {
+      const tDate = new Date(t.createdAt);
+      return tDate.getMonth() === d.getMonth() && tDate.getFullYear() === d.getFullYear();
+    }).length;
+    return { name: monthName, value: count };
+  });
 
-  const catData = categories.slice(0, 5).map(cat => ({
+  const catData = categories.map(cat => ({
     name: cat.name,
-    value: tickets.filter(t => t.categoryId === cat.id).length || Math.floor(Math.random()*(10)+1)
-  })).sort((a,b) => b.value - a.value);
+    value: tickets.filter(t => t.categoryId === cat.id).length
+  })).sort((a,b) => b.value - a.value).slice(0, 5);
 
   return (
     <div className="space-y-8 pb-8">

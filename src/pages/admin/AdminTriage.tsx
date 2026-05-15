@@ -70,10 +70,53 @@ export function AdminTriage() {
                 </div>
               </CardContent>
               <CardFooter className="bg-slate-50 border-t border-slate-100 pt-4 flex flex-wrap gap-2 justify-end">
-                 <Button variant="ghost" size="sm" className="text-slate-500" onClick={() => setSelectedTicket(ticket)}>Mais Detalhes</Button>
-                 <Button variant="outline" size="sm" icon={X} className="text-red-600 hover:bg-red-50 hover:text-red-700 focus:ring-red-500">Indeferir</Button>
-                 <Button variant="outline" size="sm" icon={AlertCircle}>Duplicado</Button>
-                 <Button size="sm" icon={ArrowRight} onClick={() => updateTicketStatus(ticket.id, 'forwarded')}>Encaminhar Sec.</Button>
+                 <Button variant="ghost" size="sm" className="text-slate-500" onClick={() => setSelectedTicket(ticket)}>Analisar Detalhes</Button>
+                 
+                 <Button 
+                   variant="outline" 
+                   size="sm" 
+                   icon={X} 
+                   className="text-red-600 hover:bg-red-50"
+                   onClick={async () => {
+                     if (confirm('Deseja indeferir este chamado?')) {
+                       await updateTicketStatus(ticket.id, 'rejected');
+                     }
+                   }}
+                 >
+                   Indeferir
+                 </Button>
+
+                 <Button 
+                   variant="outline" 
+                   size="sm" 
+                   icon={AlertCircle}
+                   onClick={async () => {
+                     const comment = prompt('Insira o protocolo do chamado original (duplicado):');
+                     if (comment) {
+                       await updateTicketStatus(ticket.id, 'duplicated');
+                       await supabase.from('ticket_history').insert({
+                         ticketId: ticket.id,
+                         userId: (await supabase.auth.getUser()).data.user?.id,
+                         action: 'Marcado como duplicado',
+                         newStatus: 'duplicated',
+                         comment: `Original: ${comment}`
+                       });
+                     }
+                   }}
+                 >
+                   Duplicado
+                 </Button>
+
+                 <Button 
+                   size="sm" 
+                   icon={ArrowRight} 
+                   className="bg-[#1E3A8A]"
+                   onClick={async () => {
+                     await updateTicketStatus(ticket.id, 'forwarded');
+                   }}
+                 >
+                   Encaminhar Sec.
+                 </Button>
               </CardFooter>
             </Card>
           );

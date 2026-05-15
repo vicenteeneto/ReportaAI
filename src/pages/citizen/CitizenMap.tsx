@@ -67,7 +67,7 @@ export function CitizenMap() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-[60px])] md:h-screen bg-slate-900 relative overflow-hidden font-sans">
+      <div className="flex flex-col h-full bg-slate-900 relative overflow-hidden font-sans">
         <MapContainer center={[-16.4672, -54.6383]} zoom={13} className="absolute inset-0 z-0" zoomControl={false}>
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'

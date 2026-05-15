@@ -4,7 +4,7 @@ import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input, Textarea, Select } from '../../components/ui/Input';
 import { useAppContext } from '../../context/AppContext';
-import { Camera, MapPin, CheckCircle2, ArrowLeft, Loader2 } from 'lucide-react';
+import { Camera, MapPin, CheckCircle2, ArrowLeft, Loader2, Upload } from 'lucide-react';
 import { Ticket } from '../../data/types';
 import { supabase } from '../../lib/supabase';
 
@@ -66,7 +66,12 @@ export function CitizenNewTicket() {
         }
       }
 
-      const generatedProtocol = `RD-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
+      // Sequential Protocol Fallback Logic (Count + 1)
+      let nextNum = 1;
+      const { count } = await supabase.from('tickets').select('*', { count: 'exact', head: true });
+      if (count !== null) nextNum = count + 1;
+      
+      const generatedProtocol = `RD-${new Date().getFullYear()}-${String(nextNum).padStart(6, '0')}`;
       
       const newTicket: Ticket = {
         id: crypto.randomUUID(),
@@ -227,19 +232,31 @@ export function CitizenNewTicket() {
             <div className="space-y-1.5">
               <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Registro Fotográfico Físico (Opcional)</label>
               {!formData.photoUrl ? (
-                <label className="border border-dashed border-slate-300 rounded bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer text-slate-500 h-28 flex flex-col items-center justify-center relative overflow-hidden group">
-                  <input type="file" accept="image/*" className="hidden" onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      setPhotoFile(file);
-                      setFormData({...formData, photoUrl: URL.createObjectURL(file)});
-                    }
-                  }} />
-                  <div className="flex flex-col items-center group-hover:scale-105 transition-transform">
-                    <Camera className="w-6 h-6 mb-1 text-slate-400 group-hover:text-blue-500 transition-colors" />
-                    <span className="text-[10px] font-bold uppercase tracking-wider group-hover:text-blue-600 transition-colors text-slate-500">Adicionar Foto</span>
-                  </div>
-                </label>
+                <div className="grid grid-cols-2 gap-3 h-28">
+                  <label className="border border-dashed border-slate-300 rounded bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer text-slate-500 flex flex-col items-center justify-center relative overflow-hidden group">
+                    <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setPhotoFile(file);
+                        setFormData({...formData, photoUrl: URL.createObjectURL(file)});
+                      }
+                    }} />
+                    <Camera className="w-5 h-5 mb-1 text-slate-400 group-hover:text-blue-500 transition-colors" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider group-hover:text-blue-600 transition-colors text-slate-500">Abrir Câmera</span>
+                  </label>
+                  
+                  <label className="border border-dashed border-slate-300 rounded bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer text-slate-500 flex flex-col items-center justify-center relative overflow-hidden group">
+                    <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setPhotoFile(file);
+                        setFormData({...formData, photoUrl: URL.createObjectURL(file)});
+                      }
+                    }} />
+                    <Upload className="w-5 h-5 mb-1 text-slate-400 group-hover:text-blue-500 transition-colors" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider group-hover:text-blue-600 transition-colors text-slate-500">Galeria / Fotos</span>
+                  </label>
+                </div>
               ) : (
                 <div className="relative h-40 rounded overflow-hidden border border-slate-200">
                   <img src={formData.photoUrl} alt="Preview" className="w-full h-full object-cover" />

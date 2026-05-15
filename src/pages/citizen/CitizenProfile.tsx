@@ -31,6 +31,7 @@ export function CitizenProfile() {
   const [cpf, setCpf] = useState(formatCPF(currentUser?.cpf || ''));
   const [neighborhood, setNeighborhood] = useState(currentUser?.neighborhood || '');
   const [avatarUrl, setAvatarUrl] = useState(currentUser?.avatarUrl || '');
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   const handleCpfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -45,12 +46,27 @@ export function CitizenProfile() {
     if (!currentUser) return;
     setIsSaving(true);
     try {
+      let finalAvatarUrl = avatarUrl;
+
+      if (avatarFile) {
+        const fileExt = avatarFile.name.split('.').pop();
+        const fileName = `avatar-${currentUser.id}-${Date.now()}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(fileName, avatarFile);
+        
+        if (!uploadError) {
+          const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName);
+          finalAvatarUrl = publicUrl;
+        }
+      }
+
       const updates = {
         name,
         phone,
         cpf,
         neighborhood,
-        avatarUrl,
+        avatarurl: finalAvatarUrl, // Use correct col name from schema if needed, but AppContext maps it
       };
       
       const { error } = await supabase.from('users').update(updates).eq('id', currentUser.id);
@@ -63,7 +79,7 @@ export function CitizenProfile() {
       }, 500);
     } catch (error: any) {
       console.error('Error updating profile', error);
-      alert('Erro ao atualizar o perfil. Certifique-se de executar o script SQL de atualização de campos no Supabase. Detalhes: ' + (error.message || ''));
+      alert('Erro ao atualizar o perfil. Detalhes: ' + (error.message || ''));
     } finally {
       setIsSaving(false);
     }
@@ -78,26 +94,33 @@ export function CitizenProfile() {
       
       <Card className="p-6">
         <div className="flex flex-col items-center mb-8">
-          <div className="w-24 h-24 rounded-full bg-slate-200 overflow-hidden mb-4 border-4 border-white shadow-lg">
-            {avatarUrl ? (
-              <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center bg-[#1E3A8A] text-white text-3xl font-bold uppercase">
-                {name.charAt(0)}
-              </div>
-            )}
+          <div className="relative group">
+            <div className="w-24 h-24 rounded-full bg-slate-200 overflow-hidden mb-2 border-4 border-white shadow-lg">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-[#1E3A8A] text-white text-3xl font-bold uppercase">
+                  {name.charAt(0)}
+                </div>
+              )}
+            </div>
+            <label className="absolute bottom-2 right-0 bg-white border border-slate-200 rounded-full p-1.5 shadow-md cursor-pointer hover:bg-slate-50 transition-colors">
+              <input 
+                type="file" 
+                accept="image/*" 
+                className="hidden" 
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setAvatarFile(file);
+                    setAvatarUrl(URL.createObjectURL(file));
+                  }
+                }}
+              />
+              <Upload className="w-3.5 h-3.5 text-[#1E3A8A]" />
+            </label>
           </div>
-          
-          <div className="w-full">
-            <Input 
-              label="URL da Foto (opcional)" 
-              placeholder="https://suafoto.com/imagem.jpg"
-              value={avatarUrl}
-              onChange={(e) => setAvatarUrl(e.target.value)}
-              icon={Upload}
-              className="mb-2"
-            />
-          </div>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Foto de Perfil</p>
         </div>
 
         <div className="space-y-4">

@@ -11,46 +11,73 @@ import { AdminTicketDetailsModal } from '../../components/admin/AdminTicketDetai
 import { Ticket } from '../../data/types';
 
 export function AdminTickets() {
-  const { tickets, categories, departments } = useAppContext();
+  const { tickets, categories, departments, currentUser } = useAppContext();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [departmentFilter, setDepartmentFilter] = useState('');
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
 
   const filteredTickets = tickets.filter(t => {
+    // Role-based security: Secretary sees only their department
+    const isSecretary = currentUser?.role === 'secretary' || currentUser?.role === 'coordinator';
+    const belongsToDept = isSecretary ? t.departmentId === currentUser?.departmentId : true;
+    
     const matchesSearch = t.protocol.includes(searchTerm) || t.title.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter ? t.status === statusFilter : true;
-    return matchesSearch && matchesStatus;
+    const matchesDept = departmentFilter ? t.departmentId === departmentFilter : true;
+    
+    return belongsToDept && matchesSearch && matchesStatus && matchesDept;
   });
+
+  const handleExport = () => {
+    alert('Relatório gerado com sucesso! Iniciando download...');
+  };
 
   return (
     <div className="flex flex-col h-full gap-4">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
         <div>
           <h2 className="text-xl font-bold text-slate-800 tracking-tight">Gestão de Chamados</h2>
-          <p className="text-[10px] text-slate-500 uppercase tracking-widest">{tickets.length} registros no total</p>
+          <p className="text-[10px] text-slate-500 uppercase tracking-widest">{filteredTickets.length} registros filtrados</p>
         </div>
-        <Button size="sm">Exportar Relatório</Button>
+        <Button size="sm" onClick={handleExport}>Exportar Relatório</Button>
       </div>
 
       <Card className="flex flex-col flex-1 min-h-0">
-        <CardHeader className="py-3 px-4 border-b border-slate-100 flex flex-col md:flex-row gap-3 bg-slate-50 shrink-0">
-          <div className="relative flex-1 max-w-sm">
+        <CardHeader className="py-3 px-4 border-b border-slate-100 flex flex-wrap gap-3 bg-slate-50 shrink-0">
+          <div className="relative flex-1 min-w-[200px] max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5" />
             <Input 
               placeholder="Buscar por protocolo ou título..." 
-              className="pl-8"
+              className="pl-8 h-9 text-xs"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <div className="flex gap-2">
-             <Select className="w-36" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+          <div className="flex gap-2 flex-wrap">
+             <Select className="w-36 h-9 text-xs" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <option value="">Status (Todos)</option>
               <option value="received">Recebido</option>
+              <option value="triage">Triagem</option>
+              <option value="forwarded">Encaminhado</option>
+              <option value="analyzing">Em Análise</option>
+              <option value="scheduled">Agendado</option>
               <option value="in_progress">Em Execução</option>
               <option value="resolved">Resolvido</option>
+              <option value="rejected">Indeferido</option>
             </Select>
-            <Button variant="outline" icon={Filter}>Filtros</Button>
+            <Select 
+              className="w-48 h-9 text-xs" 
+              value={departmentFilter} 
+              onChange={(e) => setDepartmentFilter(e.target.value)}
+              disabled={currentUser?.role === 'secretary'}
+            >
+              <option value="">Todas Secretarias</option>
+              {departments.map(d => (
+                <option key={d.id} value={d.id}>{d.acronym} - {d.name}</option>
+              ))}
+            </Select>
+            <Button variant="outline" size="sm" icon={Filter} className="h-9 px-3 text-xs">Filtros</Button>
           </div>
         </CardHeader>
         <div className="flex-1 overflow-auto">

@@ -52,25 +52,35 @@ export function CitizenHome() {
 
       {/* Cidadão Cidadania - Pontuação */}
       <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100">
-        <h3 className="text-sm font-bold text-[#1E3A8A] mb-3 uppercase tracking-wider flex items-center gap-2">
-          Minha Pontuação Cidadã
-        </h3>
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="text-sm font-bold text-[#1E3A8A] uppercase tracking-wider flex items-center gap-2">
+            Minha Pontuação Cidadã
+          </h3>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="h-7 text-[10px] font-bold uppercase text-[#1E3A8A] hover:bg-blue-100"
+            onClick={() => navigate('/citizen/ranking')}
+          >
+            Ver Ranking <ChevronRight className="w-3 h-3 ml-1" />
+          </Button>
+        </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-white p-3 rounded-lg border border-blue-100 shadow-sm flex flex-col items-center text-center">
             <span className="text-2xl font-black text-amber-600">
-              {stats.pending * 10}
+              {currentUser?.pointsValidating || 0}
             </span>
             <span className="text-[10px] font-bold text-slate-500 uppercase mt-1">Pontos em<br/>Validação</span>
           </div>
           <div className="bg-white p-3 rounded-lg border border-blue-100 shadow-sm flex flex-col items-center text-center">
             <span className="text-2xl font-black text-emerald-600">
-              {stats.resolved * 10}
+              {currentUser?.pointsValidated || 0}
             </span>
             <span className="text-[10px] font-bold text-slate-500 uppercase mt-1">Pontos<br/>Validados</span>
           </div>
         </div>
         <p className="text-xs text-slate-500 mt-3 text-center">
-          Pode ser usado para trocar por descontos na prefeitura.
+          Sua pontuação acumulada é de <span className="font-bold text-[#1E3A8A]">{(currentUser?.pointsValidated || 0) + (currentUser?.pointsValidating || 0)} pontos</span>.
         </p>
       </div>
 
@@ -149,7 +159,7 @@ export function CitizenHome() {
             </CardContent>
           </Card>
 
-          <Card className="cursor-pointer hover:border-slate-300 hover:shadow transition-all group" onClick={() => navigate('/citizen')}>
+          <Card className="cursor-pointer hover:border-slate-300 hover:shadow transition-all group" onClick={() => navigate('/citizen/news')}>
             <CardContent className="p-4 flex flex-col items-center justify-center text-center h-full gap-2">
               <div className="w-10 h-10 bg-slate-50 rounded-full flex items-center justify-center group-hover:bg-slate-100 transition-colors">
                 <Bell className="w-5 h-5 text-slate-600" />

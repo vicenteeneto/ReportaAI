@@ -85,6 +85,19 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       setCategories(mappedCats);
       setTickets(mappedTickets);
       
+      // Calculate points for current user if available
+      if (currentUser) {
+        const userTickets = mappedTickets.filter(t => t.userId === currentUser.id);
+        const validating = userTickets.filter(t => !['resolved', 'closed', 'rejected', 'duplicated'].includes(t.status)).length * 10;
+        const validated = userTickets.filter(t => ['resolved', 'closed'].includes(t.status)).length * 50;
+        
+        setCurrentUser(prev => prev ? {
+          ...prev,
+          pointsValidating: validating,
+          pointsValidated: validated
+        } : null);
+      }
+      
       setLoading(false);
     };
 

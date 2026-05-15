@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { Home, PlusSquare, MapPinned, List, LogOut } from 'lucide-react';
+import { Home, PlusSquare, MapPinned, List, LogOut, Trophy } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
 
 export function CitizenLayout() {
@@ -10,12 +10,13 @@ export function CitizenLayout() {
   const navItems = [
     { label: 'Início', icon: Home, path: '/citizen' },
     { label: 'Novo', icon: PlusSquare, path: '/citizen/new' },
-    { label: 'Chamados', icon: List, path: '/citizen/tickets' },
     { label: 'Mapa', icon: MapPinned, path: '/citizen/map' },
+    { label: 'Ranking', icon: Trophy, path: '/citizen/ranking' },
+    { label: 'Meus', icon: List, path: '/citizen/tickets' },
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+    <div className="h-screen bg-slate-50 flex flex-col font-sans overflow-hidden">
       <header className="h-14 bg-[#1E3A8A] flex items-center justify-between px-4 text-white shrink-0 sticky top-0 z-20">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-white rounded flex items-center justify-center">
