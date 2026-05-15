@@ -37,11 +37,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         supabase.from('tickets').select('*').order('created_at', { ascending: false })
       ]);
       
+      if (ticketsRes.error) {
+        console.error("Error fetching tickets:", ticketsRes.error);
+      }
+
       let deps = depsRes.data || [];
       let cats = catsRes.data || [];
 
       // Auto-seed para não ficar em branco caso o SQL não tenha rodado
-      if (deps.length === 0) {
+      if (deps.length === 0 && !depsRes.error) {
         const defaultDeps = [
           { id: 'dep-infra', name: 'Secretaria Municipal de Infraestrutura', acronym: 'SINFRA', active: true, color: '#eab308' },
           { id: 'dep-saude', name: 'Secretaria Municipal de Saúde', acronym: 'SMS', active: true, color: '#ef4444' },
@@ -52,7 +56,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         try { await supabase.from('departments').insert(defaultDeps); } catch(e) {}
       }
 
-      if (cats.length === 0) {
+      if (cats.length === 0 && !catsRes.error) {
         const defaultCatsDb = [
           { id: 'cat-buraco', name: 'Buraco na rua', iconname: 'AlertTriangle', color: 'bg-orange-500', defaultdepartmentid: 'dep-infra', defaultpriority: 'high' },
           { id: 'cat-iluminacao', name: 'Iluminação pública', iconname: 'Lightbulb', color: 'bg-yellow-500', defaultdepartmentid: 'dep-infra', defaultpriority: 'medium' },

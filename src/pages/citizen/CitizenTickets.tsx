@@ -4,18 +4,19 @@ import { Card, CardContent } from '../../components/ui/Card';
 import { StatusBadge } from '../../components/ui/Badge';
 import { useAppContext } from '../../context/AppContext';
 import { format } from 'date-fns';
-import { ArrowLeft, Database, Filter } from 'lucide-react';
+import { ArrowLeft, Database, Filter, Loader2 } from 'lucide-react';
 import { Ticket } from '../../data/types';
 
 export function CitizenTickets() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { currentUser, tickets, categories, departments } = useAppContext();
+  const { currentUser, tickets, categories, departments, loading } = useAppContext();
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   
   // Read initial filter from location state if available
   const initialFilter = location.state?.filter || 'all';
   const [filter, setFilter] = useState<string>(initialFilter);
+
 
   useEffect(() => {
     if (location.state?.filter) {
@@ -166,51 +167,60 @@ export function CitizenTickets() {
         <h2 className="text-lg font-bold text-slate-900 uppercase tracking-tight">Meus Registros</h2>
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-        {(['all', 'in_progress', 'resolved'] as const).map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`whitespace-nowrap px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-colors ${
-              filter === f 
-                ? 'bg-[#1E3A8A] text-white' 
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            {f === 'all' ? 'Todos' : f === 'in_progress' ? 'Em Andamento' : 'Resolvidos'}
-          </button>
-        ))}
-      </div>
-      
-      {myTickets.length === 0 ? (
-        <div className="text-center py-16 flex flex-col items-center bg-slate-50 border border-slate-200 border-dashed rounded">
-          <Database className="w-10 h-10 text-slate-300 mb-3" />
-          <p className="text-sm font-bold text-slate-700 uppercase tracking-tight">Base vazia</p>
-          <p className="text-[10px] font-medium text-slate-500">Sem ocorrências ativas ou concluídas.</p>
+      {loading ? (
+        <div className="text-center py-20 flex flex-col items-center">
+          <Loader2 className="w-8 h-8 text-[#1E3A8A] animate-spin mb-4" />
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Carregando seus registros...</p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {myTickets.map(ticket => (
-            <Card 
-              key={ticket.id} 
-              className="cursor-pointer hover:border-[#1E3A8A] transition-colors rounded shadow-sm border-slate-200"
-              onClick={() => setSelectedTicket(ticket)}
-            >
-              <CardContent className="px-4 py-4">
-                <div className="flex justify-between items-start mb-1.5">
-                  <span className="text-[10px] font-bold text-[#1E3A8A] tracking-widest uppercase">{ticket.protocol}</span>
-                  <StatusBadge status={ticket.status} />
-                </div>
-                <h3 className="font-bold text-slate-900 text-sm mb-1 tracking-tight">{ticket.title}</h3>
-                <p className="text-xs text-slate-500 truncate mb-3">{ticket.description}</p>
-                <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                  <span>{ticket.neighborhood}</span>
-                  <span className="font-mono">{format(new Date(ticket.createdAt), "dd/MM/yyyy")}</span>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <>
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide mb-2">
+            {(['all', 'in_progress', 'resolved'] as const).map((f) => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`whitespace-nowrap px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                  filter === f 
+                    ? 'bg-[#1E3A8A] text-white' 
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                {f === 'all' ? 'Todos' : f === 'in_progress' ? 'Em Andamento' : 'Resolvidos'}
+              </button>
+            ))}
+          </div>
+
+          {myTickets.length === 0 ? (
+            <div className="text-center py-16 flex flex-col items-center bg-slate-50 border border-slate-200 border-dashed rounded">
+              <Database className="w-10 h-10 text-slate-300 mb-3" />
+              <p className="text-sm font-bold text-slate-700 uppercase tracking-tight">Base vazia</p>
+              <p className="text-[10px] font-medium text-slate-500">Sem ocorrências ativas ou concluídas.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {myTickets.map(ticket => (
+                <Card 
+                  key={ticket.id} 
+                  className="cursor-pointer hover:border-[#1E3A8A] transition-colors rounded shadow-sm border-slate-200"
+                  onClick={() => setSelectedTicket(ticket)}
+                >
+                  <CardContent className="px-4 py-4">
+                    <div className="flex justify-between items-start mb-1.5">
+                      <span className="text-[10px] font-bold text-[#1E3A8A] tracking-widest uppercase">{ticket.protocol}</span>
+                      <StatusBadge status={ticket.status} />
+                    </div>
+                    <h3 className="font-bold text-slate-900 text-sm mb-1 tracking-tight">{ticket.title}</h3>
+                    <p className="text-xs text-slate-500 truncate mb-3">{ticket.description}</p>
+                    <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                      <span>{ticket.neighborhood}</span>
+                      <span className="font-mono">{format(new Date(ticket.createdAt), "dd/MM/yyyy")}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

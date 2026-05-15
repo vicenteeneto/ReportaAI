@@ -11,7 +11,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
       <input
         type={type}
         className={cn(
-          "flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#1E3A8A] focus:border-[#1E3A8A] disabled:cursor-not-allowed disabled:opacity-50 shadow-sm",
+          "flex h-11 sm:h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1.5 text-base sm:text-xs placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#1E3A8A] focus:border-[#1E3A8A] disabled:cursor-not-allowed disabled:opacity-50 shadow-sm transition-all",
           error && "border-red-500 focus:ring-red-500 focus:border-red-500",
           className
         )}
@@ -32,7 +32,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
     return (
       <textarea
         className={cn(
-          "flex min-h-[80px] w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#1E3A8A] focus:border-[#1E3A8A] disabled:cursor-not-allowed disabled:opacity-50 shadow-sm",
+          "flex min-h-[80px] w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-base sm:text-xs placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#1E3A8A] focus:border-[#1E3A8A] disabled:cursor-not-allowed disabled:opacity-50 shadow-sm transition-all",
           error && "border-red-500 focus:ring-red-500 focus:border-red-500",
           className
         )}
@@ -53,7 +53,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     return (
       <select
         className={cn(
-          "flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-[#1E3A8A] focus:border-[#1E3A8A] disabled:cursor-not-allowed disabled:opacity-50 shadow-sm",
+          "flex h-11 sm:h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1.5 text-base sm:text-xs focus:outline-none focus:ring-1 focus:ring-[#1E3A8A] focus:border-[#1E3A8A] disabled:cursor-not-allowed disabled:opacity-50 shadow-sm transition-all",
           error && "border-red-500 focus:ring-red-500 focus:border-red-500",
           className
         )}

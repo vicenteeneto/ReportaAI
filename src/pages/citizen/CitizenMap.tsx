@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import { StatusBadge } from '../../components/ui/Badge';
 import { format } from 'date-fns';
-import { ArrowLeft, MapPin, Filter, X, ChevronUp, ChevronDown } from 'lucide-react';
+import { ArrowLeft, MapPin, Filter, X, ChevronUp, ChevronDown, Loader2 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, useMap, ZoomControl } from 'react-leaflet';
 import L from 'leaflet';
 import { motion, AnimatePresence } from 'motion/react';
@@ -22,11 +22,23 @@ function MapController({ tickets }: { tickets: any[] }) {
 
 export function CitizenMap() {
   const navigate = useNavigate();
-  const { tickets, categories } = useAppContext();
+  const { tickets, categories, loading } = useAppContext();
   const [selectedTicket, setSelectedTicket] = useState<any>(null);
   const [selectedNeighborhood, setSelectedNeighborhood] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+
+
+  if (loading) {
+    return (
+      <div className="flex flex-col h-full bg-slate-50 items-center justify-center p-6 text-center">
+        <Loader2 className="w-10 h-10 text-[#1E3A8A] animate-spin mb-4" />
+        <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest">Mapeando Ocorrências</h3>
+        <p className="text-[10px] text-slate-500 font-medium mt-1">Sincronizando localização e dados...</p>
+      </div>
+    );
+  }
+
 
   const neighborhoods = useMemo(() => {
     const counts: Record<string, number> = {};
