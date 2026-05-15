@@ -29,12 +29,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     let authListener: any;
     
     // Subscribe to database changes (optional depending on needs, but let's implement basic fetch for now)
-    const loadData = async () => {
+    const loadData = async (userProfile?: User) => {
       setLoading(true);
       const [depsRes, catsRes, ticketsRes] = await Promise.all([
         supabase.from('departments').select('*').order('name'),
         supabase.from('categories').select('*').order('name'),
-        supabase.from('tickets').select('*').order('createdAt', { ascending: false })
+        supabase.from('tickets').select('*').order('created_at', { ascending: false })
       ]);
       
       let deps = depsRes.data || [];
@@ -72,30 +72,33 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         defaultPriority: c.defaultPriority || c.defaultpriority || 'low',
       }));
 
-      const mappedTickets = (ticketsRes.data || []).map(t => ({
+      const fetchedTickets = (ticketsRes.data || []).map(t => ({
         ...t,
-        categoryId: t.categoryId || t.categoryid,
-        departmentId: t.departmentId || t.departmentid,
-        photoUrl: t.photoUrl || t.photourl,
-        resolvedPhotoUrl: t.resolvedPhotoUrl || t.resolvedphotourl,
-        userId: t.userId || t.userid,
+        categoryId: t.categoryid || t.categoryId,
+        departmentId: t.departmentid || t.departmentId,
+        photoUrl: t.photourl || t.photoUrl,
+        resolvedPhotoUrl: t.resolvedphotourl || t.resolvedPhotoUrl,
+        userId: t.userid || t.userId,
+        createdAt: new Date(t.created_at || t.createdAt || Date.now()).getTime(),
+        updatedAt: new Date(t.updated_at || t.updatedAt || Date.now()).getTime(),
       }));
 
       setDepartments(deps);
       setCategories(mappedCats);
-      setTickets(mappedTickets);
+      setTickets(fetchedTickets);
       
       // Calculate points for current user if available
-      if (currentUser) {
-        const userTickets = mappedTickets.filter(t => t.userId === currentUser.id);
+      const activeUser = userProfile || currentUser;
+      if (activeUser) {
+        const userTickets = fetchedTickets.filter(t => t.userId === activeUser.id);
         const validating = userTickets.filter(t => !['resolved', 'closed', 'rejected', 'duplicated'].includes(t.status)).length * 10;
         const validated = userTickets.filter(t => ['resolved', 'closed'].includes(t.status)).length * 50;
         
-        setCurrentUser(prev => prev ? {
-          ...prev,
+        setCurrentUser({
+          ...activeUser,
           pointsValidating: validating,
           pointsValidated: validated
-        } : null);
+        });
       }
       
       setLoading(false);
@@ -112,10 +115,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             name: data.name,
             email: data.email,
             role: data.role as any,
-            avatarUrl: data.avatarUrl || data.avatarurl,
-            departmentId: data.departmentId || data.departmentid
+            avatarUrl: data.avatarurl || data.avatarUrl || null,
+            departmentId: data.departmentid || data.departmentId || null
           };
-          setCurrentUser(mappedUser);
+          return mappedUser;
         } else {
           // In case user hasn't synced to users table, fetch profile email
            const { data: authData } = await supabase.auth.getUser();
@@ -133,22 +136,32 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
              };
              const { error: insErr } = await supabase.from('users').upsert(newUser);
              if (insErr) console.error("Error creating user", insErr);
-             setCurrentUser(newUser as any);
+             
+             return {
+               ...newUser,
+               avatarUrl: newUser.avatarurl,
+               role: newUser.role as any
+             } as User;
            }
         }
+        return null;
       };
 
       if (session) {
-        await fetchUserProfile(session.user.id);
-        loadData();
+        const profile = await fetchUserProfile(session.user.id);
+        if (profile) {
+          await loadData(profile);
+        } else {
+          setLoading(false);
+        }
       } else {
         setLoading(false);
       }
 
       const { data: authSubscription } = supabase.auth.onAuthStateChange(async (event, session) => {
         if (session) {
-          await fetchUserProfile(session.user.id);
-          loadData();
+          const profile = await fetchUserProfile(session.user.id);
+          if (profile) await loadData(profile);
         } else {
           setCurrentUser(null);
           setTickets([]);
@@ -213,9 +226,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const insertPayload: any = {
       id: t.id,
       protocol: t.protocol,
-      userId: t.userId,
-      categoryId: t.categoryId,
-      departmentId: t.departmentId,
+      userid: t.userId,
+      categoryid: t.categoryId,
+      departmentid: t.departmentId,
       title: t.title,
       description: t.description,
       status: t.status,
@@ -224,11 +237,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       longitude: t.longitude,
       address: t.address,
       neighborhood: t.neighborhood,
-      photoUrl: t.photoUrl,
+      photourl: t.photoUrl,
     };
-
-    // If createdAt is provided as number, let's not pass it and let DB defaults take over 
-    // or convert if needed. The schema has defaults.
 
     const { error, data } = await supabase.from('tickets').insert(insertPayload).select().single();
 
@@ -237,12 +247,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       throw error;
     }
 
-    // Refresh tickets locally
     const savedTicket = data ? { 
       ...t, 
       id: data.id, 
-      userId: data.userId,
-      createdAt: new Date(data.createdAt || Date.now()).getTime() 
+      userId: data.userid,
+      createdAt: new Date(data.created_at || Date.now()).getTime() 
     } : { ...t, createdAt: Date.now() };
 
     setTickets(prev => [savedTicket, ...prev]);
@@ -253,10 +262,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     if (!error) {
        setTickets(prev => prev.map(t => t.id === id ? { ...t, status } : t));
        await supabase.from('ticket_history').insert({
-          ticketId: id,
-          userId: currentUser?.id,
+          ticketid: id,
+          userid: currentUser?.id,
           action: `Status alterado para ${status}`,
-          newStatus: status
+          newstatus: status
        });
     } else {
       console.error('Error updating ticket:', error);

@@ -66,7 +66,8 @@ export function CitizenProfile() {
         phone,
         cpf,
         neighborhood,
-        avatarurl: finalAvatarUrl, // Use correct col name from schema if needed, but AppContext maps it
+        avatarurl: finalAvatarUrl,
+        departmentid: currentUser.departmentId || currentUser.departmentid
       };
       
       const { error } = await supabase.from('users').update(updates).eq('id', currentUser.id);
