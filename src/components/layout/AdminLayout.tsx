@@ -7,16 +7,17 @@ export function AdminLayout() {
   const { currentUser, logout } = useAppContext();
 
   const navItems = [
-    { label: 'Dashboard', icon: LayoutDashboard, path: '/admin/dashboard', showFor: ['admin', 'mayor', 'secretary', 'coordinator'] },
-    { label: 'Mapa Georreferenciado', icon: MapPinned, path: '/admin/map', showFor: ['admin', 'mayor', 'secretary', 'coordinator', 'triage'] },
-    { label: 'Gestão de Chamados', icon: ListTodo, path: '/admin/tickets', showFor: ['admin', 'secretary', 'coordinator', 'triage', 'field'] },
-    { label: 'Triagem', icon: Filter, path: '/admin/triage', showFor: ['admin', 'triage'] },
-    { label: 'Painel Executivo', icon: Briefcase, path: '/admin/executive', showFor: ['mayor', 'admin'] },
+    { label: 'Dashboard', icon: LayoutDashboard, path: '/admin/dashboard', showFor: ['admin', 'mayor', 'secretary', 'coordinator', 'superadmin'] },
+    { label: 'Mapa Georreferenciado', icon: MapPinned, path: '/admin/map', showFor: ['admin', 'mayor', 'secretary', 'coordinator', 'triage', 'superadmin'] },
+    { label: 'Gestão de Chamados', icon: ListTodo, path: '/admin/tickets', showFor: ['admin', 'secretary', 'coordinator', 'triage', 'field', 'superadmin'] },
+    { label: 'Triagem', icon: Filter, path: '/admin/triage', showFor: ['admin', 'triage', 'superadmin'] },
+    { label: 'Painel Executivo', icon: Briefcase, path: '/admin/executive', showFor: ['mayor', 'admin', 'superadmin'] },
   ];
 
   const manageItems = [
-    { label: 'Secretarias', path: '/admin/settings', showFor: ['admin'] },
-    { label: 'Relatórios PDF', path: '/admin/reports', showFor: ['admin', 'mayor', 'secretary', 'coordinator'] },
+    { label: 'KNG Flow (Super)', path: '/admin/system', showFor: ['superadmin'] },
+    { label: 'Secretarias', path: '/admin/settings', showFor: ['admin', 'superadmin'] },
+    { label: 'Relatórios PDF', path: '/admin/reports', showFor: ['admin', 'mayor', 'secretary', 'coordinator', 'superadmin'] },
     { label: 'Usuários', path: '#', showFor: ['admin'] },
   ];
 
@@ -43,7 +44,7 @@ export function AdminLayout() {
               <p className="text-xs font-semibold">{currentUser?.name}</p>
               <p className="text-[10px] opacity-70 italic">Logado como {currentUser?.role}</p>
             </div>
-            <button onClick={async () => { await logout(); }} className="w-8 h-8 rounded-full bg-slate-300 flex items-center justify-center text-[#1E3A8A] hover:bg-white transition-colors" title="Sair">
+            <button onClick={logout} className="w-8 h-8 rounded-full bg-slate-300 flex items-center justify-center text-[#1E3A8A] hover:bg-white transition-colors" title="Sair">
               <LogOut className="w-4 h-4" />
             </button>
           </div>

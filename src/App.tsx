@@ -18,6 +18,7 @@ import { AdminTickets } from './pages/admin/AdminTickets';
 import { AdminTriage } from './pages/admin/AdminTriage';
 import { AdminMap } from './pages/admin/AdminMap';
 import { AdminSettings } from './pages/admin/AdminSettings';
+import { SystemSettings } from './pages/admin/SystemSettings';
 import { AdminSetup } from './pages/AdminSetup';
 
 // Placeholder for reports
@@ -39,6 +40,9 @@ const AppRoutes = () => {
   // Determine the default dashboard route based on user role
   const getDashboardRoute = () => {
     if (!currentUser) return '/login';
+    if (currentUser.role === 'superadmin') {
+      return '/admin/system';
+    }
     if (currentUser.role === 'admin' || currentUser.role === 'coordinator' || currentUser.role === 'mayor' || currentUser.role === 'secretary') {
       return '/admin/dashboard';
     }
@@ -75,6 +79,7 @@ const AppRoutes = () => {
         <Route path="map" element={<AdminMap />} />
         <Route path="reports" element={<AdminReports />} />
         <Route path="settings" element={<AdminSettings />} />
+        <Route path="system" element={<SystemSettings />} />
       </Route>
     </Routes>
   );

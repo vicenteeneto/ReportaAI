@@ -36,7 +36,7 @@ export function CitizenLayout() {
                 <span className="text-sm font-bold uppercase">{currentUser.name.charAt(0)}</span>
               )}
             </Link>
-            <button onClick={async () => { await logout(); }} className="p-2 rounded bg-white/10 hover:bg-white/20 transition-colors text-white" title="Sair">
+            <button onClick={logout} className="p-2 rounded bg-white/10 hover:bg-white/20 transition-colors text-white" title="Sair">
               <LogOut className="w-4 h-4" />
             </button>
           </div>

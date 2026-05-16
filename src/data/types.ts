@@ -1,4 +1,4 @@
-export type Role = 'citizen' | 'admin' | 'mayor' | 'secretary' | 'coordinator' | 'triage' | 'field';
+export type Role = 'superadmin' | 'citizen' | 'admin' | 'mayor' | 'secretary' | 'coordinator' | 'triage' | 'field';
 
 export interface User {
   id: string;

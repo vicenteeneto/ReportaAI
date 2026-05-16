@@ -245,10 +245,17 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
-    setTimeout(() => {
-      window.location.href = '/login';
-    }, 100);
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.error('Logout error:', e);
+    }
+    // Força limpeza de estado imediata:
+    setCurrentUser(null);
+    setTickets([]);
+    setDepartments([]);
+    setCategories([]);
+    window.location.href = '/login';
   };
 
   const addTicket = async (t: Ticket) => {
