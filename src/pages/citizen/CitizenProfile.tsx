@@ -61,14 +61,16 @@ export function CitizenProfile() {
         }
       }
 
-      const updates = {
+      const updates: any = {
         name,
         phone,
         cpf,
         neighborhood,
-        avatarurl: finalAvatarUrl,
-        departmentid: currentUser.departmentId || currentUser.departmentid
       };
+
+      if (finalAvatarUrl !== currentUser.avatarUrl) {
+        updates.avatarUrl = finalAvatarUrl;
+      }
       
       const { error } = await supabase.from('users').update(updates).eq('id', currentUser.id);
       
