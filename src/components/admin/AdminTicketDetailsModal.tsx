@@ -52,7 +52,7 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
       await supabase.from('tickets').update({ 
         status: newStatus,
         resolvedPhotoUrl: resolvedPhotoUrl,
-        updatedAt: new Date().toISOString()
+        updatedAt: Date.now()
       }).eq('id', ticket.id);
 
       await supabase.from('ticket_history').insert({
@@ -60,7 +60,8 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
         userId: (await supabase.auth.getUser()).data.user?.id,
         action: `Status alterado para ${newStatus}`,
         newStatus: newStatus,
-        comment: resolutionComment
+        comment: resolutionComment,
+        createdAt: Date.now()
       });
 
       // Update global context if needed - simplified reload for now or just close

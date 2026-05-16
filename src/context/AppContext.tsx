@@ -34,12 +34,16 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       const [depsRes, catsRes, ticketsRes] = await Promise.all([
         supabase.from('departments').select('*').order('name'),
         supabase.from('categories').select('*').order('name'),
-        supabase.from('tickets').select('*').order('created_at', { ascending: false })
+        supabase.from('tickets').select('*')
       ]);
       
-      if (ticketsRes.error) {
-        console.error("Error fetching tickets:", ticketsRes.error);
-      }
+      const allTickets = ticketsRes.data || [];
+      // Sort manually or try to find existing column
+      const sortedTickets = allTickets.sort((a, b) => {
+        const dateA = a.createdAt || a.created_at || a.createdat || 0;
+        const dateB = b.createdAt || b.created_at || b.createdat || 0;
+        return new Date(dateB).getTime() - new Date(dateA).getTime();
+      });
 
       let deps = depsRes.data || [];
       let cats = catsRes.data || [];
@@ -71,21 +75,21 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       // Handle raw cases from DB due to postgres unquoted columns
       const mappedCats = cats.map(c => ({
         ...c,
-        iconName: c.icon_name || c.iconName || c.iconname || 'HelpCircle',
-        defaultDepartmentId: c.default_department_id || c.defaultDepartmentId || c.defaultdepartmentid,
-        defaultPriority: c.default_priority || c.defaultPriority || c.defaultpriority || 'low',
+        iconName: c.iconName || c.icon_name || c.iconname || 'HelpCircle',
+        defaultDepartmentId: c.defaultDepartmentId || c.default_department_id || c.defaultdepartmentid,
+        defaultPriority: c.defaultPriority || c.default_priority || c.defaultpriority || 'low',
       }));
 
-      const fetchedTickets = (ticketsRes.data || []).map(t => {
+      const fetchedTickets = sortedTickets.map(t => {
         const mappedTicket = {
           ...t,
-          categoryId: t.categoryid || t.categoryId || t.category_id,
-          departmentId: t.departmentid || t.departmentId || t.department_id,
-          photoUrl: t.photourl || t.photoUrl || t.photo_url,
-          resolvedPhotoUrl: t.resolvedphotourl || t.resolvedPhotoUrl || t.resolved_photo_url,
-          userId: t.userid || t.userId || t.user_id,
-          createdAt: new Date(t.created_at || t.createdAt || Date.now()).getTime(),
-          updatedAt: new Date(t.updated_at || t.updatedAt || Date.now()).getTime(),
+          categoryId: t.categoryId || t.categoryid || t.category_id,
+          departmentId: t.departmentId || t.departmentid || t.department_id,
+          photoUrl: t.photoUrl || t.photourl || t.photo_url,
+          resolvedPhotoUrl: t.resolvedPhotoUrl || t.resolvedphotourl || t.resolved_photo_url,
+          userId: t.userId || t.userid || t.user_id,
+          createdAt: new Date(t.createdAt || t.created_at || t.createdat || Date.now()).getTime(),
+          updatedAt: new Date(t.updatedAt || t.updated_at || t.updatedat || Date.now()).getTime(),
         };
         return mappedTicket;
       });
@@ -242,9 +246,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const insertPayload: any = {
       id: t.id,
       protocol: t.protocol,
-      user_id: t.userId,
-      category_id: t.categoryId,
-      department_id: t.departmentId,
+      userId: t.userId,
+      categoryId: t.categoryId,
+      departmentId: t.departmentId,
       title: t.title,
       description: t.description,
       status: t.status,
@@ -253,7 +257,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       longitude: t.longitude,
       address: t.address,
       neighborhood: t.neighborhood,
-      photo_url: t.photoUrl,
+      photoUrl: t.photoUrl,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
     };
 
     const { error, data } = await supabase.from('tickets').insert(insertPayload).select().single();
@@ -266,8 +272,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const savedTicket = data ? { 
       ...t, 
       id: data.id, 
-      userId: data.user_id || data.userId || data.userid,
-      createdAt: new Date(data.created_at || Date.now()).getTime() 
+      userId: data.userId || data.user_id || data.userid,
+      createdAt: new Date(data.createdAt || data.created_at || Date.now()).getTime() 
     } : { ...t, createdAt: Date.now() };
 
     setTickets(prev => [savedTicket, ...prev]);
@@ -278,10 +284,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     if (!error) {
        setTickets(prev => prev.map(t => t.id === id ? { ...t, status } : t));
        await supabase.from('ticket_history').insert({
-          ticket_id: id,
-          user_id: currentUser?.id,
+          ticketId: id,
+          userId: currentUser?.id,
           action: `Status alterado para ${status}`,
-          new_status: status
+          newStatus: status
        });
     } else {
       console.error('Error updating ticket:', error);
