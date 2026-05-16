@@ -58,11 +58,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
       if (cats.length === 0 && !catsRes.error) {
         const defaultCatsDb = [
-          { id: 'cat-buraco', name: 'Buraco na rua', iconname: 'AlertTriangle', color: 'bg-orange-500', defaultdepartmentid: 'dep-infra', defaultpriority: 'high' },
-          { id: 'cat-iluminacao', name: 'Iluminação pública', iconname: 'Lightbulb', color: 'bg-yellow-500', defaultdepartmentid: 'dep-infra', defaultpriority: 'medium' },
-          { id: 'cat-lixo', name: 'Lixo ou entulho', iconname: 'Trash2', color: 'bg-amber-700', defaultdepartmentid: 'dep-infra', defaultpriority: 'medium' },
-          { id: 'cat-mato', name: 'Mato alto', iconname: 'Leaf', color: 'bg-green-500', defaultdepartmentid: 'dep-meio', defaultpriority: 'low' },
-          { id: 'cat-arvore', name: 'Risco Ambiental / Árvore', iconname: 'TreePine', color: 'bg-emerald-700', defaultdepartmentid: 'dep-meio', defaultpriority: 'high' }
+          { id: 'cat-buraco', name: 'Buraco na rua', icon_name: 'AlertTriangle', color: 'bg-orange-500', default_department_id: 'dep-infra', default_priority: 'high' },
+          { id: 'cat-iluminacao', name: 'Iluminação pública', icon_name: 'Lightbulb', color: 'bg-yellow-500', default_department_id: 'dep-infra', default_priority: 'medium' },
+          { id: 'cat-lixo', name: 'Lixo ou entulho', icon_name: 'Trash2', color: 'bg-amber-700', default_department_id: 'dep-infra', default_priority: 'medium' },
+          { id: 'cat-mato', name: 'Mato alto', icon_name: 'Leaf', color: 'bg-green-500', default_department_id: 'dep-meio', default_priority: 'low' },
+          { id: 'cat-arvore', name: 'Risco Ambiental / Árvore', icon_name: 'TreePine', color: 'bg-emerald-700', default_department_id: 'dep-meio', default_priority: 'high' }
         ];
         cats = defaultCatsDb;
         try { await supabase.from('categories').insert(defaultCatsDb); } catch(e) { console.error('Failed to seed categories', e); }
@@ -71,9 +71,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       // Handle raw cases from DB due to postgres unquoted columns
       const mappedCats = cats.map(c => ({
         ...c,
-        iconName: c.iconName || c.iconname || 'HelpCircle',
-        defaultDepartmentId: c.defaultDepartmentId || c.defaultdepartmentid,
-        defaultPriority: c.defaultPriority || c.defaultpriority || 'low',
+        iconName: c.icon_name || c.iconName || c.iconname || 'HelpCircle',
+        defaultDepartmentId: c.default_department_id || c.defaultDepartmentId || c.defaultdepartmentid,
+        defaultPriority: c.default_priority || c.defaultPriority || c.defaultpriority || 'low',
       }));
 
       const fetchedTickets = (ticketsRes.data || []).map(t => {
@@ -131,8 +131,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             name: data.name,
             email: data.email,
             role: data.role as any,
-            avatarUrl: data.avatarurl || data.avatarUrl || null,
-            departmentId: data.departmentid || data.departmentId || null
+            avatarUrl: data.avatar_url || data.avatarurl || data.avatarUrl || null,
+            departmentId: data.department_id || data.departmentid || data.departmentId || null
           };
           return mappedUser;
         } else {
@@ -148,14 +148,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
                name: name,
                email: authData.user.email || '',
                role: 'citizen',
-               avatarurl: avatarUrl
+               avatar_url: avatarUrl
              };
              const { error: insErr } = await supabase.from('users').upsert(newUser);
              if (insErr) console.error("Error creating user", insErr);
              
              return {
                ...newUser,
-               avatarUrl: newUser.avatarurl,
+               avatarUrl: newUser.avatar_url,
                role: newUser.role as any
              } as User;
            }
@@ -242,9 +242,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const insertPayload: any = {
       id: t.id,
       protocol: t.protocol,
-      userid: t.userId,
-      categoryid: t.categoryId,
-      departmentid: t.departmentId,
+      user_id: t.userId,
+      category_id: t.categoryId,
+      department_id: t.departmentId,
       title: t.title,
       description: t.description,
       status: t.status,
@@ -253,7 +253,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       longitude: t.longitude,
       address: t.address,
       neighborhood: t.neighborhood,
-      photourl: t.photoUrl,
+      photo_url: t.photoUrl,
     };
 
     const { error, data } = await supabase.from('tickets').insert(insertPayload).select().single();
@@ -266,7 +266,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const savedTicket = data ? { 
       ...t, 
       id: data.id, 
-      userId: data.userid,
+      userId: data.user_id || data.userId || data.userid,
       createdAt: new Date(data.created_at || Date.now()).getTime() 
     } : { ...t, createdAt: Date.now() };
 
@@ -278,10 +278,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     if (!error) {
        setTickets(prev => prev.map(t => t.id === id ? { ...t, status } : t));
        await supabase.from('ticket_history').insert({
-          ticketid: id,
-          userid: currentUser?.id,
+          ticket_id: id,
+          user_id: currentUser?.id,
           action: `Status alterado para ${status}`,
-          newstatus: status
+          new_status: status
        });
     } else {
       console.error('Error updating ticket:', error);
