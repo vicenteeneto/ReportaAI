@@ -38,11 +38,20 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       ]);
       
       const allTickets = ticketsRes.data || [];
-      // Sort manually or try to find existing column
+      const parseSafeDate = (val: any) => {
+        if (!val) return 0;
+        if (typeof val === 'number') return val;
+        if (typeof val === 'string') {
+          if (/^\d+$/.test(val)) return parseInt(val, 10);
+          return new Date(val).getTime();
+        }
+        return 0;
+      };
+
       const sortedTickets = allTickets.sort((a, b) => {
-        const dateA = a.createdAt || a.created_at || a.createdat || 0;
-        const dateB = b.createdAt || b.created_at || b.createdat || 0;
-        return new Date(dateB).getTime() - new Date(dateA).getTime();
+        const dateA = parseSafeDate(a.createdAt || a.created_at || a.createdat);
+        const dateB = parseSafeDate(b.createdAt || b.created_at || b.createdat);
+        return dateB - dateA;
       });
 
       let deps = depsRes.data || [];
@@ -88,8 +97,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           photoUrl: t.photoUrl || t.photourl || t.photo_url,
           resolvedPhotoUrl: t.resolvedPhotoUrl || t.resolvedphotourl || t.resolved_photo_url,
           userId: t.userId || t.userid || t.user_id,
-          createdAt: new Date(t.createdAt || t.created_at || t.createdat || Date.now()).getTime(),
-          updatedAt: new Date(t.updatedAt || t.updated_at || t.updatedat || Date.now()).getTime(),
+          createdAt: parseSafeDate(t.createdAt || t.created_at || t.createdat) || Date.now(),
+          updatedAt: parseSafeDate(t.updatedAt || t.updated_at || t.updatedat) || Date.now(),
         };
         return mappedTicket;
       });
@@ -273,7 +282,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       ...t, 
       id: data.id, 
       userId: data.userId || data.user_id || data.userid,
-      createdAt: new Date(data.createdAt || data.created_at || Date.now()).getTime() 
+      createdAt: data.createdAt ? (typeof data.createdAt === 'string' && /^\d+$/.test(data.createdAt) ? parseInt(data.createdAt, 10) : new Date(data.createdAt).getTime()) : Date.now()
     } : { ...t, createdAt: Date.now() };
 
     setTickets(prev => [savedTicket, ...prev]);
