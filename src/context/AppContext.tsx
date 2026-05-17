@@ -316,32 +316,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       }
     };
 
-    // ── Attempt 1: lowercase schema (matches database-schema.sql) ──
-    const payloadLower = {
-      id: t.id,
-      protocol: t.protocol,
-      userid: t.userId,
-      categoryid: t.categoryId,
-      departmentid: t.departmentId,
-      title: t.title,
-      description: t.description,
-      status: t.status,
-      priority: t.priority,
-      latitude: t.latitude,
-      longitude: t.longitude,
-      address: t.address,
-      neighborhood: t.neighborhood,
-      photourl: t.photoUrl ?? null,
-    };
-
-    const res1 = await doFetch(payloadLower);
-    if (!res1.error) {
-      setTickets((prev) => [{ ...t, createdAt: Date.now() }, ...prev]);
-      return;
-    }
-
-    // ── Attempt 2: camelCase fallback ──
-    const payloadCamel = {
+    // ── Insert with exact schema (camelCase columns, bigint timestamps) ──
+    const payload = {
       id: t.id,
       protocol: t.protocol,
       userId: t.userId,
@@ -356,18 +332,17 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       address: t.address,
       neighborhood: t.neighborhood,
       photoUrl: t.photoUrl ?? null,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
     };
 
-    const res2 = await doFetch(payloadCamel);
-    if (!res2.error) {
+    const res = await doFetch(payload);
+    if (!res.error) {
       setTickets((prev) => [{ ...t, createdAt: Date.now() }, ...prev]);
       return;
     }
 
-    // Both failed
-    throw new Error(`Falha ao salvar. 1: ${res1.error} | 2: ${res2.error}`);
+    throw new Error(`Falha ao salvar: ${res.error}`);
   };
 
 
