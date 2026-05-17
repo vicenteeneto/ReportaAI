@@ -7,4 +7,23 @@ if (!supabaseUrl || supabaseUrl === 'https://placeholder.supabase.co') {
   console.warn('Supabase URL or Anon Key is missing. Ensure they are set in .env');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    // Ensure session is persisted and auto-refreshed (critical for Android PWA)
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false,
+    // Use localStorage explicitly (default, but Android Chrome needs this explicit)
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+  },
+  global: {
+    // Add a fetch timeout for Android Chrome where fetch can hang indefinitely
+    fetch: (url, options) => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000);
+      return fetch(url, { ...options, signal: controller.signal })
+        .then(res => { clearTimeout(timeoutId); return res; })
+        .catch(err => { clearTimeout(timeoutId); throw err; });
+    }
+  }
+});

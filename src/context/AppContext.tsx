@@ -258,14 +258,25 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addTicket = async (t: Ticket): Promise<void> => {
-    // Column names use quoted camelCase in the deployed Postgres schema
-    // (e.g. "categoryId", "userId", "photoUrl"). These are case-sensitive.
-    const insertPayload: any = {
+    // Step 1: Ensure we have a fresh auth token.
+    // On Android, sessions can silently expire. Refreshing before insert
+    // prevents "JWT expired" errors that return no error object.
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData?.session) {
+      throw new Error('Sessão expirada. Por favor, faça login novamente.');
+    }
+
+    // Step 2: Build payload.
+    // The deployed DB (database-schema.sql) uses lowercase column names:
+    // userid, categoryid, departmentid, photourl — NOT camelCase.
+    // Sending wrong column names on Android causes the RLS policy
+    // (auth.uid() = userid) to silently reject the insert without an error.
+    const payload: any = {
       id: t.id,
       protocol: t.protocol,
-      userId: t.userId,
-      categoryId: t.categoryId,
-      departmentId: t.departmentId,
+      userid: t.userId,
+      categoryid: t.categoryId,
+      departmentid: t.departmentId,
       title: t.title,
       description: t.description,
       status: t.status,
@@ -274,51 +285,78 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       longitude: t.longitude,
       address: t.address,
       neighborhood: t.neighborhood,
-      photoUrl: t.photoUrl ?? null,
-      createdAt: Date.now(),
-      updatedAt: Date.now()
+      photourl: t.photoUrl ?? null,
     };
 
-    // Hard timeout: if Supabase hangs for > 20s, reject so the UI unblocks
-    const insertWithTimeout = () => new Promise<{ data: any; error: any }>((resolve) => {
-      const timer = setTimeout(() => {
-        resolve({ data: null, error: new Error('Timeout ao salvar no servidor (conexão lenta). Tente novamente.') });
-      }, 20000);
-      supabase
-        .from('tickets')
-        .insert(insertPayload)
-        .select()
-        .single()
-        .then((res) => {
-          clearTimeout(timer);
-          resolve(res);
-        })
-        .catch((err) => {
-          clearTimeout(timer);
-          resolve({ data: null, error: err });
+    // Step 3: Insert with a hard 25s timeout.
+    // We do NOT use .select().single() after insert — if RLS blocks SELECT
+    // but allows INSERT, .single() returns an error even though the row was saved.
+    const doInsert = (): Promise<{ error: any }> =>
+      new Promise((resolve) => {
+        const timer = setTimeout(() => {
+          resolve({ error: new Error('Timeout: servidor não respondeu em 25s. Verifique sua conexão.') });
+        }, 25000);
+
+        supabase
+          .from('tickets')
+          .insert(payload)
+          .then((res) => { clearTimeout(timer); resolve(res); })
+          .catch((err) => { clearTimeout(timer); resolve({ error: err }); });
+      });
+
+    const result = await doInsert();
+
+    // Step 4: If lowercase columns failed, try camelCase as fallback
+    // (some Supabase projects use quoted identifiers).
+    if (result.error) {
+      const errMsg: string = result.error?.message || String(result.error);
+      const isColumnError = errMsg.toLowerCase().includes('column') || errMsg.toLowerCase().includes('schema');
+
+      if (isColumnError) {
+        console.warn('Lowercase columns failed, trying camelCase fallback:', errMsg);
+        const payloadCamel: any = {
+          id: t.id,
+          protocol: t.protocol,
+          userId: t.userId,
+          categoryId: t.categoryId,
+          departmentId: t.departmentId,
+          title: t.title,
+          description: t.description,
+          status: t.status,
+          priority: t.priority,
+          latitude: t.latitude,
+          longitude: t.longitude,
+          address: t.address,
+          neighborhood: t.neighborhood,
+          photoUrl: t.photoUrl ?? null,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+
+        const fallback = await new Promise<{ error: any }>((resolve) => {
+          const timer = setTimeout(() => {
+            resolve({ error: new Error('Timeout no fallback (25s).') });
+          }, 25000);
+          supabase
+            .from('tickets')
+            .insert(payloadCamel)
+            .then((res) => { clearTimeout(timer); resolve(res); })
+            .catch((err) => { clearTimeout(timer); resolve({ error: err }); });
         });
-    });
 
-    const { error, data } = await insertWithTimeout();
-
-    if (error) {
-      console.error('Error saving ticket:', error);
-      throw error;
+        if (fallback.error) {
+          const msg = fallback.error?.message || String(fallback.error);
+          console.error('Both insert attempts failed:', msg);
+          throw new Error(`Falha ao salvar chamado: ${msg}`);
+        }
+      } else {
+        // Non-column error (network, RLS, auth) — throw immediately with full message
+        throw new Error(`Falha ao salvar chamado: ${errMsg}`);
+      }
     }
 
-    const savedTicket = data
-      ? {
-          ...t,
-          id: data.id,
-          userId: data.userId || data.userid || data.user_id,
-          photoUrl: data.photoUrl || data.photourl || data.photo_url || t.photoUrl,
-          createdAt: data.createdAt
-            ? (typeof data.createdAt === 'number' ? data.createdAt : new Date(data.createdAt).getTime())
-            : Date.now(),
-        }
-      : { ...t, createdAt: Date.now() };
-
-    setTickets((prev) => [savedTicket, ...prev]);
+    // Step 5: Update local state optimistically (no need to re-fetch from DB).
+    setTickets((prev) => [{ ...t, createdAt: Date.now() }, ...prev]);
   };
 
   const updateTicketStatus = async (id: string, status: TicketStatus) => {
