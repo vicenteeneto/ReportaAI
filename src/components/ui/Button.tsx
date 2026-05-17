@@ -39,6 +39,7 @@ export function Button({
   return (
     <button
       className={cn(baseStyles, variants[variant], sizes[size], className)}
+      disabled={isLoading || props.disabled}
       {...props}
     >
       {isLoading ? (

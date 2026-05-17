@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input, Textarea, Select } from '../../components/ui/Input';
 import { useAppContext } from '../../context/AppContext';
-import { Camera, MapPin, CheckCircle2, ArrowLeft, Loader2, Upload } from 'lucide-react';
+import { Camera, MapPin, CheckCircle2, ArrowLeft, Loader2, Upload, X } from 'lucide-react';
 import { Ticket } from '../../data/types';
 import { supabase } from '../../lib/supabase';
 
@@ -20,6 +20,51 @@ function generateUUID() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
     const r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
     return v.toString(16);
+  });
+}
+
+// Simple image resize/compress to improve mobile upload performance
+async function compressImage(file: File, maxWidth = 1280, maxHeight = 1280, quality = 0.8): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        
+        canvas.toBlob(
+          (blob) => {
+            if (blob) resolve(blob);
+            else reject(new Error('Canvas to Blob failed'));
+          },
+          'image/jpeg',
+          quality
+        );
+      };
+      img.onerror = reject;
+    };
+    reader.onerror = reject;
   });
 }
 
@@ -47,6 +92,15 @@ export function CitizenNewTicket() {
 
   const [photoFile, setPhotoFile] = useState<File | null>(null);
 
+  // Cleanup object URLs to prevent memory leaks (critical for mobile)
+  useEffect(() => {
+    return () => {
+      if (formData.photoUrl && formData.photoUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(formData.photoUrl);
+      }
+    };
+  }, [formData.photoUrl]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -66,16 +120,22 @@ export function CitizenNewTicket() {
 
       if (photoFile) {
         try {
-          const fileExtension = photoFile.name.split('.').pop();
-          const fileName = `${Date.now()}-${userId}.${fileExtension}`;
+          // Increase timeout to 30s for mobile networks
+          const uploadTimeoutMs = 30000;
           
-          // Timeout para upload de 15 segundos para não travar o mobile
+          // Compress image before upload
+          const compressedBlob = await compressImage(photoFile);
+          const fileName = `${Date.now()}-${userId}.jpg`;
+          
           const uploadPromise = supabase.storage
             .from('tickets')
-            .upload(fileName, photoFile);
+            .upload(fileName, compressedBlob, {
+              contentType: 'image/jpeg',
+              upsert: false
+            });
             
           const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error("Timeout no upload da imagem")), 15000)
+            setTimeout(() => reject(new Error("Timeout no upload da imagem (conexão lenta)")), uploadTimeoutMs)
           );
 
           const { data, error }: any = await Promise.race([uploadPromise, timeoutPromise]);
@@ -83,15 +143,17 @@ export function CitizenNewTicket() {
           if (!error && data) {
              const { data: { publicUrl } } = supabase.storage.from('tickets').getPublicUrl(fileName);
              uploadedPhotoUrl = publicUrl;
-          } else {
-             console.warn('Storage upload error:', error);
+          } else if (error) {
+             console.error('Storage upload error:', error);
+             // We continue without the photo rather than blocking the whole ticket
           }
         } catch (storageErr) {
-          console.warn("Falha no upload, continuando sem foto:", storageErr);
+          console.warn("Falha no processamento/upload da foto:", storageErr);
+          // Non-blocking error
         }
       }
 
-      // Sequential Protocol Logic melhorado
+      // Sequential Protocol Logic
       let nextNum = Math.floor(Math.random() * 900000) + 100000;
       try {
         const { count, error } = await supabase.from('tickets').select('*', { count: 'exact', head: true }).limit(1);
@@ -127,11 +189,8 @@ export function CitizenNewTicket() {
       setSuccess(true);
     } catch (err: any) {
       console.error("Error creating ticket", err);
-      // Extraindo mensagem amigável caso seja JSON
-      let errMsg = "Erro técnico no servidor.";
+      let errMsg = "Erro ao salvar chamado.";
       if (err.message) errMsg = err.message;
-      else if (typeof err === 'string') errMsg = err;
-      
       alert("Atenção: " + errMsg);
     } finally {
       setIsSubmitting(false);
@@ -151,7 +210,6 @@ export function CitizenNewTicket() {
         const lng = position.coords.longitude;
         
         try {
-          // Usando Nominatim (OpenStreetMap) para converter coordenadas em endereço
           const response = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=18&addressdetails=1`, {
             headers: {
               'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8'
@@ -196,9 +254,9 @@ export function CitizenNewTicket() {
       }, 
       (err) => {
         setIsLocating(false);
-        alert('Não foi possível acessar a localização. Verifique as permissões do navegador.');
+        alert('Não foi possível acessar a localização. Verifique as permissões de GPS.');
       },
-      { timeout: 10000 }
+      { timeout: 15100, enableHighAccuracy: true }
     );
   };
 
@@ -228,6 +286,17 @@ export function CitizenNewTicket() {
     );
   }
 
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (formData.photoUrl && formData.photoUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(formData.photoUrl);
+      }
+      setPhotoFile(file);
+      setFormData({...formData, photoUrl: URL.createObjectURL(file)});
+    }
+  };
+
   return (
     <div className="p-4 md:p-6 lg:max-w-2xl mx-auto space-y-6 font-sans">
       <button 
@@ -243,7 +312,6 @@ export function CitizenNewTicket() {
         <span className="text-[10px] font-bold text-[#1E3A8A] uppercase tracking-wider bg-blue-50 px-2 py-0.5 rounded border border-blue-100">Etapa {step} de 2</span>
       </div>
 
-      {/* Progress Line */}
       <div className="w-full bg-slate-200 h-1 mb-8">
         <div className="bg-[#1E3A8A] h-1 transition-all duration-300" style={{ width: step === 1 ? '50%' : '100%' }}></div>
       </div>
@@ -269,42 +337,33 @@ export function CitizenNewTicket() {
               <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Registro Fotográfico Físico (Opcional)</label>
               {!formData.photoUrl ? (
                 <div className="grid grid-cols-2 gap-3 h-28">
-                  <label className="border border-dashed border-slate-300 rounded bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer text-slate-500 flex flex-col items-center justify-center relative overflow-hidden group">
-                    <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        setPhotoFile(file);
-                        setFormData({...formData, photoUrl: URL.createObjectURL(file)});
-                      }
-                    }} />
+                  <label className="border border-dashed border-slate-300 rounded bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer text-slate-500 flex flex-col items-center justify-center relative overflow-hidden group text-center p-2">
+                    <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoChange} />
                     <Camera className="w-5 h-5 mb-1 text-slate-400 group-hover:text-blue-500 transition-colors" />
-                    <span className="text-[10px] font-bold uppercase tracking-wider group-hover:text-blue-600 transition-colors text-slate-500">Abrir Câmera</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider group-hover:text-blue-600 transition-colors text-slate-500 leading-tight">Câmera</span>
                   </label>
                   
-                  <label className="border border-dashed border-slate-300 rounded bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer text-slate-500 flex flex-col items-center justify-center relative overflow-hidden group">
-                    <input type="file" accept="image/*" className="hidden" onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        setPhotoFile(file);
-                        setFormData({...formData, photoUrl: URL.createObjectURL(file)});
-                      }
-                    }} />
+                  <label className="border border-dashed border-slate-300 rounded bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer text-slate-500 flex flex-col items-center justify-center relative overflow-hidden group text-center p-2">
+                    <input type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
                     <Upload className="w-5 h-5 mb-1 text-slate-400 group-hover:text-blue-500 transition-colors" />
-                    <span className="text-[10px] font-bold uppercase tracking-wider group-hover:text-blue-600 transition-colors text-slate-500">Galeria / Fotos</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider group-hover:text-blue-600 transition-colors text-slate-500 leading-tight">Escolher Foto</span>
                   </label>
                 </div>
               ) : (
-                <div className="relative h-40 rounded overflow-hidden border border-slate-200">
-                  <img src={formData.photoUrl} alt="Preview" className="w-full h-full object-cover" />
+                <div className="relative h-48 rounded overflow-hidden border border-slate-200 bg-slate-100">
+                  <img src={formData.photoUrl} alt="Preview" className="w-full h-full object-contain" />
                   <button 
                     type="button" 
                     onClick={() => {
+                      if (formData.photoUrl && formData.photoUrl.startsWith('blob:')) {
+                        URL.revokeObjectURL(formData.photoUrl);
+                      }
                       setPhotoFile(null);
                       setFormData({...formData, photoUrl: undefined});
                     }}
-                    className="absolute top-2 right-2 bg-slate-900/60 text-white rounded-full p-1.5 hover:bg-red-600 transition-colors backdrop-blur-sm"
+                    className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-2 shadow-lg hover:bg-red-700 transition-colors"
                   >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
               )}
@@ -314,7 +373,7 @@ export function CitizenNewTicket() {
               <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Endereço do Local</label>
               <div className="flex gap-2 relative">
                 <Input 
-                  placeholder="Logradouro e número" 
+                  placeholder="Local da ocorrência" 
                   className="flex-1"
                   required
                   value={formData.address}
@@ -323,8 +382,8 @@ export function CitizenNewTicket() {
                 <Button 
                   type="button" 
                   variant="outline" 
-                  className="px-3 border-slate-300 bg-white" 
-                  title="Localizar via Satélite"
+                  className="px-3 border-slate-300 bg-white min-w-[50px]" 
+                  title="Localizar via GPS"
                   disabled={isLocating}
                   onClick={handleGetLocation}
                 >
@@ -333,7 +392,7 @@ export function CitizenNewTicket() {
               </div>
             </div>
              <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Região Administrativa (Bairro)</label>
+              <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Bairro</label>
               <Input 
                 placeholder="Ex. Centro" 
                 required
@@ -342,16 +401,16 @@ export function CitizenNewTicket() {
               />
             </div>
 
-            <Button type="submit" className="w-full mt-6 h-12 font-bold uppercase tracking-wide text-xs">Continuar Informações</Button>
+            <Button type="submit" className="w-full mt-6 h-12 font-bold uppercase tracking-wide text-xs">Avançar</Button>
           </div>
         )}
 
         {step === 2 && (
           <div className="space-y-5 animate-in slide-in-from-right-8">
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Resumo do Problema</label>
+              <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Título (Resumo)</label>
               <Input 
-                placeholder="Ex: Luminária queimada e quebrada" 
+                placeholder="Ex: Buraco na via pública" 
                 required
                 value={formData.title}
                 onChange={(e) => setFormData({...formData, title: e.target.value})}
@@ -359,40 +418,40 @@ export function CitizenNewTicket() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Detalhamento para a Equipe</label>
+              <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Descrição Detalhada</label>
               <Textarea 
-                placeholder="Informações adicionais relevantes..." 
+                placeholder="Descreva detalhes que ajudem a equipe..." 
                 className="h-28"
                 required
                 value={formData.description}
                 onChange={(e) => setFormData({...formData, description: e.target.value})}
               />
-              <p className="text-[9px] text-slate-500 font-medium">Os dados informados alimentam o sistema central de triagem da prefeitura.</p>
+              <p className="text-[9px] text-slate-500 font-medium">Os dados informados alimentam o sistema central da prefeitura.</p>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Avaliação de Risco / Urgência</label>
+              <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Urgência</label>
               <div className="grid grid-cols-3 gap-2">
                 {(['low', 'medium', 'high'] as const).map(p => (
                   <button
                     key={p}
                     type="button"
                     onClick={() => setFormData({...formData, priority: p})}
-                    className={`py-2 rounded border text-[10px] uppercase tracking-wider font-bold transition-colors ${
+                    className={`py-3 rounded border text-[10px] uppercase tracking-wider font-bold transition-all shadow-sm ${
                       formData.priority === p 
-                        ? 'bg-[#1E3A8A] border-[#1E3A8A] text-white' 
+                        ? 'bg-[#1E3A8A] border-[#1E3A8A] text-white ring-2 ring-blue-200' 
                         : 'border-slate-300 text-slate-600 hover:bg-slate-50 bg-white'
                     }`}
                   >
-                    {p === 'low' ? 'Baixo' : p === 'medium' ? 'Médio' : 'Crítico'}
+                    {p === 'low' ? 'Baixa' : p === 'medium' ? 'Média' : 'Crítica'}
                   </button>
                 ))}
               </div>
             </div>
 
             <div className="flex gap-2 pt-4">
-              <Button type="button" disabled={isSubmitting} variant="outline" className="flex-1 font-bold uppercase tracking-wide text-xs" onClick={() => setStep(1)}>Voltar</Button>
-              <Button type="submit" className="flex-[2] font-bold uppercase tracking-wide text-xs" isLoading={isSubmitting}>Confirmar Solicitação</Button>
+              <Button type="button" disabled={isSubmitting} variant="outline" className="flex-1 font-bold uppercase tracking-wide text-[10px] h-12" onClick={() => setStep(1)}>Voltar</Button>
+              <Button type="submit" className="flex-[2] font-bold uppercase tracking-wide text-[10px] h-12" isLoading={isSubmitting}>Confirmar Solicitação</Button>
             </div>
           </div>
         )}
