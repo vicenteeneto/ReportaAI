@@ -9,7 +9,7 @@ interface AppContextType {
   registerWithEmail: (email: string, password: string, role: string) => Promise<void>;
   logout: () => Promise<void> | void;
   tickets: Ticket[];
-  addTicket: (t: Ticket) => void;
+  addTicket: (t: Ticket) => Promise<void>;
   updateTicketStatus: (id: string, status: TicketStatus) => void;
   categories: Category[];
   departments: Department[];
@@ -257,13 +257,16 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setCategories([]);
   };
 
-  const addTicket = async (t: Ticket) => {
+  const addTicket = async (t: Ticket): Promise<void> => {
+    // IMPORTANT: column names must exactly match the Postgres schema (database-schema.sql).
+    // The actual DB uses all-lowercase no-separator names: userid, categoryid, photourl, etc.
+    // Sending wrong column names on Android causes a silent hang (no error thrown by Supabase).
     const insertPayload: any = {
       id: t.id,
       protocol: t.protocol,
-      userId: t.userId,
-      categoryId: t.categoryId,
-      departmentId: t.departmentId,
+      userid: t.userId,
+      categoryid: t.categoryId,
+      departmentid: t.departmentId,
       title: t.title,
       description: t.description,
       status: t.status,
@@ -272,26 +275,49 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       longitude: t.longitude,
       address: t.address,
       neighborhood: t.neighborhood,
-      photoUrl: t.photoUrl,
-      createdAt: Date.now(),
-      updatedAt: Date.now()
+      photourl: t.photoUrl ?? null,
     };
 
-    const { error, data } = await supabase.from('tickets').insert(insertPayload).select().single();
+    // Hard timeout: if Supabase hangs for > 20s, reject so the UI unblocks
+    const insertWithTimeout = () => new Promise<{ data: any; error: any }>((resolve) => {
+      const timer = setTimeout(() => {
+        resolve({ data: null, error: new Error('Timeout ao salvar no servidor (conexão lenta). Tente novamente.') });
+      }, 20000);
+      supabase
+        .from('tickets')
+        .insert(insertPayload)
+        .select()
+        .single()
+        .then((res) => {
+          clearTimeout(timer);
+          resolve(res);
+        })
+        .catch((err) => {
+          clearTimeout(timer);
+          resolve({ data: null, error: err });
+        });
+    });
+
+    const { error, data } = await insertWithTimeout();
 
     if (error) {
       console.error('Error saving ticket:', error);
       throw error;
     }
 
-    const savedTicket = data ? { 
-      ...t, 
-      id: data.id, 
-      userId: data.userId || data.user_id || data.userid,
-      createdAt: data.createdAt ? (typeof data.createdAt === 'string' && /^\d+$/.test(data.createdAt) ? parseInt(data.createdAt, 10) : new Date(data.createdAt).getTime()) : Date.now()
-    } : { ...t, createdAt: Date.now() };
+    const savedTicket = data
+      ? {
+          ...t,
+          id: data.id,
+          userId: data.user_id || data.userId || data.userid,
+          photoUrl: data.photo_url || data.photoUrl || data.photourl || t.photoUrl,
+          createdAt: data.created_at
+            ? new Date(data.created_at).getTime()
+            : Date.now(),
+        }
+      : { ...t, createdAt: Date.now() };
 
-    setTickets(prev => [savedTicket, ...prev]);
+    setTickets((prev) => [savedTicket, ...prev]);
   };
 
   const updateTicketStatus = async (id: string, status: TicketStatus) => {
