@@ -256,16 +256,7 @@ export function CitizenNewTicket() {
       }
 
       // ── Protocol number ──
-      let nextNum = Math.floor(Math.random() * 900000) + 100000;
-      try {
-        const { count, error } = await withTimeout(
-          supabase.from('tickets').select('*', { count: 'exact', head: true }).limit(1),
-          8000,
-          'contagem de protocolo'
-        );
-        if (!error && count !== null) nextNum = count + 1;
-      } catch (_) { /* random fallback */ }
-      
+      const nextNum = Math.floor(Math.random() * 900000) + 100000;
       const generatedProtocol = `RD-${new Date().getFullYear()}-${String(nextNum).padStart(6, '0')}`;
       
       // ── Create ticket ──

@@ -258,24 +258,66 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addTicket = async (t: Ticket): Promise<void> => {
-    // Simple timeout helper — Promise.race, no AbortController (safe for all platforms)
-    const timeout = (ms: number) =>
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error(`Servidor não respondeu em ${ms / 1000}s. Verifique sua conexão.`)), ms)
-      );
+    // ── Bypass Supabase JS Client for this operation ──
+    // The Supabase JS client on Android WebViews/PWA sometimes hangs indefinitely 
+    // due to internal auth token refresh locks. We bypass it by using native fetch.
+    
+    // 1. Get token synchronously from localStorage to avoid any async locks
+    let token = '';
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.includes('-auth-token')) {
+          const val = localStorage.getItem(key);
+          if (val) {
+            token = JSON.parse(val).access_token || '';
+            break;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Erro ao ler token do localStorage', e);
+    }
 
-    // Helper: run a single insert attempt, returns { error } or null on success
-    const tryInsert = (payload: any): Promise<{ error: any } | null> =>
-      Promise.race([
-        supabase.from('tickets').insert(payload).then((res) => res),
-        timeout(20000),
-      ]).then(
-        (res: any) => res,
-        (err: any) => ({ error: err })
-      );
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    const apiUrl = `${supabaseUrl}/rest/v1/tickets`;
 
-    // ── Attempt 1: lowercase column names (matches database-schema.sql) ──
-    const payloadLower: any = {
+    const headers = {
+      'apikey': anonKey,
+      'Authorization': `Bearer ${token || anonKey}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=minimal' // Don't ask for the row back, just insert
+    };
+
+    // Helper: raw fetch with hard abort
+    const doFetch = async (payload: any): Promise<{ error: string | null }> => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s timeout
+      
+      try {
+        const res = await fetch(apiUrl, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        
+        if (!res.ok) {
+          const errText = await res.text();
+          return { error: `HTTP ${res.status}: ${errText}` };
+        }
+        return { error: null };
+      } catch (err: any) {
+        clearTimeout(timeoutId);
+        if (err.name === 'AbortError') return { error: 'Timeout de conexão (12s)' };
+        return { error: err.message || String(err) };
+      }
+    };
+
+    // ── Attempt 1: lowercase schema (matches database-schema.sql) ──
+    const payloadLower = {
       id: t.id,
       protocol: t.protocol,
       userid: t.userId,
@@ -292,18 +334,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       photourl: t.photoUrl ?? null,
     };
 
-    const res1 = await tryInsert(payloadLower);
-
-    if (!res1?.error) {
-      // Success with lowercase schema
+    const res1 = await doFetch(payloadLower);
+    if (!res1.error) {
       setTickets((prev) => [{ ...t, createdAt: Date.now() }, ...prev]);
       return;
     }
 
-    const err1: string = res1.error?.message || String(res1.error);
-
-    // ── Attempt 2: camelCase fallback (some Supabase projects use quoted identifiers) ──
-    const payloadCamel: any = {
+    // ── Attempt 2: camelCase fallback ──
+    const payloadCamel = {
       id: t.id,
       protocol: t.protocol,
       userId: t.userId,
@@ -318,25 +356,20 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       address: t.address,
       neighborhood: t.neighborhood,
       photoUrl: t.photoUrl ?? null,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
-    const res2 = await tryInsert(payloadCamel);
-
-    if (!res2?.error) {
-      // Success with camelCase schema
+    const res2 = await doFetch(payloadCamel);
+    if (!res2.error) {
       setTickets((prev) => [{ ...t, createdAt: Date.now() }, ...prev]);
       return;
     }
 
-    const err2: string = res2.error?.message || String(res2.error);
-
-    // Both failed — throw the most descriptive error
-    console.error('Insert failed (lowercase):', err1);
-    console.error('Insert failed (camelCase):', err2);
-    throw new Error(`Falha ao salvar: [1] ${err1} | [2] ${err2}`);
+    // Both failed
+    throw new Error(`Falha ao salvar. 1: ${res1.error} | 2: ${res2.error}`);
   };
+
 
   const updateTicketStatus = async (id: string, status: TicketStatus) => {
     const { error } = await supabase.from('tickets').update({ status }).eq('id', id);
