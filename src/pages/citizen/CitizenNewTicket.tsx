@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -23,143 +23,68 @@ function generateUUID() {
   });
 }
 
-/**
- * Reads EXIF orientation tag from a JPEG ArrayBuffer.
- * Returns the orientation value (1–8) or 1 (no rotation) if not found.
- */
-function getExifOrientation(buffer: ArrayBuffer): number {
-  const view = new DataView(buffer);
-  if (view.getUint16(0, false) !== 0xFFD8) return 1; // not JPEG
-  let offset = 2;
-  while (offset < view.byteLength) {
-    if (view.getUint16(offset, false) === 0xFFE1) {
-      offset += 4;
-      if (view.getUint32(offset, false) !== 0x45786966) return 1; // no Exif header
-      const little = view.getUint16(offset += 6, false) === 0x4949;
-      offset += view.getUint32(offset + 4, little);
-      const tags = view.getUint16(offset, little);
-      offset += 2;
-      for (let i = 0; i < tags; i++) {
-        if (view.getUint16(offset + i * 12, little) === 0x0112) {
-          return view.getUint16(offset + i * 12 + 8, little);
-        }
-      }
-    } else if ((view.getUint16(offset, false) & 0xFF00) !== 0xFF00) {
-      break;
-    } else {
-      offset += 2 + view.getUint16(offset + 2, false);
-    }
-  }
-  return 1;
+/** Helper: wraps any promise with a timeout. Rejects if not settled in `ms`. */
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`Timeout: ${label} (${ms / 1000}s)`)), ms);
+    promise.then(
+      (val) => { clearTimeout(timer); resolve(val); },
+      (err) => { clearTimeout(timer); reject(err); }
+    );
+  });
 }
 
 /**
- * Cross-platform image compression using Canvas API.
- * Handles EXIF rotation (critical for Android camera photos).
- * Does NOT use Web Workers — safe for all Android WebViews.
+ * Simple, robust image compression via Canvas.
+ * - Uses URL.createObjectURL directly (no FileReader/ArrayBuffer).
+ * - Skips manual EXIF: Chrome 81+ and Safari 13.1+ auto-apply orientation.
+ * - No Web Workers — works on all Android WebViews.
  */
-async function compressImage(file: File): Promise<Blob> {
+function compressImage(file: File): Promise<Blob> {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
+    const url = URL.createObjectURL(file);
+    const img = new Image();
 
-    reader.onload = async (readerEvent) => {
+    img.onload = () => {
+      URL.revokeObjectURL(url);
       try {
-        const buffer = readerEvent.target?.result as ArrayBuffer;
-        if (!buffer) throw new Error('Failed to read file');
+        const MAX = 1280;
+        let w = img.naturalWidth || img.width;
+        let h = img.naturalHeight || img.height;
 
-        // Detect EXIF orientation for Android camera photos
-        const orientation = getExifOrientation(buffer);
+        if (w > MAX || h > MAX) {
+          if (w > h) { h = Math.round((h / w) * MAX); w = MAX; }
+          else       { w = Math.round((w / h) * MAX); h = MAX; }
+        }
 
-        // Convert ArrayBuffer to blob URL for Image element
-        const blob = new Blob([buffer], { type: file.type || 'image/jpeg' });
-        const url = URL.createObjectURL(blob);
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
 
-        const img = new Image();
-        img.onload = () => {
-          URL.revokeObjectURL(url);
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { reject(new Error('Canvas indisponível')); return; }
 
-          const MAX = 1280;
-          let { width, height } = img;
+        ctx.drawImage(img, 0, 0, w, h);
 
-          // Swap dimensions for 90/270 degree rotations
-          const swapped = orientation >= 5 && orientation <= 8;
-          const origW = swapped ? height : width;
-          const origH = swapped ? width : height;
-
-          let targetW = origW;
-          let targetH = origH;
-
-          if (origW > MAX || origH > MAX) {
-            if (origW > origH) {
-              targetW = MAX;
-              targetH = Math.round((origH / origW) * MAX);
-            } else {
-              targetH = MAX;
-              targetW = Math.round((origW / origH) * MAX);
-            }
-          }
-
-          const canvas = document.createElement('canvas');
-          canvas.width = targetW;
-          canvas.height = targetH;
-
-          const ctx = canvas.getContext('2d');
-          if (!ctx) throw new Error('Canvas context unavailable');
-
-          // Apply EXIF rotation correction
-          ctx.save();
-          switch (orientation) {
-            case 2: ctx.transform(-1, 0, 0, 1, targetW, 0); break;
-            case 3: ctx.transform(-1, 0, 0, -1, targetW, targetH); break;
-            case 4: ctx.transform(1, 0, 0, -1, 0, targetH); break;
-            case 5: ctx.transform(0, 1, 1, 0, 0, 0); break;
-            case 6: ctx.transform(0, 1, -1, 0, targetH, 0); break;
-            case 7: ctx.transform(0, -1, -1, 0, targetH, targetW); break;
-            case 8: ctx.transform(0, -1, 1, 0, 0, targetW); break;
-            default: break;
-          }
-
-          if (swapped) {
-            ctx.drawImage(img, 0, 0, targetH, targetW);
-          } else {
-            ctx.drawImage(img, 0, 0, targetW, targetH);
-          }
-          ctx.restore();
-
-          // Compress to JPEG with quality tuned for < 1MB
-          let quality = 0.82;
-          const tryExport = () => {
-            canvas.toBlob(
-              (result) => {
-                if (!result) { reject(new Error('Canvas toBlob failed')); return; }
-                // If still too large, reduce quality once more
-                if (result.size > 1_200_000 && quality > 0.5) {
-                  quality -= 0.15;
-                  tryExport();
-                } else {
-                  resolve(result);
-                }
-              },
-              'image/jpeg',
-              quality
-            );
-          };
-          tryExport();
-        };
-
-        img.onerror = () => {
-          URL.revokeObjectURL(url);
-          reject(new Error('Failed to decode image'));
-        };
-
-        img.src = url;
+        canvas.toBlob(
+          (blob) => {
+            if (blob) { resolve(blob); }
+            else { reject(new Error('toBlob retornou null')); }
+          },
+          'image/jpeg',
+          0.80
+        );
       } catch (err) {
         reject(err);
       }
     };
 
-    reader.onerror = () => reject(new Error('FileReader error'));
-    reader.readAsArrayBuffer(file);
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Falha ao decodificar imagem'));
+    };
+
+    img.src = url;
   });
 }
 
@@ -172,6 +97,7 @@ export function CitizenNewTicket() {
   const [success, setSuccess] = useState(false);
   const [newProtocol, setNewProtocol] = useState('');
   const [isLocating, setIsLocating] = useState(false);
+  const masterTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [formData, setFormData] = useState({
     categoryId: '',
@@ -193,6 +119,7 @@ export function CitizenNewTicket() {
       if (formData.photoUrl && formData.photoUrl.startsWith('blob:')) {
         URL.revokeObjectURL(formData.photoUrl);
       }
+      if (masterTimeoutRef.current) clearTimeout(masterTimeoutRef.current);
     };
   }, [formData.photoUrl]);
 
@@ -205,6 +132,13 @@ export function CitizenNewTicket() {
     }
 
     setIsSubmitting(true);
+
+    // ── MASTER TIMEOUT: unconditionally unblock UI after 30s ──
+    // If any async operation hangs (Supabase, Canvas, etc.), this fires.
+    masterTimeoutRef.current = setTimeout(() => {
+      setIsSubmitting(false);
+      alert("Atenção: O envio demorou demais. Verifique sua conexão e tente novamente.");
+    }, 30000);
     
     try {
       let uploadedPhotoUrl: string | undefined = undefined;
@@ -213,59 +147,58 @@ export function CitizenNewTicket() {
       const userId = currentUser?.id;
       if (!userId) throw new Error("Usuário não autenticado. Por favor, faça login novamente.");
 
+      // ── STEP 1: Photo (fully optional — never blocks ticket creation) ──
       if (photoFile) {
         try {
-          // Wrap compression in a timeout so it doesn't hang the app forever
-          const compressTimeoutPromise = new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error("Timeout na conversão da imagem (Muito grande ou erro de memória)")), 25000)
-          );
-          
-          const compressedBlob: Blob = await Promise.race([
+          const compressedBlob = await withTimeout(
             compressImage(photoFile),
-            compressTimeoutPromise
-          ]);
+            12000,
+            'compressão da imagem'
+          );
           
           const fileName = `${Date.now()}-${userId}.jpg`;
-          
-          const uploadPromise = supabase.storage
-            .from('tickets')
-            .upload(fileName, compressedBlob, {
-              contentType: 'image/jpeg',
-              upsert: false
-            });
-            
-          const timeoutPromise = new Promise<never>((_, reject) => 
-            setTimeout(() => reject(new Error("Timeout no upload da imagem (conexão lenta)")), 25000)
-          );
 
-          const { data, error }: any = await Promise.race([uploadPromise, timeoutPromise]);
+          const { data, error }: any = await withTimeout(
+            supabase.storage
+              .from('tickets')
+              .upload(fileName, compressedBlob, {
+                contentType: 'image/jpeg',
+                upsert: false
+              }),
+            15000,
+            'upload da foto'
+          );
             
           if (!error && data) {
              const { data: { publicUrl } } = supabase.storage.from('tickets').getPublicUrl(fileName);
              uploadedPhotoUrl = publicUrl;
           } else if (error) {
-             console.error('Storage upload error:', error);
-             // We continue without the photo rather than blocking the whole ticket
+             console.warn('Upload da foto falhou, continuando sem foto:', error.message || error);
           }
-        } catch (storageErr) {
-          console.warn("Falha no processamento/upload da foto:", storageErr);
-          // Non-blocking error
+        } catch (photoErr: any) {
+          console.warn("Foto ignorada:", photoErr?.message || photoErr);
+          // Continue — ticket is more important than the photo
         }
       }
 
-      // Sequential Protocol Logic
+      // ── STEP 2: Protocol number (with timeout, fallback to random) ──
       let nextNum = Math.floor(Math.random() * 900000) + 100000;
       try {
-        const { count, error } = await supabase.from('tickets').select('*', { count: 'exact', head: true }).limit(1);
+        const { count, error } = await withTimeout(
+          supabase.from('tickets').select('*', { count: 'exact', head: true }).limit(1),
+          8000,
+          'contagem de protocolo'
+        );
         if (!error && count !== null) {
           nextNum = count + 1;
         }
-      } catch (e) {
-        console.warn("Protocol fallback used");
+      } catch (_) {
+        // Use random fallback — not a problem
       }
       
       const generatedProtocol = `RD-${new Date().getFullYear()}-${String(nextNum).padStart(6, '0')}`;
       
+      // ── STEP 3: Build ticket object ──
       const newTicket: Ticket = {
         id: generateUUID(),
         protocol: generatedProtocol,
@@ -284,13 +217,18 @@ export function CitizenNewTicket() {
         createdAt: Date.now()
       };
 
+      // ── STEP 4: Insert into Supabase (addTicket already has its own 20s timeout) ──
       await addTicket(newTicket);
+
+      // ── SUCCESS ──
+      if (masterTimeoutRef.current) { clearTimeout(masterTimeoutRef.current); masterTimeoutRef.current = null; }
       setNewProtocol(generatedProtocol);
       setSuccess(true);
     } catch (err: any) {
+      if (masterTimeoutRef.current) { clearTimeout(masterTimeoutRef.current); masterTimeoutRef.current = null; }
       console.error("Error creating ticket", err);
       let errMsg = "Erro ao salvar chamado.";
-      if (err.message) errMsg = err.message;
+      if (err?.message) errMsg = err.message;
       alert("Atenção: " + errMsg);
     } finally {
       setIsSubmitting(false);
