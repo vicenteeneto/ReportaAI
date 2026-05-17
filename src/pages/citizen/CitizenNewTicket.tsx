@@ -256,7 +256,39 @@ export function CitizenNewTicket() {
       }
 
       // ── Protocol number ──
-      const nextNum = Math.floor(Math.random() * 900000) + 100000;
+      // Usamos fetch nativo para evitar o travamento do cliente Supabase no Android.
+      let nextNum = Math.floor(Math.random() * 900000) + 100000; // Fallback caso dê erro de rede
+      try {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s limite
+        
+        const res = await fetch(`${supabaseUrl}/rest/v1/tickets?select=*&limit=1`, {
+          method: 'HEAD',
+          headers: {
+            'apikey': anonKey,
+            'Authorization': `Bearer ${anonKey}`,
+            'Prefer': 'count=exact'
+          },
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        
+        if (res.ok) {
+          const contentRange = res.headers.get('content-range');
+          if (contentRange) {
+            // content-range vem no formato "0-0/42" (onde 42 é o total de linhas)
+            const match = contentRange.match(/\/(\d+)$/);
+            if (match && match[1]) {
+              nextNum = parseInt(match[1], 10) + 1;
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('A contagem falhou, usando número aleatório de fallback:', err);
+      }
+
       const generatedProtocol = `RD-${new Date().getFullYear()}-${String(nextNum).padStart(6, '0')}`;
       
       // ── Create ticket ──
