@@ -8,21 +8,6 @@ import { Camera, MapPin, CheckCircle2, ArrowLeft, Loader2, Upload } from 'lucide
 import { Ticket } from '../../data/types';
 import { supabase } from '../../lib/supabase';
 
-// Utility for generating UUID if crypto.randomUUID is unavailable
-function generateUUID() {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    try {
-      return crypto.randomUUID();
-    } catch (e) {
-      // Ignorar e usar fallback
-    }
-  }
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
-}
-
 export function CitizenNewTicket() {
   const navigate = useNavigate();
   const { categories, currentUser, addTicket } = useAppContext();
@@ -105,7 +90,7 @@ export function CitizenNewTicket() {
       const generatedProtocol = `RD-${new Date().getFullYear()}-${String(nextNum).padStart(6, '0')}`;
       
       const newTicket: Ticket = {
-        id: generateUUID(),
+        id: crypto.randomUUID(),
         protocol: generatedProtocol,
         userId: userId,
         categoryId: formData.categoryId,
@@ -400,4 +385,5 @@ export function CitizenNewTicket() {
     </div>
   );
 }
+
 

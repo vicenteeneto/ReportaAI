@@ -255,6 +255,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setTickets([]);
     setDepartments([]);
     setCategories([]);
+    window.location.href = '/login';
   };
 
   const addTicket = async (t: Ticket) => {
@@ -324,3 +325,4 @@ export const useAppContext = () => {
   }
   return context;
 };
+

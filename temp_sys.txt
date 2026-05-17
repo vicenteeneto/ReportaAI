@@ -84,7 +84,7 @@ export function SystemSettings() {
 
       alert('Usuário criado com sucesso! Faça login novamente com sua conta admin.');
       await supabase.auth.signOut();
-      navigate('/login', { replace: true });
+      window.location.href = '/login';
     } catch (err: any) {
       console.error(err);
       alert('Erro ao criar usuário: ' + err.message);
@@ -271,3 +271,4 @@ export function SystemSettings() {
     </div>
   );
 }
+
