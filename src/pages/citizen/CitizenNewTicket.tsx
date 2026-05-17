@@ -7,6 +7,7 @@ import { useAppContext } from '../../context/AppContext';
 import { Camera, MapPin, CheckCircle2, ArrowLeft, Loader2, Upload, X } from 'lucide-react';
 import { Ticket } from '../../data/types';
 import { supabase } from '../../lib/supabase';
+import imageCompression from 'browser-image-compression';
 
 // Utility for generating UUID if crypto.randomUUID is unavailable
 function generateUUID() {
@@ -24,57 +25,28 @@ function generateUUID() {
 }
 
 // Simple image resize/compress to improve mobile upload performance
-async function compressImage(file: File, maxWidth = 1280, maxHeight = 1280, quality = 0.8): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    let objectUrl: string | null = null;
+// Using browser-image-compression for robust memory handling and worker support
+async function compressImage(file: File): Promise<Blob> {
+  const options = {
+    maxSizeMB: 1,
+    maxWidthOrHeight: 1280,
+    useWebWorker: true,
+    fileType: 'image/jpeg'
+  };
+  
+  try {
+    const compressedBlob = await imageCompression(file, options);
+    return compressedBlob;
+  } catch (error) {
+    console.warn('Image compression with web worker failed, trying fallback...', error);
     try {
-      objectUrl = URL.createObjectURL(file);
-    } catch (e) {
-      return reject(e);
+      options.useWebWorker = false;
+      return await imageCompression(file, options);
+    } catch (fallbackErr) {
+      console.error('All compression attempts failed', fallbackErr);
+      throw fallbackErr;
     }
-    
-    const img = new Image();
-    img.src = objectUrl;
-    
-    img.onload = () => {
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-      const canvas = document.createElement('canvas');
-      let width = img.width;
-      let height = img.height;
-
-      if (width > height) {
-        if (width > maxWidth) {
-          height = Math.round((height * maxWidth) / width);
-          width = maxWidth;
-        }
-      } else {
-        if (height > maxHeight) {
-          width = Math.round((width * maxHeight) / height);
-          height = maxHeight;
-        }
-      }
-
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return reject(new Error('Canvas context failed'));
-      
-      ctx.drawImage(img, 0, 0, width, height);
-      
-      canvas.toBlob(
-        (blob) => {
-          if (blob) resolve(blob);
-          else reject(new Error('Canvas to Blob failed'));
-        },
-        'image/jpeg',
-        quality
-      );
-    };
-    img.onerror = () => {
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-      reject(new Error('Image failed to load'));
-    };
-  });
+  }
 }
 
 export function CitizenNewTicket() {
@@ -121,7 +93,7 @@ export function CitizenNewTicket() {
     setIsSubmitting(true);
     
     try {
-      let uploadedPhotoUrl = formData.photoUrl;
+      let uploadedPhotoUrl: string | undefined = undefined;
 
       // Ensure we have a user
       const userId = currentUser?.id;
@@ -129,11 +101,16 @@ export function CitizenNewTicket() {
 
       if (photoFile) {
         try {
-          // Increase timeout to 30s for mobile networks
-          const uploadTimeoutMs = 30000;
+          // Wrap compression in a timeout so it doesn't hang the app forever
+          const compressTimeoutPromise = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error("Timeout na conversão da imagem (Muito grande ou erro de memória)")), 25000)
+          );
           
-          // Compress image before upload
-          const compressedBlob = await compressImage(photoFile);
+          const compressedBlob: Blob = await Promise.race([
+            compressImage(photoFile),
+            compressTimeoutPromise
+          ]);
+          
           const fileName = `${Date.now()}-${userId}.jpg`;
           
           const uploadPromise = supabase.storage
@@ -143,8 +120,8 @@ export function CitizenNewTicket() {
               upsert: false
             });
             
-          const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error("Timeout no upload da imagem (conexão lenta)")), uploadTimeoutMs)
+          const timeoutPromise = new Promise<never>((_, reject) => 
+            setTimeout(() => reject(new Error("Timeout no upload da imagem (conexão lenta)")), 25000)
           );
 
           const { data, error }: any = await Promise.race([uploadPromise, timeoutPromise]);
