@@ -9,15 +9,15 @@ if (!supabaseUrl || supabaseUrl === 'https://placeholder.supabase.co') {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    // Ensure session is persisted and auto-refreshed (critical for Android PWA)
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false,
-    // Use localStorage explicitly (default, but Android Chrome needs this explicit)
+    // Must be true: Supabase reads the auth token from the URL hash after
+    // OAuth/email redirect login. Setting this to false breaks login entirely.
+    detectSessionInUrl: true,
     storage: typeof window !== 'undefined' ? window.localStorage : undefined,
   },
   global: {
-    // Add a fetch timeout for Android Chrome where fetch can hang indefinitely
+    // Hard fetch timeout for Android Chrome (fetch can hang indefinitely)
     fetch: (url, options) => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 20000);
