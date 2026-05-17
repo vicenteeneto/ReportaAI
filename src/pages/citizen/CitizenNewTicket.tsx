@@ -8,85 +8,109 @@ import { Camera, MapPin, CheckCircle2, ArrowLeft, Loader2, Upload, X } from 'luc
 import { Ticket } from '../../data/types';
 import { supabase } from '../../lib/supabase';
 
-// Utility for generating UUID if crypto.randomUUID is unavailable
+// ─── Utilities ───────────────────────────────────────────────────────────────
+
 function generateUUID() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    try {
-      return crypto.randomUUID();
-    } catch (e) {
-      // fallback below
-    }
+    try { return crypto.randomUUID(); } catch (_) {}
   }
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
   });
 }
 
-/** Helper: wraps any promise with a timeout. Rejects if not settled in `ms`. */
+/** Wraps any promise with a hard timeout. */
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`Timeout: ${label} (${ms / 1000}s)`)), ms);
     promise.then(
-      (val) => { clearTimeout(timer); resolve(val); },
-      (err) => { clearTimeout(timer); reject(err); }
+      (v) => { clearTimeout(timer); resolve(v); },
+      (e) => { clearTimeout(timer); reject(e); }
     );
   });
 }
 
+// ─── Photo Compression ──────────────────────────────────────────────────────
+// Target: 800px max dimension, JPEG quality 0.75 → result is ~80-200KB.
+// Two strategies for maximum Android compatibility:
+//   1. createImageBitmap (Chrome/Android) — decodes OFF the main thread, fast
+//   2. Image + Canvas fallback (Safari/iOS)
+
+const PHOTO_MAX_PX = 800;
+const PHOTO_QUALITY = 0.75;
+
+/** Draws an ImageBitmap or HTMLImageElement to a canvas and exports as JPEG blob. */
+function canvasExport(source: ImageBitmap | HTMLImageElement, w: number, h: number): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) { reject(new Error('Canvas indisponível')); return; }
+    ctx.drawImage(source, 0, 0, w, h);
+    canvas.toBlob(
+      (blob) => blob ? resolve(blob) : reject(new Error('toBlob falhou')),
+      'image/jpeg',
+      PHOTO_QUALITY
+    );
+  });
+}
+
+/** Calculate target dimensions keeping aspect ratio. */
+function targetSize(w: number, h: number): [number, number] {
+  if (w <= PHOTO_MAX_PX && h <= PHOTO_MAX_PX) return [w, h];
+  if (w > h) return [PHOTO_MAX_PX, Math.round((h / w) * PHOTO_MAX_PX)];
+  return [Math.round((w / h) * PHOTO_MAX_PX), PHOTO_MAX_PX];
+}
+
 /**
- * Simple, robust image compression via Canvas.
- * - Uses URL.createObjectURL directly (no FileReader/ArrayBuffer).
- * - Skips manual EXIF: Chrome 81+ and Safari 13.1+ auto-apply orientation.
- * - No Web Workers — works on all Android WebViews.
+ * Compress a photo file to a small JPEG blob.
+ * Uses createImageBitmap when available (Android Chrome) for off-thread decoding.
+ * Falls back to Image element (iOS Safari).
  */
-function compressImage(file: File): Promise<Blob> {
+async function compressPhoto(file: File): Promise<Blob> {
+  // ── Strategy 1: createImageBitmap (Chrome 50+, ideal for Android) ──
+  if (typeof createImageBitmap === 'function') {
+    try {
+      const bmp = await createImageBitmap(file);
+      const [tw, th] = targetSize(bmp.width, bmp.height);
+
+      // Try resize during decode (Chrome 54+) — most memory-efficient
+      try {
+        const resized = await createImageBitmap(file, { resizeWidth: tw, resizeHeight: th, resizeQuality: 'medium' } as any);
+        bmp.close();
+        const blob = await canvasExport(resized, tw, th);
+        resized.close();
+        return blob;
+      } catch (_) {
+        // resizeWidth/Height not supported (Safari) — draw full bitmap to small canvas
+        const blob = await canvasExport(bmp, tw, th);
+        bmp.close();
+        return blob;
+      }
+    } catch (e) {
+      console.warn('createImageBitmap falhou, usando fallback Image:', e);
+    }
+  }
+
+  // ── Strategy 2: Image element fallback (Safari/older browsers) ──
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const img = new Image();
-
     img.onload = () => {
       URL.revokeObjectURL(url);
       try {
-        const MAX = 1280;
-        let w = img.naturalWidth || img.width;
-        let h = img.naturalHeight || img.height;
-
-        if (w > MAX || h > MAX) {
-          if (w > h) { h = Math.round((h / w) * MAX); w = MAX; }
-          else       { w = Math.round((w / h) * MAX); h = MAX; }
-        }
-
-        const canvas = document.createElement('canvas');
-        canvas.width = w;
-        canvas.height = h;
-
-        const ctx = canvas.getContext('2d');
-        if (!ctx) { reject(new Error('Canvas indisponível')); return; }
-
-        ctx.drawImage(img, 0, 0, w, h);
-
-        canvas.toBlob(
-          (blob) => {
-            if (blob) { resolve(blob); }
-            else { reject(new Error('toBlob retornou null')); }
-          },
-          'image/jpeg',
-          0.80
-        );
-      } catch (err) {
-        reject(err);
-      }
+        const [tw, th] = targetSize(img.naturalWidth || img.width, img.naturalHeight || img.height);
+        canvasExport(img, tw, th).then(resolve, reject);
+      } catch (err) { reject(err); }
     };
-
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error('Falha ao decodificar imagem'));
-    };
-
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Imagem não suportada')); };
     img.src = url;
   });
 }
+
+// ─── Component ───────────────────────────────────────────────────────────────
 
 export function CitizenNewTicket() {
   const navigate = useNavigate();
@@ -97,7 +121,6 @@ export function CitizenNewTicket() {
   const [success, setSuccess] = useState(false);
   const [newProtocol, setNewProtocol] = useState('');
   const [isLocating, setIsLocating] = useState(false);
-  const masterTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [formData, setFormData] = useState({
     categoryId: '',
@@ -111,77 +134,126 @@ export function CitizenNewTicket() {
     longitude: undefined as number | undefined,
   });
 
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  // Photo state: compressed blob (ready for upload) + compression status
+  const [compressedPhoto, setCompressedPhoto] = useState<Blob | null>(null);
+  const [isCompressing, setIsCompressing] = useState(false);
+  // Ref to the in-flight compression promise so handleSubmit can await it
+  const compressionPromiseRef = useRef<Promise<Blob> | null>(null);
 
-  // Cleanup object URLs to prevent memory leaks (critical for mobile)
+  // Cleanup object URLs on unmount
   useEffect(() => {
     return () => {
       if (formData.photoUrl && formData.photoUrl.startsWith('blob:')) {
         URL.revokeObjectURL(formData.photoUrl);
       }
-      if (masterTimeoutRef.current) clearTimeout(masterTimeoutRef.current);
     };
   }, [formData.photoUrl]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // ─── Photo handler: compress IMMEDIATELY on capture ───
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // Reset so Android allows re-selection
 
-    if (!formData.categoryId) {
-      alert("Por favor, selecione uma categoria.");
-      return;
+    if (!file) return;
+
+    // Revoke old preview
+    if (formData.photoUrl && formData.photoUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(formData.photoUrl);
     }
 
-    setIsSubmitting(true);
+    // Normalize MIME type (some Android cameras return empty type)
+    const safeFile = (file.type && file.type.startsWith('image/'))
+      ? file
+      : new File([file], file.name || 'photo.jpg', { type: 'image/jpeg' });
 
-    // ── MASTER TIMEOUT: unconditionally unblock UI after 30s ──
-    // If any async operation hangs (Supabase, Canvas, etc.), this fires.
-    masterTimeoutRef.current = setTimeout(() => {
-      setIsSubmitting(false);
-      alert("Atenção: O envio demorou demais. Verifique sua conexão e tente novamente.");
-    }, 30000);
+    // Show instant preview from original file
+    const previewUrl = URL.createObjectURL(safeFile);
+    setFormData(prev => ({...prev, photoUrl: previewUrl}));
+    setCompressedPhoto(null);
+    setIsCompressing(true);
+
+    // Start compression in background — runs while user fills out the form
+    const promise = withTimeout(compressPhoto(safeFile), 25000, 'compressão da foto')
+      .then((blob) => {
+        setCompressedPhoto(blob);
+        // Replace preview with the compressed version (saves memory)
+        const compressedUrl = URL.createObjectURL(blob);
+        URL.revokeObjectURL(previewUrl);
+        setFormData(prev => ({...prev, photoUrl: compressedUrl}));
+        return blob;
+      })
+      .catch((err) => {
+        console.warn('Compressão da foto falhou:', err?.message || err);
+        setCompressedPhoto(null);
+        throw err;
+      })
+      .finally(() => {
+        setIsCompressing(false);
+        compressionPromiseRef.current = null;
+      });
+
+    compressionPromiseRef.current = promise;
+  };
+
+  // ─── Remove photo ───
+  const handleRemovePhoto = () => {
+    if (formData.photoUrl && formData.photoUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(formData.photoUrl);
+    }
+    setCompressedPhoto(null);
+    setIsCompressing(false);
+    compressionPromiseRef.current = null;
+    setFormData(prev => ({...prev, photoUrl: undefined}));
+  };
+
+  // ─── Submit ───
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.categoryId) { alert("Por favor, selecione uma categoria."); return; }
+
+    setIsSubmitting(true);
     
     try {
-      let uploadedPhotoUrl: string | undefined = undefined;
-
-      // Ensure we have a user
       const userId = currentUser?.id;
       if (!userId) throw new Error("Usuário não autenticado. Por favor, faça login novamente.");
 
-      // ── STEP 1: Photo (fully optional — never blocks ticket creation) ──
-      if (photoFile) {
-        try {
-          const compressedBlob = await withTimeout(
-            compressImage(photoFile),
-            12000,
-            'compressão da imagem'
-          );
-          
-          const fileName = `${Date.now()}-${userId}.jpg`;
+      let uploadedPhotoUrl: string | undefined = undefined;
 
-          const { data, error }: any = await withTimeout(
-            supabase.storage
-              .from('tickets')
-              .upload(fileName, compressedBlob, {
-                contentType: 'image/jpeg',
-                upsert: false
-              }),
-            15000,
-            'upload da foto'
-          );
-            
-          if (!error && data) {
-             const { data: { publicUrl } } = supabase.storage.from('tickets').getPublicUrl(fileName);
-             uploadedPhotoUrl = publicUrl;
-          } else if (error) {
-             console.warn('Upload da foto falhou, continuando sem foto:', error.message || error);
-          }
-        } catch (photoErr: any) {
-          console.warn("Foto ignorada:", photoErr?.message || photoErr);
-          // Continue — ticket is more important than the photo
+      // ── Photo upload (photo is already compressed — just upload the small blob) ──
+      let photoBlob = compressedPhoto;
+
+      // If compression is still running, wait up to 8s for it
+      if (!photoBlob && compressionPromiseRef.current) {
+        try {
+          photoBlob = await withTimeout(compressionPromiseRef.current, 8000, 'aguardando compressão');
+        } catch (_) {
+          console.warn('Compressão não terminou a tempo, enviando sem foto');
         }
       }
 
-      // ── STEP 2: Protocol number (with timeout, fallback to random) ──
+      if (photoBlob) {
+        try {
+          const fileName = `${Date.now()}-${userId}.jpg`;
+          const { data, error }: any = await withTimeout(
+            supabase.storage.from('tickets').upload(fileName, photoBlob, {
+              contentType: 'image/jpeg',
+              upsert: false
+            }),
+            15000,
+            'upload da foto'
+          );
+          if (!error && data) {
+            const { data: { publicUrl } } = supabase.storage.from('tickets').getPublicUrl(fileName);
+            uploadedPhotoUrl = publicUrl;
+          } else if (error) {
+            console.warn('Upload falhou:', error?.message || error);
+          }
+        } catch (uploadErr: any) {
+          console.warn('Upload ignorado:', uploadErr?.message || uploadErr);
+        }
+      }
+
+      // ── Protocol number ──
       let nextNum = Math.floor(Math.random() * 900000) + 100000;
       try {
         const { count, error } = await withTimeout(
@@ -189,16 +261,12 @@ export function CitizenNewTicket() {
           8000,
           'contagem de protocolo'
         );
-        if (!error && count !== null) {
-          nextNum = count + 1;
-        }
-      } catch (_) {
-        // Use random fallback — not a problem
-      }
+        if (!error && count !== null) nextNum = count + 1;
+      } catch (_) { /* random fallback */ }
       
       const generatedProtocol = `RD-${new Date().getFullYear()}-${String(nextNum).padStart(6, '0')}`;
       
-      // ── STEP 3: Build ticket object ──
+      // ── Create ticket ──
       const newTicket: Ticket = {
         id: generateUUID(),
         protocol: generatedProtocol,
@@ -217,24 +285,18 @@ export function CitizenNewTicket() {
         createdAt: Date.now()
       };
 
-      // ── STEP 4: Insert into Supabase (addTicket already has its own 20s timeout) ──
       await addTicket(newTicket);
-
-      // ── SUCCESS ──
-      if (masterTimeoutRef.current) { clearTimeout(masterTimeoutRef.current); masterTimeoutRef.current = null; }
       setNewProtocol(generatedProtocol);
       setSuccess(true);
     } catch (err: any) {
-      if (masterTimeoutRef.current) { clearTimeout(masterTimeoutRef.current); masterTimeoutRef.current = null; }
       console.error("Error creating ticket", err);
-      let errMsg = "Erro ao salvar chamado.";
-      if (err?.message) errMsg = err.message;
-      alert("Atenção: " + errMsg);
+      alert("Atenção: " + (err?.message || "Erro ao salvar chamado."));
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // ─── Geolocation ───
   const handleGetLocation = () => {
     if (!navigator.geolocation) {
       alert('Geolocalização não suportada no seu navegador.');
@@ -271,21 +333,21 @@ export function CitizenNewTicket() {
              }
           }
 
-          setFormData({
-            ...formData, 
+          setFormData(prev => ({
+            ...prev, 
             latitude: lat,
             longitude: lng,
-            address: formData.address || addressLocal || `Coordenadas: ${lat.toFixed(4)}, ${lng.toFixed(4)}`,
-            neighborhood: formData.neighborhood || neighborhoodLocal
-          });
+            address: prev.address || addressLocal || `Coordenadas: ${lat.toFixed(4)}, ${lng.toFixed(4)}`,
+            neighborhood: prev.neighborhood || neighborhoodLocal
+          }));
         } catch (e) {
           console.error("Reverse geocoding failed", e);
-          setFormData({
-            ...formData, 
+          setFormData(prev => ({
+            ...prev, 
             latitude: lat,
             longitude: lng,
             address: `Coordenadas: ${lat.toFixed(4)}, ${lng.toFixed(4)}`
-          });
+          }));
         } finally {
           setIsLocating(false);
         }
@@ -298,6 +360,7 @@ export function CitizenNewTicket() {
     );
   };
 
+  // ─── Success screen ───
   if (success) {
     return (
       <div className="p-4 md:p-6 lg:max-w-2xl mx-auto flex flex-col items-center justify-center min-h-[70vh] text-center space-y-6 animate-in fade-in zoom-in-95 duration-500 font-sans">
@@ -324,23 +387,7 @@ export function CitizenNewTicket() {
     );
   }
 
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    // Reset input value so Android allows selecting the same file/camera shot again
-    e.target.value = '';
-    if (file) {
-      if (formData.photoUrl && formData.photoUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(formData.photoUrl);
-      }
-      // Some Android camera apps return files with empty MIME type — normalize it
-      const safeFile = (file.type && file.type.startsWith('image/'))
-        ? file
-        : new File([file], file.name || 'photo.jpg', { type: 'image/jpeg' });
-      setPhotoFile(safeFile);
-      setFormData({...formData, photoUrl: URL.createObjectURL(safeFile)});
-    }
-  };
-
+  // ─── Form ───
   return (
     <div className="p-4 md:p-6 lg:max-w-2xl mx-auto space-y-6 font-sans">
       <button 
@@ -382,7 +429,6 @@ export function CitizenNewTicket() {
               {!formData.photoUrl ? (
                 <div className="grid grid-cols-2 gap-3 h-28">
                   <label className="border border-dashed border-slate-300 rounded bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer text-slate-500 flex flex-col items-center justify-center relative overflow-hidden group text-center p-2">
-                    {/* capture="environment" opens rear camera on Android & iOS; accept="image/*" allows gallery fallback */}
                     <input type="file" accept="image/jpeg,image/png,image/webp,image/*" capture="environment" className="hidden" onChange={handlePhotoChange} />
                     <Camera className="w-5 h-5 mb-1 text-slate-400 group-hover:text-blue-500 transition-colors" />
                     <span className="text-[10px] font-bold uppercase tracking-wider group-hover:text-blue-600 transition-colors text-slate-500 leading-tight">Câmera</span>
@@ -397,15 +443,16 @@ export function CitizenNewTicket() {
               ) : (
                 <div className="relative h-48 rounded overflow-hidden border border-slate-200 bg-slate-100">
                   <img src={formData.photoUrl} alt="Preview" className="w-full h-full object-contain" />
+                  {/* Compression overlay indicator */}
+                  {isCompressing && (
+                    <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-white">
+                      <Loader2 className="w-6 h-6 animate-spin mb-1" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider">Processando foto...</span>
+                    </div>
+                  )}
                   <button 
                     type="button" 
-                    onClick={() => {
-                      if (formData.photoUrl && formData.photoUrl.startsWith('blob:')) {
-                        URL.revokeObjectURL(formData.photoUrl);
-                      }
-                      setPhotoFile(null);
-                      setFormData({...formData, photoUrl: undefined});
-                    }}
+                    onClick={handleRemovePhoto}
                     className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-2 shadow-lg hover:bg-red-700 transition-colors"
                   >
                     <X className="w-4 h-4" />
@@ -504,4 +551,3 @@ export function CitizenNewTicket() {
     </div>
   );
 }
-
