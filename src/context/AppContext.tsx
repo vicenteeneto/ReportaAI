@@ -258,15 +258,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addTicket = async (t: Ticket): Promise<void> => {
-    // IMPORTANT: column names must exactly match the Postgres schema (database-schema.sql).
-    // The actual DB uses all-lowercase no-separator names: userid, categoryid, photourl, etc.
-    // Sending wrong column names on Android causes a silent hang (no error thrown by Supabase).
+    // Column names use quoted camelCase in the deployed Postgres schema
+    // (e.g. "categoryId", "userId", "photoUrl"). These are case-sensitive.
     const insertPayload: any = {
       id: t.id,
       protocol: t.protocol,
-      userid: t.userId,
-      categoryid: t.categoryId,
-      departmentid: t.departmentId,
+      userId: t.userId,
+      categoryId: t.categoryId,
+      departmentId: t.departmentId,
       title: t.title,
       description: t.description,
       status: t.status,
@@ -275,7 +274,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       longitude: t.longitude,
       address: t.address,
       neighborhood: t.neighborhood,
-      photourl: t.photoUrl ?? null,
+      photoUrl: t.photoUrl ?? null,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
     };
 
     // Hard timeout: if Supabase hangs for > 20s, reject so the UI unblocks
@@ -309,10 +310,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       ? {
           ...t,
           id: data.id,
-          userId: data.user_id || data.userId || data.userid,
-          photoUrl: data.photo_url || data.photoUrl || data.photourl || t.photoUrl,
-          createdAt: data.created_at
-            ? new Date(data.created_at).getTime()
+          userId: data.userId || data.userid || data.user_id,
+          photoUrl: data.photoUrl || data.photourl || data.photo_url || t.photoUrl,
+          createdAt: data.createdAt
+            ? (typeof data.createdAt === 'number' ? data.createdAt : new Date(data.createdAt).getTime())
             : Date.now(),
         }
       : { ...t, createdAt: Date.now() };
