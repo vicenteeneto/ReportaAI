@@ -121,6 +121,7 @@ export function CitizenNewTicket() {
   const [success, setSuccess] = useState(false);
   const [newProtocol, setNewProtocol] = useState('');
   const [isLocating, setIsLocating] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     categoryId: '',
@@ -209,7 +210,8 @@ export function CitizenNewTicket() {
   // ─── Submit ───
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.categoryId) { alert("Por favor, selecione uma categoria."); return; }
+    setErrorMsg(null);
+    if (!formData.categoryId) { setErrorMsg('Por favor, selecione uma categoria.'); return; }
 
     setIsSubmitting(true);
     
@@ -290,7 +292,10 @@ export function CitizenNewTicket() {
       setSuccess(true);
     } catch (err: any) {
       console.error("Error creating ticket", err);
-      alert("Atenção: " + (err?.message || "Erro ao salvar chamado."));
+      const msg = err?.message || 'Erro ao salvar chamado.';
+      setErrorMsg(msg);
+      // Also alert as backup (works on iOS; may be suppressed on Android PWA)
+      try { alert('Atenção: ' + msg); } catch (_) {}
     } finally {
       setIsSubmitting(false);
     }
@@ -408,6 +413,19 @@ export function CitizenNewTicket() {
       </div>
 
       <form onSubmit={step === 1 ? (e) => { e.preventDefault(); setStep(2); } : handleSubmit}>
+
+        {/* Error banner — always visible on screen, never suppressed unlike alert() */}
+        {errorMsg && (
+          <div className="mb-4 p-3 rounded border border-red-300 bg-red-50 flex items-start gap-2">
+            <span className="text-red-500 font-bold text-base leading-none mt-0.5">⚠</span>
+            <div className="flex-1">
+              <p className="text-[10px] font-bold text-red-700 uppercase tracking-wider mb-0.5">Erro ao enviar</p>
+              <p className="text-[11px] text-red-600 leading-relaxed break-words">{errorMsg}</p>
+            </div>
+            <button type="button" onClick={() => setErrorMsg(null)} className="text-red-400 hover:text-red-600 font-bold text-lg leading-none px-1">×</button>
+          </div>
+        )}
+
         {step === 1 && (
           <div className="space-y-5 animate-in slide-in-from-right-8">
             <div className="space-y-1.5">
