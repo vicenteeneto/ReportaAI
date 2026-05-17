@@ -7,7 +7,6 @@ import { useAppContext } from '../../context/AppContext';
 import { Camera, MapPin, CheckCircle2, ArrowLeft, Loader2, Upload, X } from 'lucide-react';
 import { Ticket } from '../../data/types';
 import { supabase } from '../../lib/supabase';
-import imageCompression from 'browser-image-compression';
 
 // Utility for generating UUID if crypto.randomUUID is unavailable
 function generateUUID() {
@@ -15,7 +14,7 @@ function generateUUID() {
     try {
       return crypto.randomUUID();
     } catch (e) {
-      // Ignorar e usar fallback
+      // fallback below
     }
   }
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -24,29 +23,144 @@ function generateUUID() {
   });
 }
 
-// Simple image resize/compress to improve mobile upload performance
-// Using browser-image-compression for robust memory handling and worker support
-async function compressImage(file: File): Promise<Blob> {
-  const options = {
-    maxSizeMB: 1,
-    maxWidthOrHeight: 1280,
-    useWebWorker: true,
-    fileType: 'image/jpeg'
-  };
-  
-  try {
-    const compressedBlob = await imageCompression(file, options);
-    return compressedBlob;
-  } catch (error) {
-    console.warn('Image compression with web worker failed, trying fallback...', error);
-    try {
-      options.useWebWorker = false;
-      return await imageCompression(file, options);
-    } catch (fallbackErr) {
-      console.error('All compression attempts failed', fallbackErr);
-      throw fallbackErr;
+/**
+ * Reads EXIF orientation tag from a JPEG ArrayBuffer.
+ * Returns the orientation value (1–8) or 1 (no rotation) if not found.
+ */
+function getExifOrientation(buffer: ArrayBuffer): number {
+  const view = new DataView(buffer);
+  if (view.getUint16(0, false) !== 0xFFD8) return 1; // not JPEG
+  let offset = 2;
+  while (offset < view.byteLength) {
+    if (view.getUint16(offset, false) === 0xFFE1) {
+      offset += 4;
+      if (view.getUint32(offset, false) !== 0x45786966) return 1; // no Exif header
+      const little = view.getUint16(offset += 6, false) === 0x4949;
+      offset += view.getUint32(offset + 4, little);
+      const tags = view.getUint16(offset, little);
+      offset += 2;
+      for (let i = 0; i < tags; i++) {
+        if (view.getUint16(offset + i * 12, little) === 0x0112) {
+          return view.getUint16(offset + i * 12 + 8, little);
+        }
+      }
+    } else if ((view.getUint16(offset, false) & 0xFF00) !== 0xFF00) {
+      break;
+    } else {
+      offset += 2 + view.getUint16(offset + 2, false);
     }
   }
+  return 1;
+}
+
+/**
+ * Cross-platform image compression using Canvas API.
+ * Handles EXIF rotation (critical for Android camera photos).
+ * Does NOT use Web Workers — safe for all Android WebViews.
+ */
+async function compressImage(file: File): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = async (readerEvent) => {
+      try {
+        const buffer = readerEvent.target?.result as ArrayBuffer;
+        if (!buffer) throw new Error('Failed to read file');
+
+        // Detect EXIF orientation for Android camera photos
+        const orientation = getExifOrientation(buffer);
+
+        // Convert ArrayBuffer to blob URL for Image element
+        const blob = new Blob([buffer], { type: file.type || 'image/jpeg' });
+        const url = URL.createObjectURL(blob);
+
+        const img = new Image();
+        img.onload = () => {
+          URL.revokeObjectURL(url);
+
+          const MAX = 1280;
+          let { width, height } = img;
+
+          // Swap dimensions for 90/270 degree rotations
+          const swapped = orientation >= 5 && orientation <= 8;
+          const origW = swapped ? height : width;
+          const origH = swapped ? width : height;
+
+          let targetW = origW;
+          let targetH = origH;
+
+          if (origW > MAX || origH > MAX) {
+            if (origW > origH) {
+              targetW = MAX;
+              targetH = Math.round((origH / origW) * MAX);
+            } else {
+              targetH = MAX;
+              targetW = Math.round((origW / origH) * MAX);
+            }
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = targetW;
+          canvas.height = targetH;
+
+          const ctx = canvas.getContext('2d');
+          if (!ctx) throw new Error('Canvas context unavailable');
+
+          // Apply EXIF rotation correction
+          ctx.save();
+          switch (orientation) {
+            case 2: ctx.transform(-1, 0, 0, 1, targetW, 0); break;
+            case 3: ctx.transform(-1, 0, 0, -1, targetW, targetH); break;
+            case 4: ctx.transform(1, 0, 0, -1, 0, targetH); break;
+            case 5: ctx.transform(0, 1, 1, 0, 0, 0); break;
+            case 6: ctx.transform(0, 1, -1, 0, targetH, 0); break;
+            case 7: ctx.transform(0, -1, -1, 0, targetH, targetW); break;
+            case 8: ctx.transform(0, -1, 1, 0, 0, targetW); break;
+            default: break;
+          }
+
+          if (swapped) {
+            ctx.drawImage(img, 0, 0, targetH, targetW);
+          } else {
+            ctx.drawImage(img, 0, 0, targetW, targetH);
+          }
+          ctx.restore();
+
+          // Compress to JPEG with quality tuned for < 1MB
+          let quality = 0.82;
+          const tryExport = () => {
+            canvas.toBlob(
+              (result) => {
+                if (!result) { reject(new Error('Canvas toBlob failed')); return; }
+                // If still too large, reduce quality once more
+                if (result.size > 1_200_000 && quality > 0.5) {
+                  quality -= 0.15;
+                  tryExport();
+                } else {
+                  resolve(result);
+                }
+              },
+              'image/jpeg',
+              quality
+            );
+          };
+          tryExport();
+        };
+
+        img.onerror = () => {
+          URL.revokeObjectURL(url);
+          reject(new Error('Failed to decode image'));
+        };
+
+        img.src = url;
+      } catch (err) {
+        reject(err);
+      }
+    };
+
+    reader.onerror = () => reject(new Error('FileReader error'));
+    reader.readAsArrayBuffer(file);
+  });
 }
 
 export function CitizenNewTicket() {
@@ -274,12 +388,18 @@ export function CitizenNewTicket() {
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    // Reset input value so Android allows selecting the same file/camera shot again
+    e.target.value = '';
     if (file) {
       if (formData.photoUrl && formData.photoUrl.startsWith('blob:')) {
         URL.revokeObjectURL(formData.photoUrl);
       }
-      setPhotoFile(file);
-      setFormData({...formData, photoUrl: URL.createObjectURL(file)});
+      // Some Android camera apps return files with empty MIME type — normalize it
+      const safeFile = (file.type && file.type.startsWith('image/'))
+        ? file
+        : new File([file], file.name || 'photo.jpg', { type: 'image/jpeg' });
+      setPhotoFile(safeFile);
+      setFormData({...formData, photoUrl: URL.createObjectURL(safeFile)});
     }
   };
 
@@ -324,7 +444,8 @@ export function CitizenNewTicket() {
               {!formData.photoUrl ? (
                 <div className="grid grid-cols-2 gap-3 h-28">
                   <label className="border border-dashed border-slate-300 rounded bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer text-slate-500 flex flex-col items-center justify-center relative overflow-hidden group text-center p-2">
-                    <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoChange} />
+                    {/* capture="environment" opens rear camera on Android & iOS; accept="image/*" allows gallery fallback */}
+                    <input type="file" accept="image/jpeg,image/png,image/webp,image/*" capture="environment" className="hidden" onChange={handlePhotoChange} />
                     <Camera className="w-5 h-5 mb-1 text-slate-400 group-hover:text-blue-500 transition-colors" />
                     <span className="text-[10px] font-bold uppercase tracking-wider group-hover:text-blue-600 transition-colors text-slate-500 leading-tight">Câmera</span>
                   </label>
