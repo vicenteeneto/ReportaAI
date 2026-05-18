@@ -37,7 +37,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       let catQuery = supabase.from('categories').select('*').order('name');
       let ticketQuery = supabase.from('tickets').select('*');
 
-      if (userProfile && userProfile.role !== 'superadmin' && userProfile.cityId) {
+      if (userProfile && userProfile.role === 'citizen') {
+        // Cidadão vê todos os SEUS chamados, não importa de qual cidade
+        ticketQuery = ticketQuery.eq('userId', userProfile.id);
+        // Não filtramos departamentos/categorias para que ele consiga ver detalhes de chamados de outras cidades
+      } else if (userProfile && userProfile.role !== 'superadmin' && userProfile.cityId) {
+        // Gestores vêem apenas os dados da própria cidade
         deptQuery = deptQuery.eq('cityId', userProfile.cityId);
         catQuery = catQuery.eq('cityId', userProfile.cityId);
         ticketQuery = ticketQuery.eq('cityId', userProfile.cityId);
