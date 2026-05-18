@@ -33,7 +33,7 @@ export function CitizenTickets() {
   
   const myTickets = allMyTickets.filter(t => {
     if (filter === 'all') return true;
-    if (filter === 'in_progress') return t.status !== 'received' && t.status !== 'resolved' && t.status !== 'closed' && t.status !== 'rejected';
+    if (filter === 'in_progress') return t.status !== 'received' && t.status !== 'resolved' && t.status !== 'closed' && t.status !== 'rejected' && t.status !== 'canceled';
     if (filter === 'resolved') return t.status === 'resolved' || t.status === 'closed';
     return true;
   });
@@ -47,8 +47,8 @@ export function CitizenTickets() {
     
     setIsCancelling(true);
     try {
-      await updateTicketStatus(selectedTicket.id, 'rejected');
-      setSelectedTicket({ ...selectedTicket, status: 'rejected' });
+      await updateTicketStatus(selectedTicket.id, 'canceled');
+      setSelectedTicket({ ...selectedTicket, status: 'canceled' });
       setShowCancelConfirm(false);
     } catch (e: any) {
       alert('Erro ao cancelar: ' + e.message);

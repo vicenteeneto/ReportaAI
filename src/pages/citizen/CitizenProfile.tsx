@@ -3,11 +3,11 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input, Select } from '../../components/ui/Input';
 import { useAppContext } from '../../context/AppContext';
-import { User, Save, Upload, MapPin, Phone, Hash, Building2 } from 'lucide-react';
+import { User, Save, Upload, MapPin, Phone, Hash, Building2, LogOut } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 export function CitizenProfile() {
-  const { currentUser, tickets: appTickets, cities } = useAppContext();
+  const { currentUser, tickets: appTickets, cities, logout } = useAppContext();
   
   const formatCPF = (value: string) => {
     return value
@@ -209,7 +209,7 @@ export function CitizenProfile() {
           </Select>
         </div>
 
-        <div className="mt-8">
+        <div className="mt-8 space-y-3">
           <Button 
             className="w-full font-bold uppercase tracking-widest h-12"
             onClick={handleSave}
@@ -217,6 +217,15 @@ export function CitizenProfile() {
             icon={Save}
           >
             {isSaving ? 'Salvando...' : 'Salvar Alterações'}
+          </Button>
+          
+          <Button
+            variant="outline"
+            className="w-full font-bold uppercase tracking-widest h-12 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+            onClick={logout}
+            icon={LogOut}
+          >
+            Sair da Conta
           </Button>
         </div>
       </Card>

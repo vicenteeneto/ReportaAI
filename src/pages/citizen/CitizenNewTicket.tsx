@@ -480,7 +480,7 @@ export function CitizenNewTicket() {
                 <option value="">Selecione uma categoria...</option>
                 {categories.filter(cat => {
                    const activeCityId = formData.cityId || currentUser?.cityId || '11111111-1111-1111-1111-111111111111';
-                   return cat.cityId === activeCityId || !cat.cityId;
+                   return cat.cityId === activeCityId || !cat.cityId || cat.id === formData.categoryId;
                 }).map(cat => (
                   <option key={cat.id} value={cat.id}>{cat.name}</option>
                 ))}

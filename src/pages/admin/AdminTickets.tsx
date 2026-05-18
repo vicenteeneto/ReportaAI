@@ -65,9 +65,9 @@ export function AdminTickets() {
     
     let matchesStatus = true;
     if (statusFilter === 'in_progress') {
-      matchesStatus = t.status !== 'received' && t.status !== 'resolved' && t.status !== 'closed' && t.status !== 'rejected';
+      matchesStatus = t.status !== 'received' && t.status !== 'resolved' && t.status !== 'closed' && t.status !== 'rejected' && t.status !== 'canceled';
     } else if (statusFilter === 'urgent') {
-      matchesStatus = t.priority === 'urgent' && t.status !== 'resolved' && t.status !== 'closed' && t.status !== 'rejected';
+      matchesStatus = t.priority === 'urgent' && t.status !== 'resolved' && t.status !== 'closed' && t.status !== 'rejected' && t.status !== 'canceled';
     } else if (statusFilter) {
       matchesStatus = t.status === statusFilter;
     }
