@@ -303,7 +303,7 @@ export function CitizenNewTicket() {
         address: formData.address || 'Localização não informada',
         neighborhood: formData.neighborhood || 'Bairro Não Informado',
         cityId: currentUser?.cityId || '11111111-1111-1111-1111-111111111111',
-        priority: formData.priority,
+        priority: categories.find(c => c.id === formData.categoryId)?.defaultPriority || 'medium',
         status: 'received',
         latitude: formData.latitude || -16.4716 + (Math.random() * 0.01 - 0.005),
         longitude: formData.longitude || -54.6369 + (Math.random() * 0.01 - 0.005),
@@ -563,24 +563,6 @@ export function CitizenNewTicket() {
               <p className="text-[9px] text-slate-500 font-medium">Os dados informados alimentam o sistema central da prefeitura.</p>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Urgência</label>
-              <div className="grid grid-cols-3 gap-2">
-                {(['low', 'medium', 'high'] as const).map(p => (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => setFormData({...formData, priority: p})}
-                    className={`py-3 rounded border text-[10px] uppercase tracking-wider font-bold transition-all shadow-sm ${
-                      formData.priority === p 
-                        ? 'bg-[#1E3A8A] border-[#1E3A8A] text-white ring-2 ring-blue-200' 
-                        : 'border-slate-300 text-slate-600 hover:bg-slate-50 bg-white'
-                    }`}
-                  >
-                    {p === 'low' ? 'Baixa' : p === 'medium' ? 'Média' : 'Crítica'}
-                  </button>
-                ))}
-              </div>
             </div>
 
             <div className="flex gap-2 pt-4">

@@ -30,6 +30,7 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
 
   const [isUpdating, setIsUpdating] = useState(false);
   const [newStatus, setNewStatus] = useState<TicketStatus>(ticket.status as TicketStatus);
+  const [newPriority, setNewPriority] = useState<'low' | 'medium' | 'high' | 'urgent'>(ticket.priority);
   const [resolutionComment, setResolutionComment] = useState('');
   const [resolutionFile, setResolutionFile] = useState<File | null>(null);
   const [ticketHistory, setTicketHistory] = useState<any[]>([]);
@@ -73,6 +74,7 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
 
       await supabase.from('tickets').update({ 
         status: newStatus,
+        priority: newPriority,
         resolvedPhotoUrl: resolvedPhotoUrl,
         updatedAt: Date.now()
       }).eq('id', ticket.id);
@@ -82,7 +84,7 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
         userId: (await supabase.auth.getUser()).data.user?.id,
         action: `Status alterado para ${newStatus}`,
         newStatus: newStatus,
-        comment: resolutionComment,
+        comment: resolutionComment || (newPriority !== ticket.priority ? `Prioridade alterada de ${ticket.priority} para ${newPriority}` : ''),
         createdAt: Date.now()
       });
 
@@ -239,6 +241,20 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
                 </div>
 
                 <div className="space-y-2">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Urgência / Prioridade (Triagem)</label>
+                  <select 
+                    className="w-full h-10 px-3 py-2 text-sm rounded-lg border-slate-300 focus:ring-[#1E3A8A] focus:border-[#1E3A8A] bg-white text-slate-800 shadow-sm border"
+                    value={newPriority}
+                    onChange={(e) => setNewPriority(e.target.value as any)}
+                  >
+                    <option value="low">Baixa</option>
+                    <option value="medium">Média</option>
+                    <option value="high">Alta</option>
+                    <option value="urgent">Crítica / Urgente</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Observações / Comentários</label>
                   <textarea 
                     className="w-full text-sm rounded-lg border-slate-300 focus:ring-[#1E3A8A] focus:border-[#1E3A8A] bg-white text-slate-800 shadow-sm border p-3 min-h-[80px]"
@@ -275,7 +291,7 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
                 <div className="flex flex-col gap-2">
                   <Button 
                     className="w-full font-bold uppercase tracking-widest text-xs h-11 shadow-md bg-[#1E3A8A]" 
-                    disabled={newStatus === ticket.status && !resolutionComment && !resolutionFile || isUpdating}
+                    disabled={(newStatus === ticket.status && newPriority === ticket.priority && !resolutionComment && !resolutionFile) || isUpdating}
                     onClick={handleUpdate}
                     isLoading={isUpdating}
                   >
