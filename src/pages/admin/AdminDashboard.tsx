@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { useAppContext } from '../../context/AppContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
@@ -6,6 +7,7 @@ import { Clock, CheckCircle2, AlertTriangle, FileText } from 'lucide-react';
 
 export function AdminDashboard() {
   const { tickets, categories } = useAppContext();
+  const navigate = useNavigate();
 
   const total = tickets.length;
   const resolved = tickets.filter(t => t.status === 'resolved' || t.status === 'closed').length;
@@ -30,21 +32,30 @@ export function AdminDashboard() {
     <div className="flex flex-col h-full gap-6">
       {/* Top Stats */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-4 shrink-0">
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <div 
+          onClick={() => navigate('/admin/tickets', { state: { filter: 'all' } })}
+          className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:shadow-md hover:border-[#1E3A8A] transition-all"
+        >
           <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Chamados este Mês</p>
           <div className="flex items-baseline gap-2 mt-1">
             <h2 className="text-2xl font-bold text-slate-800">{total}</h2>
             <span className="text-[10px] text-emerald-600 font-bold">+12% ↑</span>
           </div>
         </div>
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <div 
+          onClick={() => navigate('/admin/tickets', { state: { filter: 'in_progress' } })}
+          className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:shadow-md hover:border-amber-400 transition-all"
+        >
           <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Em Aberto / Triagem</p>
           <div className="flex items-baseline gap-2 mt-1">
             <h2 className="text-2xl font-bold text-amber-500">{pending}</h2>
             <span className="text-[10px] text-slate-400 font-medium">33% do total</span>
           </div>
         </div>
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <div 
+          onClick={() => navigate('/admin/tickets', { state: { filter: 'resolved' } })}
+          className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:shadow-md hover:border-emerald-400 transition-all"
+        >
           <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Resolvidos (SLA)</p>
           <div className="flex items-baseline gap-2 mt-1">
             <h2 className="text-2xl font-bold text-emerald-600">{resolved}</h2>

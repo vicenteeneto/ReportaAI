@@ -44,7 +44,7 @@ export function AdminLayout() {
               <p className="text-xs font-semibold">{currentUser?.name}</p>
               <p className="text-[10px] opacity-70 italic">Logado como {currentUser?.role}</p>
             </div>
-            <button onClick={logout} className="w-8 h-8 rounded-full bg-slate-300 flex items-center justify-center text-[#1E3A8A] hover:bg-white transition-colors" title="Sair">
+            <button onClick={logout} className="w-8 h-8 rounded-full bg-slate-300 flex items-center justify-center text-[#1E3A8A] hover:bg-white transition-colors cursor-pointer relative z-50" title="Sair">
               <LogOut className="w-4 h-4" />
             </button>
           </div>
@@ -120,12 +120,35 @@ export function AdminLayout() {
         </aside>
 
         {/* Main Content Area */}
-        <main className="flex-1 flex flex-col p-4 md:p-6 gap-6 overflow-hidden bg-slate-50">
+        <main className="flex-1 flex flex-col p-4 md:p-6 gap-6 overflow-hidden bg-slate-50 pb-[80px] md:pb-6">
           <div className="flex-1 overflow-y-auto">
             <Outlet />
           </div>
         </main>
       </div>
+
+      {/* Mobile Bottom Navigation */}
+      <nav className="fixed bottom-0 w-full bg-white border-t border-slate-200 md:hidden pb-safe z-50 h-[60px]">
+        <ul className="flex justify-around items-center h-full px-1">
+          {navItems.filter(item => item.showFor.includes(currentUser?.role || '')).slice(0, 5).map((item) => (
+            <li key={item.path} className="flex-1 h-full flex">
+              <NavLink
+                to={item.path}
+                className={({ isActive }) => `flex-1 flex flex-col items-center justify-center transition-colors ${isActive ? 'text-[#1E3A8A] bg-slate-50' : 'text-slate-500 hover:bg-slate-50'}`}
+              >
+                {({ isActive }) => (
+                  <>
+                    <item.icon className={`w-5 h-5 mb-1 ${isActive ? 'stroke-[2.5]' : 'stroke-2'}`} />
+                    <span className={`text-[9px] uppercase tracking-wider text-center leading-tight px-1 ${isActive ? 'font-bold' : 'font-medium'}`}>
+                      {item.label.split(' ')[0]}
+                    </span>
+                  </>
+                )}
+              </NavLink>
+            </li>
+          ))}
+        </ul>
+      </nav>
     </div>
   );
 }
