@@ -31,10 +31,20 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     // Subscribe to database changes (optional depending on needs, but let's implement basic fetch for now)
     const loadData = async (userProfile?: User) => {
       setLoading(true);
+      let deptQuery = supabase.from('departments').select('*').order('name');
+      let catQuery = supabase.from('categories').select('*').order('name');
+      let ticketQuery = supabase.from('tickets').select('*');
+
+      if (userProfile && userProfile.role !== 'superadmin' && userProfile.cityId) {
+        deptQuery = deptQuery.eq('cityId', userProfile.cityId);
+        catQuery = catQuery.eq('cityId', userProfile.cityId);
+        ticketQuery = ticketQuery.eq('cityId', userProfile.cityId);
+      }
+
       const [depsRes, catsRes, ticketsRes] = await Promise.all([
-        supabase.from('departments').select('*').order('name'),
-        supabase.from('categories').select('*').order('name'),
-        supabase.from('tickets').select('*')
+        deptQuery,
+        catQuery,
+        ticketQuery
       ]);
       
       const allTickets = ticketsRes.data || [];
@@ -137,31 +147,60 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       const { data: { session } } = await supabase.auth.getSession();
       
       const fetchUserProfile = async (userId: string) => {
-        const { data } = await supabase.from('users').select('*').eq('id', userId).single();
-        if (data) {
-          const mappedUser: User = {
-            id: data.id,
-            name: data.name,
-            email: data.email,
-            role: data.role as any,
-            avatarUrl: data.avatar_url || data.avatarurl || data.avatarUrl || null,
-            departmentId: data.department_id || data.departmentid || data.departmentId || null
-          };
+        const { data: userRow } = await supabase.from('users').select('*').eq('id', userId).single();
+        if (userRow) {
+          const isHardcodedSuperadmin = userRow.email === 'contato@kngflow.com';
+          const mappedUser = {
+            ...userRow,
+            role: isHardcodedSuperadmin ? 'superadmin' : userRow.role,
+            departmentId: userRow.departmentId || userRow.department_id || userRow.departmentid,
+            avatarUrl: userRow.avatarUrl || userRow.avatar_url || userRow.avatarurl,
+            pointsValidating: userRow.pointsValidating || userRow.points_validating || userRow.pointsvalidating,
+            pointsValidated: userRow.pointsValidated || userRow.points_validated || userRow.pointsvalidated,
+            cityId: userRow.cityId || userRow.city_id || userRow.cityid,
+          } as User;
+          
+          if (isHardcodedSuperadmin && userRow.role !== 'superadmin') {
+            supabase.from('users').update({ role: 'superadmin' }).eq('id', userId).then();
+          }
+
+          setCurrentUser(mappedUser);
           return mappedUser;
         } else {
           // In case user hasn't synced to users table, fetch profile email
            const { data: authData } = await supabase.auth.getUser();
            if (authData.user) {
+             const email = authData.user.email || '';
+             // Ensure contato@kngflow is always superadmin
+             const isSuper = email === 'contato@kngflow.com';
+             
+             // Check if user exists by email but with different auth ID (sync issue)
+             const { data: existingEmailUser } = await supabase.from('users').select('*').eq('email', email).single();
+             
+             if (existingEmailUser) {
+               // Update the existing user row with the new auth ID if possible, or just use their role
+               const mappedUser = {
+                 ...existingEmailUser,
+                 id: userId,
+                 role: isSuper ? 'superadmin' : existingEmailUser.role,
+               } as User;
+               // Try to update DB to sync ID
+               supabase.from('users').update({ id: userId, role: mappedUser.role }).eq('email', email).then();
+               setCurrentUser(mappedUser);
+               return mappedUser;
+             }
+
              const metadata = authData.user.user_metadata || {};
-             const name = metadata.full_name || metadata.name || authData.user.email?.split('@')[0] || 'Usuário';
+             const name = metadata.full_name || metadata.name || email.split('@')[0] || 'Usuário';
              const avatarUrl = metadata.avatar_url || metadata.picture || null;
              
              const newUser = {
                id: userId,
                name: name,
-               email: authData.user.email || '',
-               role: 'citizen',
-               avatar_url: avatarUrl
+               email: email,
+               role: isSuper ? 'superadmin' : 'citizen',
+               avatar_url: avatarUrl,
+               cityId: '11111111-1111-1111-1111-111111111111' // Fallback para a cidade padrão por enquanto
              };
              const { error: insErr } = await supabase.from('users').upsert(newUser);
              if (insErr) console.error("Error creating user", insErr);

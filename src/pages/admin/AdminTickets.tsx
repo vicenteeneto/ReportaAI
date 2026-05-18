@@ -1,21 +1,57 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Input';
 import { StatusBadge, PriorityBadge } from '../../components/ui/Badge';
 import { useAppContext } from '../../context/AppContext';
-import { Search, Filter, Eye } from 'lucide-react';
+import { Search, Filter, Eye, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
 import { AdminTicketDetailsModal } from '../../components/admin/AdminTicketDetailsModal';
 import { Ticket } from '../../data/types';
 
 export function AdminTickets() {
   const { tickets, categories, departments, currentUser } = useAppContext();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { id } = useParams();
+
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  
+  // Custom filter handling from state
+  const initialFilter = location.state?.filter || '';
+  const [statusFilter, setStatusFilter] = useState(initialFilter);
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+
+  // Parse custom filters like 'urgent' or 'in_progress' from dashboard
+  useEffect(() => {
+    if (location.state?.filter) {
+      const f = location.state.filter;
+      if (f === 'in_progress') setStatusFilter('in_progress'); // We need to handle this in filter logic
+      else if (f === 'resolved') setStatusFilter('resolved');
+      else if (f === 'urgent') setStatusFilter('urgent');
+      else setStatusFilter('');
+    }
+  }, [location.state]);
+
+  // Handle direct ticket link via URL
+  useEffect(() => {
+    if (id && tickets.length > 0) {
+      const ticket = tickets.find(t => t.id === id);
+      if (ticket) {
+        setSelectedTicket(ticket);
+      }
+    }
+  }, [id, tickets]);
+
+  const handleCloseModal = () => {
+    setSelectedTicket(null);
+    if (id) {
+      navigate('/admin/tickets', { replace: true });
+    }
+  };
 
   const filteredTickets = tickets.filter(t => {
     // Role-based security: Secretary sees only their department
@@ -23,7 +59,15 @@ export function AdminTickets() {
     const belongsToDept = isSecretary ? t.departmentId === currentUser?.departmentId : true;
     
     const matchesSearch = t.protocol.includes(searchTerm) || t.title.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter ? t.status === statusFilter : true;
+    
+    let matchesStatus = true;
+    if (statusFilter === 'in_progress') {
+      matchesStatus = t.status !== 'received' && t.status !== 'resolved' && t.status !== 'closed' && t.status !== 'rejected';
+    } else if (statusFilter === 'urgent') {
+      matchesStatus = t.priority === 'urgent' && t.status !== 'resolved' && t.status !== 'closed' && t.status !== 'rejected';
+    } else if (statusFilter) {
+      matchesStatus = t.status === statusFilter;
+    }
     const matchesDept = departmentFilter ? t.departmentId === departmentFilter : true;
     
     return belongsToDept && matchesSearch && matchesStatus && matchesDept;
@@ -35,6 +79,13 @@ export function AdminTickets() {
 
   return (
     <div className="flex flex-col h-full gap-4">
+      <button 
+        onClick={() => navigate(-1)}
+        className="flex items-center text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-[#1E3A8A] transition-colors w-fit"
+      >
+        <ArrowLeft className="w-4 h-4 mr-1" /> Retornar
+      </button>
+
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
         <div>
           <h2 className="text-xl font-bold text-slate-800 tracking-tight">Gestão de Chamados</h2>
@@ -57,12 +108,13 @@ export function AdminTickets() {
           <div className="flex gap-2 flex-wrap">
              <Select className="w-36 h-9 text-xs" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <option value="">Status (Todos)</option>
+              <option value="urgent">Prioridade Crítica</option>
               <option value="received">Recebido</option>
               <option value="triage">Triagem</option>
               <option value="forwarded">Encaminhado</option>
               <option value="analyzing">Em Análise</option>
               <option value="scheduled">Agendado</option>
-              <option value="in_progress">Em Execução</option>
+              <option value="in_progress">Em Execução (Todos)</option>
               <option value="resolved">Resolvido</option>
               <option value="rejected">Indeferido</option>
             </Select>
@@ -126,7 +178,7 @@ export function AdminTickets() {
       {selectedTicket && (
         <AdminTicketDetailsModal 
           ticket={selectedTicket} 
-          onClose={() => setSelectedTicket(null)} 
+          onClose={handleCloseModal} 
         />
       )}
     </div>

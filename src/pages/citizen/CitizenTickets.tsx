@@ -4,14 +4,16 @@ import { Card, CardContent } from '../../components/ui/Card';
 import { StatusBadge } from '../../components/ui/Badge';
 import { useAppContext } from '../../context/AppContext';
 import { format } from 'date-fns';
-import { ArrowLeft, Database, Filter, Loader2 } from 'lucide-react';
+import { ArrowLeft, Database, Filter, Loader2, XCircle } from 'lucide-react';
 import { Ticket } from '../../data/types';
+import { supabase } from '../../lib/supabase';
 
 export function CitizenTickets() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { currentUser, tickets, categories, departments, loading } = useAppContext();
+  const { currentUser, tickets, categories, departments, loading, setTickets } = useAppContext();
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
   
   // Read initial filter from location state if available
   const initialFilter = location.state?.filter || 'all';
@@ -28,10 +30,35 @@ export function CitizenTickets() {
   
   const myTickets = allMyTickets.filter(t => {
     if (filter === 'all') return true;
-    if (filter === 'in_progress') return t.status !== 'received' && t.status !== 'resolved' && t.status !== 'closed';
+    if (filter === 'in_progress') return t.status !== 'received' && t.status !== 'resolved' && t.status !== 'closed' && t.status !== 'rejected';
     if (filter === 'resolved') return t.status === 'resolved' || t.status === 'closed';
     return true;
   });
+
+  const handleCancelTicket = async () => {
+    if (!selectedTicket || !window.confirm('Tem certeza que deseja cancelar este chamado? Esta ação não pode ser desfeita.')) return;
+    
+    setIsCancelling(true);
+    try {
+      const { error } = await supabase
+        .from('tickets')
+        .update({ status: 'rejected' })
+        .eq('id', selectedTicket.id);
+
+      if (error) throw error;
+      
+      const updatedTickets = tickets.map(t => 
+        t.id === selectedTicket.id ? { ...t, status: 'rejected' as const } : t
+      );
+      setTickets(updatedTickets);
+      setSelectedTicket({ ...selectedTicket, status: 'rejected' });
+      alert('Chamado cancelado com sucesso.');
+    } catch (e: any) {
+      alert('Erro ao cancelar: ' + e.message);
+    } finally {
+      setIsCancelling(false);
+    }
+  };
 
   if (selectedTicket) {
     const cat = categories.find(c => c.id === selectedTicket.categoryId);
@@ -116,6 +143,20 @@ export function CitizenTickets() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Cancel Action */}
+          {['received', 'triage'].includes(selectedTicket.status) && (
+            <div className="pt-2">
+              <button 
+                onClick={handleCancelTicket}
+                disabled={isCancelling}
+                className="w-full py-3 border border-red-200 text-red-600 rounded flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider hover:bg-red-50 transition-colors disabled:opacity-50"
+              >
+                {isCancelling ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
+                Cancelar Chamado
+              </button>
+            </div>
+          )}
 
           {/* Timeline Mock */}
           <div className="pt-2 px-2 pb-6">

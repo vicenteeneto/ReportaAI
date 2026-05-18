@@ -7,6 +7,16 @@ import { format } from 'date-fns';
 import { X, MapPin, Clock, MessageSquare, AlertCircle, Upload } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`Timeout: ${label} (${ms / 1000}s)`)), ms);
+    promise.then(
+      (v) => { clearTimeout(timer); resolve(v); },
+      (e) => { clearTimeout(timer); reject(e); }
+    );
+  });
+}
+
 interface Props {
   ticket: Ticket;
   onClose: () => void;
@@ -42,10 +52,21 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
       if (newStatus === 'resolved' && resolutionFile) {
         const fileExt = resolutionFile.name.split('.').pop();
         const fileName = `resolution-${ticket.id}-${Date.now()}.${fileExt}`;
-        const { error: uploadError } = await supabase.storage.from('tickets').upload(fileName, resolutionFile);
-        if (!uploadError) {
-          const { data: { publicUrl } } = supabase.storage.from('tickets').getPublicUrl(fileName);
-          resolvedPhotoUrl = publicUrl;
+        try {
+          const { error: uploadError }: any = await withTimeout(
+            supabase.storage.from('tickets').upload(fileName, resolutionFile),
+            15000,
+            'upload da foto de resolução'
+          );
+          if (!uploadError) {
+            const { data: { publicUrl } } = supabase.storage.from('tickets').getPublicUrl(fileName);
+            resolvedPhotoUrl = publicUrl;
+          } else {
+             console.warn('Erro do supabase storage:', uploadError);
+          }
+        } catch (e: any) {
+          console.warn('Upload ignorado ou falhou por timeout:', e.message);
+          // O fluxo continua mesmo se a foto falhar, para que o status pelo menos seja resolvido
         }
       }
 

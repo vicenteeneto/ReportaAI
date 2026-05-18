@@ -76,6 +76,7 @@ const AppRoutes = () => {
         <Route path="dashboard" element={<AdminDashboard />} />
         <Route path="executive" element={<ExecDashboard />} />
         <Route path="tickets" element={<AdminTickets />} />
+        <Route path="tickets/:id" element={<AdminTickets />} />
         <Route path="triage" element={<AdminTriage />} />
         <Route path="map" element={<AdminMap />} />
         <Route path="reports" element={<AdminReports />} />
