@@ -13,6 +13,7 @@ interface AppContextType {
   updateTicketStatus: (id: string, status: TicketStatus) => void;
   categories: Category[];
   departments: Department[];
+  cities: any[];
   loading?: boolean;
 }
 
@@ -23,6 +24,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [cities, setCities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -41,13 +43,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         ticketQuery = ticketQuery.eq('cityId', userProfile.cityId);
       }
 
-      const [depsRes, catsRes, ticketsRes] = await Promise.all([
+      const [depsRes, catsRes, ticketsRes, citiesRes] = await Promise.all([
         deptQuery,
         catQuery,
-        ticketQuery
+        ticketQuery,
+        supabase.from('cities').select('*').order('name')
       ]);
       
       const allTickets = ticketsRes.data || [];
+      const allCities = citiesRes.data || [];
       const parseSafeDate = (val: any) => {
         if (!val) return 0;
         if (typeof val === 'number') return val;
@@ -122,9 +126,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         });
       }
 
+      setTickets(fetchedTickets);
       setDepartments(deps);
       setCategories(mappedCats);
-      setTickets(fetchedTickets);
+      setCities(allCities);
       
       // Calculate points for current user if available
       const activeUser = userProfile || currentUser;
@@ -401,7 +406,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AppContext.Provider value={{ currentUser, loginWithEmail, registerWithEmail, loginWithGoogle, logout, tickets, addTicket, updateTicketStatus, categories, departments, loading }}>
+    <AppContext.Provider value={{ currentUser, loginWithEmail, registerWithEmail, loginWithGoogle, logout, tickets, addTicket, updateTicketStatus, categories, departments, cities, loading }}>
       {children}
     </AppContext.Provider>
   );

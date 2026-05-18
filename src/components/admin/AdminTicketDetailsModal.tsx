@@ -23,9 +23,10 @@ interface Props {
 }
 
 export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
-  const { tickets, categories, departments, updateTicketStatus } = useAppContext();
+  const { tickets, categories, departments, updateTicketStatus, cities } = useAppContext();
   const category = categories.find(c => c.id === ticket.categoryId);
   const department = departments.find(d => d.id === ticket.departmentId);
+  const city = cities?.find(c => c.id === ticket.cityId);
 
   const [isUpdating, setIsUpdating] = useState(false);
   const [newStatus, setNewStatus] = useState<TicketStatus>(ticket.status as TicketStatus);
@@ -162,7 +163,8 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
                   <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Localização</p>
                     <p className="text-sm font-bold text-slate-800 mb-1">{ticket.address}</p>
-                    <p className="text-xs text-slate-500 mb-2">Bairro: {ticket.neighborhood}</p>
+                    <p className="text-xs text-slate-500 mb-1">Bairro: {ticket.neighborhood}</p>
+                    <p className="text-xs text-slate-500 mb-2">Cidade: {city?.name || 'Sistema Padrão'}</p>
                   </div>
                 </div>
               </div>
@@ -270,14 +272,24 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
                   </div>
                 )}
 
-                <Button 
-                  className="w-full font-bold uppercase tracking-widest text-xs h-11 shadow-md bg-[#1E3A8A]" 
-                  disabled={newStatus === ticket.status && !resolutionComment && !resolutionFile || isUpdating}
-                  onClick={handleUpdate}
-                  isLoading={isUpdating}
-                >
-                  Confirmar Atualização
-                </Button>
+                <div className="flex flex-col gap-2">
+                  <Button 
+                    className="w-full font-bold uppercase tracking-widest text-xs h-11 shadow-md bg-[#1E3A8A]" 
+                    disabled={newStatus === ticket.status && !resolutionComment && !resolutionFile || isUpdating}
+                    onClick={handleUpdate}
+                    isLoading={isUpdating}
+                  >
+                    Confirmar Atualização
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    className="w-full font-bold uppercase tracking-widest text-xs h-11 text-slate-500 hover:text-slate-700" 
+                    onClick={onClose}
+                    disabled={isUpdating}
+                  >
+                    Fechar / Retornar
+                  </Button>
+                </div>
               </div>
             </div>
           </div>

@@ -302,6 +302,7 @@ export function CitizenNewTicket() {
         description: formData.description,
         address: formData.address || 'Localização não informada',
         neighborhood: formData.neighborhood || 'Bairro Não Informado',
+        cityId: currentUser?.cityId || '11111111-1111-1111-1111-111111111111',
         priority: formData.priority,
         status: 'received',
         latitude: formData.latitude || -16.4716 + (Math.random() * 0.01 - 0.005),

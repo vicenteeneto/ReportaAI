@@ -12,7 +12,7 @@ import { AdminTicketDetailsModal } from '../../components/admin/AdminTicketDetai
 import { Ticket } from '../../data/types';
 
 export function AdminTickets() {
-  const { tickets, categories, departments, currentUser } = useAppContext();
+  const { tickets, categories, departments, currentUser, cities } = useAppContext();
   const location = useLocation();
   const navigate = useNavigate();
   const { id } = useParams();
@@ -23,7 +23,10 @@ export function AdminTickets() {
   const initialFilter = location.state?.filter || '';
   const [statusFilter, setStatusFilter] = useState(initialFilter);
   const [departmentFilter, setDepartmentFilter] = useState('');
+  const [cityFilter, setCityFilter] = useState('');
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+
+  const isSuperadmin = currentUser?.role === 'superadmin';
 
   // Parse custom filters like 'urgent' or 'in_progress' from dashboard
   useEffect(() => {
@@ -69,8 +72,9 @@ export function AdminTickets() {
       matchesStatus = t.status === statusFilter;
     }
     const matchesDept = departmentFilter ? t.departmentId === departmentFilter : true;
+    const matchesCity = cityFilter ? t.cityId === cityFilter : true;
     
-    return belongsToDept && matchesSearch && matchesStatus && matchesDept;
+    return belongsToDept && matchesSearch && matchesStatus && matchesDept && matchesCity;
   });
 
   const handleExport = () => {
@@ -129,6 +133,18 @@ export function AdminTickets() {
                 <option key={d.id} value={d.id}>{d.acronym} - {d.name}</option>
               ))}
             </Select>
+            {isSuperadmin && (
+              <Select 
+                className="w-48 h-9 text-xs" 
+                value={cityFilter} 
+                onChange={(e) => setCityFilter(e.target.value)}
+              >
+                <option value="">Todas Cidades</option>
+                {cities.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </Select>
+            )}
             <Button variant="outline" size="sm" icon={Filter} className="h-9 px-3 text-xs">Filtros</Button>
           </div>
         </CardHeader>
@@ -139,6 +155,7 @@ export function AdminTickets() {
                 <th className="px-4 py-2 uppercase">Protocolo</th>
                 <th className="px-4 py-2 uppercase">Categoria</th>
                 <th className="px-4 py-2 uppercase">Bairro</th>
+                {isSuperadmin && <th className="px-4 py-2 uppercase">Cidade</th>}
                 <th className="px-4 py-2 uppercase">Abertura</th>
                 <th className="px-4 py-2 uppercase">Prioridade</th>
                 <th className="px-4 py-2 uppercase">Status</th>
@@ -148,12 +165,18 @@ export function AdminTickets() {
             <tbody className="divide-y divide-slate-100">
               {filteredTickets.map(ticket => {
                 const category = categories.find(c => c.id === ticket.categoryId);
+                const city = cities.find(c => c.id === ticket.cityId);
                 
                 return (
                   <tr key={ticket.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-4 py-2.5 font-mono text-[10px] font-bold text-slate-500">{ticket.protocol}</td>
                     <td className="px-4 py-2.5 font-medium text-slate-800">{category?.name}</td>
                     <td className="px-4 py-2.5 text-slate-500">{ticket.neighborhood}</td>
+                    {isSuperadmin && (
+                      <td className="px-4 py-2.5 text-slate-500 font-medium">
+                        {city?.name || 'Sistema Padrão'}
+                      </td>
+                    )}
                     <td className="px-4 py-2.5 text-slate-500">{format(new Date(ticket.createdAt), 'dd/MM/yy')}</td>
                     <td className="px-4 py-2.5"><PriorityBadge priority={ticket.priority} /></td>
                     <td className="px-4 py-2.5"><StatusBadge status={ticket.status} /></td>
