@@ -289,16 +289,23 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = async () => {
-    try {
-      await supabase.auth.signOut();
-    } catch (e) {
-      console.error('Logout error:', e);
-    }
-    // Força limpeza de estado imediata:
+    // Força limpeza de estado imediata para evitar travamento no PWA (Android)
     setCurrentUser(null);
     setTickets([]);
     setDepartments([]);
     setCategories([]);
+    
+    try {
+      // Dispara o signOut mas não trava a UI se a promise ficar pendente
+      supabase.auth.signOut().catch(e => console.error('Logout error:', e));
+      
+      // Limpeza forçada do localStorage por segurança
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('sb-')) localStorage.removeItem(key);
+      });
+    } catch (e) {
+      console.error('Logout cleanup error:', e);
+    }
   };
 
   const addTicket = async (t: Ticket): Promise<void> => {

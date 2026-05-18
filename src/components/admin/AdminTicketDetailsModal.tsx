@@ -122,7 +122,8 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
                     <img 
                       src={ticket.photoUrl} 
                       alt="Problema" 
-                      className="w-full h-full object-cover" 
+                      className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" 
+                      onClick={() => window.open(ticket.photoUrl, '_blank')}
                     />
                   </div>
                 ) : (
@@ -139,7 +140,8 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
                     <img 
                       src={ticket.resolvedPhotoUrl} 
                       alt="Resolução" 
-                      className="w-full h-full object-cover" 
+                      className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" 
+                      onClick={() => window.open(ticket.resolvedPhotoUrl, '_blank')}
                     />
                   </div>
                 ) : (

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '../../components/ui/Card';
+import { Button } from '../../components/ui/Button';
 import { StatusBadge } from '../../components/ui/Badge';
 import { useAppContext } from '../../context/AppContext';
 import { format } from 'date-fns';
@@ -11,9 +12,10 @@ import { supabase } from '../../lib/supabase';
 export function CitizenTickets() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { currentUser, tickets, categories, departments, loading, setTickets } = useAppContext();
+  const { currentUser, tickets, categories, departments, loading, updateTicketStatus } = useAppContext();
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   
   // Read initial filter from location state if available
   const initialFilter = location.state?.filter || 'all';
@@ -35,24 +37,18 @@ export function CitizenTickets() {
     return true;
   });
 
+  const confirmCancel = () => {
+    setShowCancelConfirm(true);
+  };
+
   const handleCancelTicket = async () => {
-    if (!selectedTicket || !window.confirm('Tem certeza que deseja cancelar este chamado? Esta ação não pode ser desfeita.')) return;
+    if (!selectedTicket) return;
     
     setIsCancelling(true);
     try {
-      const { error } = await supabase
-        .from('tickets')
-        .update({ status: 'rejected' })
-        .eq('id', selectedTicket.id);
-
-      if (error) throw error;
-      
-      const updatedTickets = tickets.map(t => 
-        t.id === selectedTicket.id ? { ...t, status: 'rejected' as const } : t
-      );
-      setTickets(updatedTickets);
+      await updateTicketStatus(selectedTicket.id, 'rejected');
       setSelectedTicket({ ...selectedTicket, status: 'rejected' });
-      alert('Chamado cancelado com sucesso.');
+      setShowCancelConfirm(false);
     } catch (e: any) {
       alert('Erro ao cancelar: ' + e.message);
     } finally {
@@ -89,7 +85,8 @@ export function CitizenTickets() {
               <img 
                 src={selectedTicket.photoUrl} 
                 alt="Evidência fotográfica" 
-                className="w-full h-48 md:h-64 object-cover rounded shadow-sm border border-slate-200 bg-slate-100"
+                className="w-full h-48 md:h-64 object-cover rounded shadow-sm border border-slate-200 bg-slate-100 cursor-pointer hover:opacity-90 transition-opacity"
+                onClick={() => window.open(selectedTicket.photoUrl, '_blank')}
                 onError={(e) => {
                   (e.target as HTMLImageElement).style.display = 'none';
                   (e.target as HTMLImageElement).parentElement?.classList.add('broken-img-container');
@@ -148,7 +145,7 @@ export function CitizenTickets() {
           {['received', 'triage'].includes(selectedTicket.status) && (
             <div className="pt-2">
               <button 
-                onClick={handleCancelTicket}
+                onClick={confirmCancel}
                 disabled={isCancelling}
                 className="w-full py-3 border border-red-200 text-red-600 rounded flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider hover:bg-red-50 transition-colors disabled:opacity-50"
               >
@@ -190,6 +187,40 @@ export function CitizenTickets() {
             </div>
           </div>
         </div>
+
+        {/* Cancel Confirmation Modal */}
+        {showCancelConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+              <div className="p-6 text-center">
+                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <XCircle className="w-6 h-6 text-red-600" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 mb-2 tracking-tight">Cancelar Chamado</h3>
+                <p className="text-sm text-slate-500 mb-6">
+                  Tem certeza que deseja cancelar esta ocorrência? Esta ação não poderá ser desfeita.
+                </p>
+                <div className="flex gap-3">
+                  <Button 
+                    variant="outline" 
+                    className="flex-1 font-bold text-xs" 
+                    onClick={() => setShowCancelConfirm(false)}
+                    disabled={isCancelling}
+                  >
+                    Voltar
+                  </Button>
+                  <Button 
+                    className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold text-xs" 
+                    onClick={handleCancelTicket}
+                    isLoading={isCancelling}
+                  >
+                    Confirmar Cancelamento
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

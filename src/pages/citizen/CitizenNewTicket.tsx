@@ -361,7 +361,9 @@ export function CitizenNewTicket() {
                addressLocal = houseNumber ? `${road}, ${houseNumber}` : road;
              }
              if (suburb) {
-               neighborhoodLocal = suburb;
+               neighborhoodLocal = cityStr ? `${suburb} - ${cityStr}` : suburb;
+             } else if (cityStr) {
+               neighborhoodLocal = cityStr;
              }
              
              // Try to find the city in our database by name (case-insensitive, ignoring accents if possible, but exact match for now or substring)
@@ -498,8 +500,13 @@ export function CitizenNewTicket() {
                   </label>
                 </div>
               ) : (
-                <div className="relative h-48 rounded overflow-hidden border border-slate-200 bg-slate-100">
-                  <img src={formData.photoUrl} alt="Preview" className="w-full h-full object-contain" />
+                <div className="relative h-48 rounded overflow-hidden border border-slate-200 bg-slate-100 group">
+                  <img 
+                    src={formData.photoUrl} 
+                    alt="Preview" 
+                    className="w-full h-full object-contain cursor-pointer hover:opacity-90 transition-opacity" 
+                    onClick={() => window.open(formData.photoUrl, '_blank')}
+                  />
                   {/* Compression overlay indicator */}
                   {isCompressing && (
                     <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-white">
