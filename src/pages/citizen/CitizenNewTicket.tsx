@@ -114,7 +114,7 @@ async function compressPhoto(file: File): Promise<Blob> {
 
 export function CitizenNewTicket() {
   const navigate = useNavigate();
-  const { categories, currentUser, addTicket } = useAppContext();
+  const { categories, currentUser, addTicket, cities } = useAppContext();
   
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -130,6 +130,7 @@ export function CitizenNewTicket() {
     address: '',
     neighborhood: '',
     priority: 'medium' as any,
+    cityId: undefined as string | undefined,
     photoUrl: undefined as string | undefined,
     latitude: undefined as number | undefined,
     longitude: undefined as number | undefined,
@@ -302,7 +303,7 @@ export function CitizenNewTicket() {
         description: formData.description,
         address: formData.address || 'Localização não informada',
         neighborhood: formData.neighborhood || 'Bairro Não Informado',
-        cityId: currentUser?.cityId || '11111111-1111-1111-1111-111111111111',
+        cityId: formData.cityId || currentUser?.cityId || '11111111-1111-1111-1111-111111111111',
         priority: categories.find(c => c.id === formData.categoryId)?.defaultPriority || 'medium',
         status: 'received',
         latitude: formData.latitude || -16.4716 + (Math.random() * 0.01 - 0.005),
@@ -348,17 +349,30 @@ export function CitizenNewTicket() {
           
           let addressLocal = '';
           let neighborhoodLocal = '';
+          let foundCityId: string | undefined = undefined;
 
           if (data && data.address) {
              const road = data.address.road || '';
              const houseNumber = data.address.house_number || '';
              const suburb = data.address.suburb || data.address.neighbourhood || '';
+             const cityStr = data.address.city || data.address.town || data.address.village || data.address.municipality || '';
              
              if (road) {
                addressLocal = houseNumber ? `${road}, ${houseNumber}` : road;
              }
              if (suburb) {
                neighborhoodLocal = suburb;
+             }
+             
+             // Try to find the city in our database by name (case-insensitive, ignoring accents if possible, but exact match for now or substring)
+             if (cityStr) {
+               const matchedCity = cities.find(c => 
+                 c.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === 
+                 cityStr.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+               );
+               if (matchedCity) {
+                 foundCityId = matchedCity.id;
+               }
              }
           }
 
@@ -367,7 +381,8 @@ export function CitizenNewTicket() {
             latitude: lat,
             longitude: lng,
             address: prev.address || addressLocal || `Coordenadas: ${lat.toFixed(4)}, ${lng.toFixed(4)}`,
-            neighborhood: prev.neighborhood || neighborhoodLocal
+            neighborhood: prev.neighborhood || neighborhoodLocal,
+            cityId: foundCityId || prev.cityId
           }));
         } catch (e) {
           console.error("Reverse geocoding failed", e);
