@@ -15,7 +15,7 @@ export function AdminLayout() {
   ];
 
   const manageItems = [
-    { label: 'KNG Flow (Super)', path: '/admin/system', showFor: ['superadmin'] },
+    { label: 'Plataforma SaaS', path: '/admin/platform', showFor: ['superadmin'] },
     { label: 'Secretarias', path: '/admin/settings', showFor: ['admin', 'superadmin'] },
     { label: 'Relatórios PDF', path: '/admin/reports', showFor: ['admin', 'mayor', 'secretary', 'coordinator', 'superadmin'] },
     { label: 'Usuários', path: '#', showFor: ['admin'] },

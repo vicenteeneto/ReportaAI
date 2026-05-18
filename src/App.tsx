@@ -19,6 +19,7 @@ import { AdminTriage } from './pages/admin/AdminTriage';
 import { AdminMap } from './pages/admin/AdminMap';
 import { AdminSettings } from './pages/admin/AdminSettings';
 import { SystemSettings } from './pages/admin/SystemSettings';
+import { PlatformManagement } from './pages/admin/PlatformManagement';
 import { AdminSetup } from './pages/AdminSetup';
 
 // Placeholder for reports
@@ -41,7 +42,7 @@ const AppRoutes = () => {
   const getDashboardRoute = () => {
     if (!currentUser) return '/login';
     if (currentUser.role === 'superadmin') {
-      return '/admin/system';
+      return '/admin/platform';
     }
     if (currentUser.role === 'admin' || currentUser.role === 'coordinator' || currentUser.role === 'mayor' || currentUser.role === 'secretary') {
       return '/admin/dashboard';
@@ -80,6 +81,7 @@ const AppRoutes = () => {
         <Route path="reports" element={<AdminReports />} />
         <Route path="settings" element={<AdminSettings />} />
         <Route path="system" element={<SystemSettings />} />
+        <Route path="platform" element={<PlatformManagement />} />
       </Route>
     </Routes>
   );
