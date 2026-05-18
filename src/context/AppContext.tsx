@@ -376,6 +376,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       address: t.address,
       neighborhood: t.neighborhood,
       photoUrl: t.photoUrl ?? null,
+      cityId: t.cityId,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
