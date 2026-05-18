@@ -16,6 +16,7 @@ export function CitizenTickets() {
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [viewingImage, setViewingImage] = useState<string | null>(null);
   
   // Read initial filter from location state if available
   const initialFilter = location.state?.filter || 'all';
@@ -86,7 +87,7 @@ export function CitizenTickets() {
                 src={selectedTicket.photoUrl} 
                 alt="Evidência fotográfica" 
                 className="w-full h-48 md:h-64 object-cover rounded shadow-sm border border-slate-200 bg-slate-100 cursor-pointer hover:opacity-90 transition-opacity"
-                onClick={() => window.open(selectedTicket.photoUrl, '_blank')}
+                onClick={() => setViewingImage(selectedTicket.photoUrl || null)}
                 onError={(e) => {
                   (e.target as HTMLImageElement).style.display = 'none';
                   (e.target as HTMLImageElement).parentElement?.classList.add('broken-img-container');
@@ -218,6 +219,20 @@ export function CitizenTickets() {
                   </Button>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Image Viewer Modal */}
+        {viewingImage && (
+          <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col animate-in fade-in duration-200">
+            <div className="flex justify-end p-4 absolute top-0 right-0 z-10">
+              <button onClick={() => setViewingImage(null)} className="p-2 text-white/70 hover:text-white rounded-full bg-white/10 hover:bg-white/20 transition-colors backdrop-blur-sm">
+                <XCircle className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="flex-1 flex items-center justify-center p-4">
+              <img src={viewingImage} alt="Fullscreen preview" className="max-w-full max-h-full object-contain rounded" />
             </div>
           </div>
         )}

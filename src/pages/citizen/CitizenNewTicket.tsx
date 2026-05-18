@@ -122,6 +122,7 @@ export function CitizenNewTicket() {
   const [newProtocol, setNewProtocol] = useState('');
   const [isLocating, setIsLocating] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [viewingImage, setViewingImage] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     categoryId: '',
@@ -505,7 +506,7 @@ export function CitizenNewTicket() {
                     src={formData.photoUrl} 
                     alt="Preview" 
                     className="w-full h-full object-contain cursor-pointer hover:opacity-90 transition-opacity" 
-                    onClick={() => window.open(formData.photoUrl, '_blank')}
+                    onClick={() => setViewingImage(formData.photoUrl || null)}
                   />
                   {/* Compression overlay indicator */}
                   {isCompressing && (
@@ -592,6 +593,20 @@ export function CitizenNewTicket() {
           </div>
         )}
       </form>
+
+      {/* Image Viewer Modal */}
+      {viewingImage && (
+        <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col animate-in fade-in duration-200">
+          <div className="flex justify-end p-4 absolute top-0 right-0 z-10">
+            <button onClick={() => setViewingImage(null)} className="p-2 text-white/70 hover:text-white rounded-full bg-white/10 hover:bg-white/20 transition-colors backdrop-blur-sm">
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+          <div className="flex-1 flex items-center justify-center p-4">
+            <img src={viewingImage} alt="Fullscreen preview" className="max-w-full max-h-full object-contain rounded" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

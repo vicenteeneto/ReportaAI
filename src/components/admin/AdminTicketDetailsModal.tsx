@@ -35,6 +35,7 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
   const [resolutionFile, setResolutionFile] = useState<File | null>(null);
   const [ticketHistory, setTicketHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [viewingImage, setViewingImage] = useState<string | null>(null);
 
   React.useEffect(() => {
     const fetchHistory = async () => {
@@ -123,7 +124,7 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
                       src={ticket.photoUrl} 
                       alt="Problema" 
                       className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" 
-                      onClick={() => window.open(ticket.photoUrl, '_blank')}
+                      onClick={() => setViewingImage(ticket.photoUrl || null)}
                     />
                   </div>
                 ) : (
@@ -141,7 +142,7 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
                       src={ticket.resolvedPhotoUrl} 
                       alt="Resolução" 
                       className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" 
-                      onClick={() => window.open(ticket.resolvedPhotoUrl, '_blank')}
+                      onClick={() => setViewingImage(ticket.resolvedPhotoUrl || null)}
                     />
                   </div>
                 ) : (
@@ -312,6 +313,18 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
             </div>
           </div>
         </div>
+        {viewingImage && (
+          <div className="fixed inset-0 z-[200] bg-black/95 flex flex-col animate-in fade-in duration-200">
+            <div className="flex justify-end p-4 absolute top-0 right-0 z-10">
+              <button onClick={() => setViewingImage(null)} className="p-2 text-white/70 hover:text-white rounded-full bg-white/10 hover:bg-white/20 transition-colors backdrop-blur-sm">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="flex-1 flex items-center justify-center p-4">
+              <img src={viewingImage} alt="Fullscreen preview" className="max-w-full max-h-full object-contain rounded" />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
