@@ -60,6 +60,33 @@ export function AdminSetup() {
       setStatus(`Erro: ${e.message}\n\nDICA: Se deu "email rate limit exceeded", insira um número abaixo e tente novamente para gerar um e-mail diferente.`);
     }
   };
+  const insertCategories = async () => {
+    setStatus('Inserindo categorias...');
+    const newCategories = [
+      { id: 'cat-boca-lobo', name: 'Boca de Lobo Entupida/Sem Tampa', iconName: 'droplet', color: '#3b82f6', defaultDepartmentId: 'dep-infra', defaultPriority: 'high', createdAt: Date.now() },
+      { id: 'cat-calcada', name: 'Calçada Danificada / Obstruída', iconName: 'map', color: '#94a3b8', defaultDepartmentId: 'dep-infra', defaultPriority: 'medium', createdAt: Date.now() },
+      { id: 'cat-ponto-onibus', name: 'Ponto de Ônibus Danificado', iconName: 'bus', color: '#64748b', defaultDepartmentId: 'dep-infra', defaultPriority: 'medium', createdAt: Date.now() },
+      { id: 'cat-terreno-baldio', name: 'Terreno Baldio com Mato Alto', iconName: 'scissors', color: '#22c55e', defaultDepartmentId: 'dep-meio', defaultPriority: 'medium', createdAt: Date.now() },
+      { id: 'cat-animal-morto', name: 'Animal Morto na Via Pública', iconName: 'skull', color: '#ef4444', defaultDepartmentId: 'dep-meio', defaultPriority: 'high', createdAt: Date.now() },
+      { id: 'cat-esgoto', name: 'Descarte Irregular de Esgoto', iconName: 'droplet', color: '#14b8a6', defaultDepartmentId: 'dep-meio', defaultPriority: 'urgent', createdAt: Date.now() },
+      { id: 'cat-veiculo-abandonado', name: 'Veículo Abandonado na Via', iconName: 'car', color: '#64748b', defaultDepartmentId: 'dep-transito', defaultPriority: 'medium', createdAt: Date.now() },
+      { id: 'cat-placa-transito', name: 'Placa de Trânsito Caída / Danificada', iconName: 'alert-octagon', color: '#f59e0b', defaultDepartmentId: 'dep-transito', defaultPriority: 'medium', createdAt: Date.now() },
+      { id: 'cat-faixa-pedestre', name: 'Faixa de Pedestre Apagada', iconName: 'navigation', color: '#3b82f6', defaultDepartmentId: 'dep-transito', defaultPriority: 'low', createdAt: Date.now() },
+      { id: 'cat-animais-peconhentos', name: 'Infestação de Animais Peçonhentos', iconName: 'bug', color: '#ef4444', defaultDepartmentId: 'dep-saude', defaultPriority: 'urgent', createdAt: Date.now() },
+      { id: 'cat-maus-tratos', name: 'Maus-Tratos a Animais', iconName: 'heart', color: '#ec4899', defaultDepartmentId: 'dep-saude', defaultPriority: 'high', createdAt: Date.now() },
+      { id: 'cat-poluicao-sonora', name: 'Poluição Sonora / Perturbação do Sossego', iconName: 'volume-2', color: '#f97316', defaultDepartmentId: 'dep-meio', defaultPriority: 'medium', createdAt: Date.now() },
+      { id: 'cat-ocupacao-irregular', name: 'Ocupação Irregular de Área Pública', iconName: 'tent', color: '#a8a29e', defaultDepartmentId: 'dep-infra', defaultPriority: 'medium', createdAt: Date.now() }
+    ];
+
+    try {
+      const { error } = await supabase.from('categories').upsert(newCategories, { onConflict: 'id' });
+      if (error) throw error;
+      setStatus(`Sucesso! ${newCategories.length} novas categorias foram adicionadas com sucesso.`);
+    } catch (e: any) {
+      console.error(e);
+      setStatus(`Erro ao inserir categorias: ${e.message || String(e)}`);
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4">
@@ -90,6 +117,7 @@ export function AdminSetup() {
         </div>
 
         <Button onClick={setupAdmins} className="w-full mb-4 py-6 font-bold text-lg">Criar Usuários Admin</Button>
+        <Button onClick={insertCategories} variant="outline" className="w-full mb-4 py-6 font-bold text-lg border-blue-600 text-blue-600">Inserir Novas Categorias</Button>
         
         {status && (
           <div className="p-4 bg-slate-900 text-green-400 rounded text-sm whitespace-pre-wrap font-mono">
