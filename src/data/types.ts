@@ -1,5 +1,14 @@
 export type Role = 'superadmin' | 'citizen' | 'admin' | 'mayor' | 'secretary' | 'coordinator' | 'triage' | 'field';
 
+export interface City {
+  id: string;
+  name: string;
+  state: string;
+  logoUrl?: string;
+  isActive: boolean;
+  createdAt: number | string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -12,6 +21,7 @@ export interface User {
   avatarUrl?: string;
   pointsValidating?: number;
   pointsValidated?: number;
+  cityId?: string;
 }
 
 export interface Department {
@@ -20,6 +30,7 @@ export interface Department {
   acronym: string;
   active: boolean;
   color?: string;
+  cityId?: string;
 }
 
 export interface Category {
@@ -29,6 +40,7 @@ export interface Category {
   color: string;
   defaultDepartmentId: string;
   defaultPriority: Priority;
+  cityId?: string;
 }
 
 export type Priority = 'low' | 'medium' | 'high' | 'urgent';
@@ -58,6 +70,8 @@ export interface Ticket {
   status: TicketStatus;
   priority: Priority;
   latitude: number;
+  cityId?: string;
+
   longitude: number;
   address: string;
   neighborhood: string;
