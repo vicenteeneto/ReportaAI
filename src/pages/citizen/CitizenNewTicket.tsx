@@ -233,22 +233,27 @@ export function CitizenNewTicket() {
 
         try {
           const fileName = `${Date.now()}-${userId}.jpg`;
-          const { data, error }: any = await withTimeout(
-            supabase.storage.from('tickets').upload(fileName, photoBlob, {
-              contentType: 'image/jpeg',
-              upsert: false
-            }),
-            15000,
-            'upload da foto'
-          );
+          
+          // Ensure it's a File object (some mobile browsers have quirks with raw Blobs in FormData)
+          const fileToUpload = photoBlob instanceof File 
+            ? photoBlob 
+            : new File([photoBlob], fileName, { type: 'image/jpeg' });
+
+          const { data, error }: any = await supabase.storage.from('tickets').upload(fileName, fileToUpload, {
+            contentType: 'image/jpeg',
+            upsert: false
+          });
+
           if (!error && data) {
             const { data: { publicUrl } } = supabase.storage.from('tickets').getPublicUrl(fileName);
             uploadedPhotoUrl = publicUrl;
           } else if (error) {
             console.warn('Upload falhou:', error?.message || error);
+            throw new Error(error?.message || 'Erro desconhecido no storage');
           }
         } catch (uploadErr: any) {
-          console.warn('Upload ignorado:', uploadErr?.message || uploadErr);
+          console.warn('Upload ignorado/falhou:', uploadErr?.message || uploadErr);
+          throw new Error(`A foto não pôde ser enviada (${uploadErr?.message || 'timeout/rede'}). Tente novamente ou envie sem foto.`);
         } finally {
           clearInterval(progressInterval);
         }
