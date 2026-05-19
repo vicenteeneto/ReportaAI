@@ -139,27 +139,128 @@ export function CitizenNewTicket() {
   const [submitProgress, setSubmitProgress] = useState(0);
   const [submitStatusText, setSubmitStatusText] = useState('');
 
-  // Address Autocomplete and Map states
-  const [addressSuggestions, setAddressSuggestions] = useState<any[]>([]);
-  const [isSearchingAddress, setIsSearchingAddress] = useState(false);
-  const searchTimeoutRef = useRef<any>(null);
-  const [showMap, setShowMap] = useState(false);
+  // ── Structured address state ──
+  const [citySearch, setCitySearch] = useState('');
+  const [showCityDropdown, setShowCityDropdown] = useState(false);
+  const cityRef = useRef<HTMLDivElement>(null);
 
-  // Photo state: compressed blob (ready for upload) + compression status
+  const [neighborhoodSearch, setNeighborhoodSearch] = useState('');
+  const [neighborhoodSugs, setNeighborhoodSugs] = useState<any[]>([]);
+  const [isSearchingNbhd, setIsSearchingNbhd] = useState(false);
+  const nbhdTimeoutRef = useRef<any>(null);
+  const nbhdRef = useRef<HTMLDivElement>(null);
+
+  const [streetSearch, setStreetSearch] = useState('');
+  const [streetSugs, setStreetSugs] = useState<any[]>([]);
+  const [isSearchingStreet, setIsSearchingStreet] = useState(false);
+  const streetTimeoutRef = useRef<any>(null);
+  const streetRef = useRef<HTMLDivElement>(null);
+
+  const [houseNumber, setHouseNumber] = useState('');
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (cityRef.current && !cityRef.current.contains(e.target as Node)) setShowCityDropdown(false);
+      if (nbhdRef.current && !nbhdRef.current.contains(e.target as Node)) setNeighborhoodSugs([]);
+      if (streetRef.current && !streetRef.current.contains(e.target as Node)) setStreetSugs([]);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  // City helper
+  const CITY_STATE: Record<string, string> = { 'Rondonópolis': 'MT', 'Itajaí': 'SC', 'Cuiabá': 'MT' };
+  const filteredCities = cities.filter(c =>
+    c.name.toLowerCase().includes(citySearch.toLowerCase()) ||
+    (c.state || '').toLowerCase().includes(citySearch.toLowerCase())
+  );
+
+  const selectCity = (city: any) => {
+    setFormData(prev => ({ ...prev, cityId: city.id }));
+    setCitySearch(`${city.name} — ${city.state || CITY_STATE[city.name] || ''}`);
+    setShowCityDropdown(false);
+    setNeighborhoodSearch(''); setNeighborhoodSugs([]);
+    setStreetSearch(''); setStreetSugs([]);
+    setHouseNumber('');
+  };
+
+  // Photo state
   const [compressedPhoto, setCompressedPhoto] = useState<Blob | null>(null);
   const [isCompressing, setIsCompressing] = useState(false);
 
-  // Close autocomplete dropdown on outside click
-  const addressWrapperRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (addressWrapperRef.current && !addressWrapperRef.current.contains(e.target as Node)) {
-        setAddressSuggestions([]);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  // Neighborhood search (Nominatim)
+  const fetchNeighborhoodSugs = async (query: string) => {
+    const city = cities.find(c => c.id === formData.cityId);
+    if (!query || query.length < 2 || !city) { setNeighborhoodSugs([]); return; }
+    setIsSearchingNbhd(true);
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query + ' ' + city.name)}&countrycodes=br&format=json&addressdetails=1&limit=8`;
+      const data = await fetch(url, { headers: { 'Accept-Language': 'pt-BR' } }).then(r => r.json());
+      const sugs = data.filter((d: any) => d.address?.suburb || d.address?.neighbourhood || d.address?.residential || d.address?.quarter);
+      setNeighborhoodSugs(sugs.length > 0 ? sugs : data.slice(0, 5));
+    } catch (e) { console.error(e); } finally { setIsSearchingNbhd(false); }
+  };
+
+  const handleNeighborhoodChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setNeighborhoodSearch(val);
+    setFormData(prev => ({ ...prev, neighborhood: val }));
+    if (nbhdTimeoutRef.current) clearTimeout(nbhdTimeoutRef.current);
+    nbhdTimeoutRef.current = setTimeout(() => fetchNeighborhoodSugs(val), 500);
+  };
+
+  const selectNeighborhood = (sug: any) => {
+    const name = sug.address?.suburb || sug.address?.neighbourhood || sug.address?.residential || sug.name;
+    setNeighborhoodSearch(name);
+    setFormData(prev => ({ ...prev, neighborhood: name }));
+    setNeighborhoodSugs([]);
+  };
+
+  // Street search (ViaCEP)
+  const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+
+  const fetchStreetSugs = async (query: string) => {
+    const city = cities.find(c => c.id === formData.cityId);
+    if (!query || query.length < 4 || !city) { setStreetSugs([]); return; }
+    const stateCode = city.state || CITY_STATE[city.name] || '';
+    if (!stateCode) return;
+    setIsSearchingStreet(true);
+    try {
+      const url = `https://viacep.com.br/ws/${stateCode}/${encodeURIComponent(norm(city.name))}/${encodeURIComponent(norm(query))}/json/`;
+      const res = await fetch(url);
+      if (!res.ok) { setStreetSugs([]); return; }
+      const data = await res.json();
+      setStreetSugs(Array.isArray(data) ? data.slice(0, 8) : []);
+    } catch (e) { console.error(e); setStreetSugs([]); } finally { setIsSearchingStreet(false); }
+  };
+
+  const handleStreetChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setStreetSearch(val);
+    setFormData(prev => ({ ...prev, address: houseNumber ? `${val}, ${houseNumber}` : val }));
+    if (streetTimeoutRef.current) clearTimeout(streetTimeoutRef.current);
+    streetTimeoutRef.current = setTimeout(() => fetchStreetSugs(val), 600);
+  };
+
+  const selectStreet = async (s: any) => {
+    const street = s.logradouro || '';
+    const bairro = s.bairro || '';
+    setStreetSearch(street);
+    setFormData(prev => ({ ...prev, address: houseNumber ? `${street}, ${houseNumber}` : street, neighborhood: bairro || prev.neighborhood }));
+    if (bairro) setNeighborhoodSearch(bairro);
+    setStreetSugs([]);
+    // Geocode via CEP
+    if (s.cep) {
+      try {
+        const cep = s.cep.replace('-', '');
+        const geo = await fetch(`https://nominatim.openstreetmap.org/search?postalcode=${cep}&country=BR&format=json&limit=1`).then(r => r.json());
+        if (geo.length > 0) {
+          setFormData(prev => ({ ...prev, latitude: parseFloat(geo[0].lat), longitude: parseFloat(geo[0].lon) }));
+        }
+      } catch (e) { console.warn('CEP geocode failed', e); }
+    }
+  };
 
   // Manual Map Marker Component
   function LocationMarker() {
@@ -477,71 +578,7 @@ export function CitizenNewTicket() {
     );
   };
 
-  // ─── Autocomplete Handlers ───
-  const fetchAddressSuggestions = async (query: string) => {
-    if (!query || query.length < 4) {
-      setAddressSuggestions([]);
-      return;
-    }
-    setIsSearchingAddress(true);
-    try {
-      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&countrycodes=br&format=json&addressdetails=1&limit=8`;
-      const response = await fetch(url, { headers: { 'Accept-Language': 'pt-BR' } });
-      const data = await response.json();
-      
-      // Filtra primariamente pelas cidades do sistema se achar, senão mostra todos
-      const filtered = data.filter((d: any) => {
-        const c = d.address?.city || d.address?.town || d.address?.municipality || '';
-        return c.includes('Rondonópolis') || c.includes('Itajaí');
-      });
-      
-      setAddressSuggestions(filtered.length > 0 ? filtered : data);
-    } catch (e) {
-      console.error("Autocomplete failed", e);
-    } finally {
-      setIsSearchingAddress(false);
-    }
-  };
-
-  const handleAddressInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setFormData(prev => ({...prev, address: value}));
-    
-    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-    searchTimeoutRef.current = setTimeout(() => {
-      fetchAddressSuggestions(value);
-    }, 600);
-  };
-
-  const selectAddress = (suggestion: any) => {
-    const addr = suggestion.address;
-    const road = addr.road || addr.pedestrian || '';
-    const suburb = addr.suburb || addr.neighbourhood || '';
-    
-    // Attempt to match city ID if available
-    const cityStr = addr.city || addr.town || addr.village || addr.municipality || '';
-    let foundCityId = formData.cityId;
-    if (cityStr) {
-      const matchedCity = cities.find(c => 
-        c.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === 
-        cityStr.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-      );
-      if (matchedCity) foundCityId = matchedCity.id;
-    }
-
-    setFormData(prev => ({
-      ...prev,
-      address: road || suggestion.name,
-      neighborhood: suburb || prev.neighborhood,
-      latitude: parseFloat(suggestion.lat),
-      longitude: parseFloat(suggestion.lon),
-      cityId: foundCityId
-    }));
-    setAddressSuggestions([]);
-    
-    // Automatically show map if they select an address, so they can verify
-    setShowMap(true);
-  };
+  // (address handlers replaced by structured city/neighborhood/street flow below)
 
   // ─── Success screen ───
   if (success) {
@@ -681,87 +718,122 @@ export function CitizenNewTicket() {
               <p className="text-[9px] text-slate-500 font-medium">Os dados informados alimentam o sistema central da prefeitura.</p>
             </div>
 
-            <div className="space-y-1.5 relative" ref={addressWrapperRef}>
-              <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider flex justify-between">
-                <span>Endereço do Local</span>
-                <button 
-                  type="button" 
-                  onClick={() => setShowMap(!showMap)} 
-                  className="text-[#1E3A8A] hover:underline"
-                >
-                  {showMap ? 'Ocultar Mapa' : 'Selecionar no Mapa'}
-                </button>
-              </label>
-              
-              <div className="flex gap-2 relative">
-                <Input 
-                  placeholder="Digite o endereço para buscar..." 
-                  className="flex-1"
-                  required
-                  value={formData.address}
-                  onChange={handleAddressInputChange}
+            {/* ─── LOCALIZAÇÃO ─── */}
+            <div className="border border-slate-200 rounded-xl p-4 space-y-4 bg-slate-50/60">
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">📍 Localização da Ocorrência</p>
+
+              {/* 1. CIDADE */}
+              <div className="space-y-1 relative" ref={cityRef}>
+                <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Cidade</label>
+                <Input
+                  placeholder="Selecione ou busque a cidade..."
+                  value={citySearch}
+                  onChange={e => { setCitySearch(e.target.value); setShowCityDropdown(true); }}
+                  onFocus={() => setShowCityDropdown(true)}
                   autoComplete="off"
                 />
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  className="px-3 border-slate-300 bg-white min-w-[50px]" 
-                  title="Meu Local Atual (GPS)"
-                  disabled={isLocating}
-                  onClick={handleGetLocation}
-                >
-                  {isLocating ? <Loader2 className="w-5 h-5 text-[#1E3A8A] animate-spin" /> : <MapPin className="w-5 h-5 text-[#1E3A8A]" />}
-                </Button>
+                {showCityDropdown && filteredCities.length > 0 && (
+                  <div className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-y-auto divide-y divide-slate-100 mt-1">
+                    {filteredCities.map((city: any) => (
+                      <div key={city.id} onClick={() => selectCity(city)} className="px-3 py-2.5 hover:bg-blue-50 cursor-pointer transition-colors">
+                        <p className="text-sm font-bold text-slate-800">{city.name}</p>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wider">{city.state || CITY_STATE[city.name]} — {city.state ? 'Brasil' : ''}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {/* Autocomplete Dropdown */}
-              {addressSuggestions.length > 0 && (
-                <div className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-xl max-h-60 overflow-y-auto mt-1 divide-y divide-slate-100">
-                  {addressSuggestions.map((sug, idx) => (
-                    <div 
-                      key={idx} 
-                      onClick={() => selectAddress(sug)}
-                      className="p-3 hover:bg-slate-50 cursor-pointer transition-colors"
-                    >
-                      <p className="text-sm font-bold text-slate-800 truncate">{sug.address?.road || sug.name}</p>
-                      <p className="text-[10px] text-slate-500 uppercase tracking-wider truncate">
-                        {sug.address?.suburb || sug.address?.neighbourhood || 'Bairro Indefinido'} - {sug.address?.city || sug.address?.town || ''}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {isSearchingAddress && (
-                 <p className="text-[10px] text-slate-400 absolute -bottom-4 right-0">Buscando...</p>
-              )}
-            </div>
-
-            {/* Manual Pin Map */}
-            {showMap && (
-              <div className="w-full h-48 sm:h-64 rounded-xl overflow-hidden border border-slate-300 shadow-inner relative animate-in fade-in zoom-in-95 duration-300">
-                <div className="absolute top-2 left-2 z-[400] bg-white/90 backdrop-blur px-2 py-1 rounded shadow text-[10px] font-bold text-slate-700 pointer-events-none">
-                  Toque no mapa para ajustar o pino
-                </div>
-                <MapContainer 
-                  center={formData.latitude && formData.longitude ? [formData.latitude, formData.longitude] : [-16.4672, -54.6383]} 
-                  zoom={15} 
-                  className="w-full h-full z-0"
-                >
-                  <TileLayer
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              {/* 2. BAIRRO — só aparece após selecionar cidade */}
+              {formData.cityId && (
+                <div className="space-y-1 relative" ref={nbhdRef}>
+                  <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">
+                    Bairro {isSearchingNbhd && <span className="text-slate-400 font-normal">(buscando...)</span>}
+                  </label>
+                  <Input
+                    placeholder="Digite o bairro..."
+                    value={neighborhoodSearch}
+                    onChange={handleNeighborhoodChange}
+                    autoComplete="off"
+                    required
                   />
-                  <LocationMarker />
-                </MapContainer>
-              </div>
-            )}
-             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Bairro</label>
-              <Input 
-                placeholder="Ex. Centro" 
-                required
-                value={formData.neighborhood}
-                onChange={(e) => setFormData({...formData, neighborhood: e.target.value})}
-              />
+                  {neighborhoodSugs.length > 0 && (
+                    <div className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-y-auto divide-y divide-slate-100 mt-1">
+                      {neighborhoodSugs.map((s, i) => {
+                        const name = s.address?.suburb || s.address?.neighbourhood || s.address?.residential || s.name;
+                        return (
+                          <div key={i} onClick={() => selectNeighborhood(s)} className="px-3 py-2.5 hover:bg-blue-50 cursor-pointer transition-colors">
+                            <p className="text-sm font-bold text-slate-800 truncate">{name}</p>
+                            <p className="text-[10px] text-slate-400 truncate">{s.display_name}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 3. RUA — ViaCEP autocomplete */}
+              {formData.cityId && (
+                <div className="space-y-1 relative" ref={streetRef}>
+                  <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider flex justify-between items-center">
+                    <span>Logradouro / Rua {isSearchingStreet && <span className="text-slate-400 font-normal">(buscando...)</span>}</span>
+                    <button type="button" onClick={handleGetLocation} disabled={isLocating} className="flex items-center gap-1 text-[#1E3A8A] hover:underline font-bold">
+                      {isLocating ? <Loader2 className="w-3 h-3 animate-spin" /> : <MapPin className="w-3 h-3" />}
+                      GPS
+                    </button>
+                  </label>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Ex: Avenida Tiradentes..."
+                      value={streetSearch}
+                      onChange={handleStreetChange}
+                      autoComplete="off"
+                      className="flex-1"
+                      required
+                    />
+                    <Input
+                      placeholder="Nº"
+                      value={houseNumber}
+                      onChange={e => {
+                        setHouseNumber(e.target.value);
+                        setFormData(prev => ({ ...prev, address: streetSearch ? `${streetSearch}, ${e.target.value}` : prev.address }));
+                      }}
+                      className="w-20"
+                    />
+                  </div>
+                  {streetSugs.length > 0 && (
+                    <div className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-xl max-h-56 overflow-y-auto divide-y divide-slate-100 mt-1">
+                      {streetSugs.map((s, i) => (
+                        <div key={i} onClick={() => selectStreet(s)} className="px-3 py-2.5 hover:bg-blue-50 cursor-pointer transition-colors">
+                          <p className="text-sm font-bold text-slate-800 truncate">{s.logradouro}</p>
+                          <p className="text-[10px] text-slate-500 truncate uppercase tracking-wider">
+                            {s.bairro && <span>{s.bairro} · </span>}
+                            CEP {s.cep}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* MAP — always visible once city is selected, auto-centers on pin */}
+              {formData.cityId && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Confirmação no Mapa <span className="font-normal text-slate-400">(toque para ajustar o pino)</span></p>
+                  <div className="w-full h-52 rounded-lg overflow-hidden border border-slate-300 shadow-inner relative">
+                    <MapContainer
+                      center={formData.latitude && formData.longitude ? [formData.latitude, formData.longitude] : [-16.4672, -54.6383]}
+                      zoom={formData.latitude ? 16 : 13}
+                      className="w-full h-full z-0"
+                    >
+                      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                      <LocationMarker />
+                    </MapContainer>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="pt-4">
