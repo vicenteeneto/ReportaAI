@@ -10,6 +10,7 @@ interface AppContextType {
   logout: () => Promise<void> | void;
   tickets: Ticket[];
   addTicket: (t: Ticket) => Promise<void>;
+  updateTicket: (id: string, changes: Partial<Ticket>, changeDescription: string) => Promise<void>;
   updateTicketStatus: (id: string, status: TicketStatus) => void;
   categories: Category[];
   departments: Department[];
@@ -403,6 +404,62 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
 
+  const updateTicket = async (id: string, changes: Partial<Ticket>, changeDescription: string): Promise<void> => {
+    // Use native fetch pattern (same as addTicket) for Android PWA compatibility
+    let token = '';
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.includes('-auth-token')) {
+          const val = localStorage.getItem(key);
+          if (val) { token = JSON.parse(val).access_token || ''; break; }
+        }
+      }
+    } catch (e) { console.warn('Erro ao ler token', e); }
+
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    const headers = {
+      'apikey': anonKey,
+      'Authorization': `Bearer ${token || anonKey}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=minimal'
+    };
+
+    // Update ticket row
+    const controller = new AbortController();
+    const tid = setTimeout(() => controller.abort(), 12000);
+    const res = await fetch(`${supabaseUrl}/rest/v1/tickets?id=eq.${id}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ ...changes, updatedAt: Date.now() }),
+      signal: controller.signal
+    });
+    clearTimeout(tid);
+    if (!res.ok) {
+      const txt = await res.text();
+      throw new Error(`Erro ao atualizar: HTTP ${res.status} - ${txt}`);
+    }
+
+    // Write history entry
+    try {
+      await fetch(`${supabaseUrl}/rest/v1/ticket_history`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          ticketId: id,
+          userId: currentUser?.id,
+          action: `Cidadão editou o chamado`,
+          comment: changeDescription,
+          createdAt: Date.now()
+        })
+      });
+    } catch (e) { console.warn('Falha ao gravar histórico da edição', e); }
+
+    // Update local state
+    setTickets(prev => prev.map(t => t.id === id ? { ...t, ...changes, updatedAt: Date.now() } : t));
+  };
+
   const updateTicketStatus = async (id: string, status: TicketStatus) => {
     const { error } = await supabase.from('tickets').update({ status }).eq('id', id);
     if (!error) {
@@ -419,7 +476,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AppContext.Provider value={{ currentUser, loginWithEmail, registerWithEmail, loginWithGoogle, logout, tickets, addTicket, updateTicketStatus, categories, departments, cities, loading }}>
+    <AppContext.Provider value={{ currentUser, loginWithEmail, registerWithEmail, loginWithGoogle, logout, tickets, addTicket, updateTicket, updateTicketStatus, categories, departments, cities, loading }}>
       {children}
     </AppContext.Provider>
   );

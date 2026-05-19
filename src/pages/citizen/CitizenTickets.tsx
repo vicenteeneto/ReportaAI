@@ -2,21 +2,28 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
+import { Input, Textarea } from '../../components/ui/Input';
 import { StatusBadge } from '../../components/ui/Badge';
 import { useAppContext } from '../../context/AppContext';
 import { format } from 'date-fns';
-import { ArrowLeft, Database, Filter, Loader2, XCircle } from 'lucide-react';
+import { ArrowLeft, Database, Loader2, XCircle, Pencil, CheckCircle2 } from 'lucide-react';
 import { Ticket } from '../../data/types';
 import { supabase } from '../../lib/supabase';
 
 export function CitizenTickets() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { currentUser, tickets, categories, departments, loading, updateTicketStatus } = useAppContext();
+  const { currentUser, tickets, categories, departments, loading, updateTicketStatus, updateTicket } = useAppContext();
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
+
+  // Edit state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editSuccess, setEditSuccess] = useState(false);
+  const [editForm, setEditForm] = useState({ title: '', description: '', address: '', neighborhood: '' });
   
   // Read initial filter from location state if available
   const initialFilter = location.state?.filter || 'all';
@@ -38,8 +45,55 @@ export function CitizenTickets() {
     return true;
   });
 
-  const confirmCancel = () => {
-    setShowCancelConfirm(true);
+  const confirmCancel = () => { setShowCancelConfirm(true); };
+
+  const openEdit = () => {
+    if (!selectedTicket) return;
+    setEditForm({
+      title: selectedTicket.title,
+      description: selectedTicket.description,
+      address: selectedTicket.address,
+      neighborhood: selectedTicket.neighborhood
+    });
+    setEditSuccess(false);
+    setShowEditModal(true);
+  };
+
+  const handleEditSubmit = async () => {
+    if (!selectedTicket) return;
+    setIsEditing(true);
+    try {
+      // Build a human-readable diff of what changed
+      const diffs: string[] = [];
+      if (editForm.title !== selectedTicket.title)
+        diffs.push(`Título: "${selectedTicket.title}" → "${editForm.title}"`);
+      if (editForm.description !== selectedTicket.description)
+        diffs.push(`Descrição atualizada`);
+      if (editForm.address !== selectedTicket.address)
+        diffs.push(`Endereço: "${selectedTicket.address}" → "${editForm.address}"`);
+      if (editForm.neighborhood !== selectedTicket.neighborhood)
+        diffs.push(`Bairro: "${selectedTicket.neighborhood}" → "${editForm.neighborhood}"`);
+
+      if (diffs.length === 0) { setShowEditModal(false); return; }
+
+      const changes: Partial<Ticket> = {
+        title: editForm.title,
+        description: editForm.description,
+        address: editForm.address,
+        neighborhood: editForm.neighborhood
+      };
+
+      await updateTicket(selectedTicket.id, changes, diffs.join(' | '));
+
+      // Update local selected ticket
+      setSelectedTicket(prev => prev ? { ...prev, ...changes } : prev);
+      setEditSuccess(true);
+      setTimeout(() => setShowEditModal(false), 1500);
+    } catch (e: any) {
+      alert('Erro ao salvar alterações: ' + e.message);
+    } finally {
+      setIsEditing(false);
+    }
   };
 
   const handleCancelTicket = async () => {
@@ -142,19 +196,30 @@ export function CitizenTickets() {
             </CardContent>
           </Card>
 
-          {/* Cancel Action */}
-          {['received', 'triage'].includes(selectedTicket.status) && (
-            <div className="pt-2">
-              <button 
+          {/* Action Buttons */}
+          <div className="flex gap-2 pt-2">
+            {/* Edit button: allowed for most statuses except resolved/closed/rejected/canceled */}
+            {!['resolved', 'closed', 'rejected', 'canceled', 'duplicated'].includes(selectedTicket.status) && (
+              <button
+                onClick={openEdit}
+                className="flex-1 py-3 border border-[#1E3A8A]/30 text-[#1E3A8A] rounded flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider hover:bg-blue-50 transition-colors"
+              >
+                <Pencil className="w-4 h-4" />
+                Editar Chamado
+              </button>
+            )}
+            {/* Cancel button: only for early statuses */}
+            {['received', 'triage'].includes(selectedTicket.status) && (
+              <button
                 onClick={confirmCancel}
                 disabled={isCancelling}
-                className="w-full py-3 border border-red-200 text-red-600 rounded flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider hover:bg-red-50 transition-colors disabled:opacity-50"
+                className="flex-1 py-3 border border-red-200 text-red-600 rounded flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider hover:bg-red-50 transition-colors disabled:opacity-50"
               >
                 {isCancelling ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
-                Cancelar Chamado
+                Cancelar
               </button>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Timeline Mock */}
           <div className="pt-2 px-2 pb-6">
@@ -188,6 +253,87 @@ export function CitizenTickets() {
             </div>
           </div>
         </div>
+
+        {/* Edit Modal */}
+        {showEditModal && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/40 backdrop-blur-sm animate-in fade-in">
+            <div className="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl shadow-xl overflow-hidden animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200">
+              {/* Header */}
+              <div className="px-5 pt-5 pb-3 border-b border-slate-100 flex justify-between items-center">
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{selectedTicket?.protocol}</p>
+                  <h3 className="text-base font-bold text-slate-900 tracking-tight mt-0.5">Editar Chamado</h3>
+                </div>
+                <button onClick={() => setShowEditModal(false)} className="p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors">
+                  <XCircle className="w-5 h-5" />
+                </button>
+              </div>
+
+              {editSuccess ? (
+                <div className="p-8 flex flex-col items-center text-center animate-in zoom-in-95">
+                  <div className="w-14 h-14 bg-green-50 border border-green-200 rounded-full flex items-center justify-center mb-3">
+                    <CheckCircle2 className="w-7 h-7 text-green-600" />
+                  </div>
+                  <p className="font-bold text-slate-900 text-sm">Alterações Salvas!</p>
+                  <p className="text-xs text-slate-500 mt-1">As mudanças foram registradas no histórico do chamado.</p>
+                </div>
+              ) : (
+                <div className="p-5 space-y-4">
+                  <p className="text-[10px] text-slate-500 font-medium bg-amber-50 border border-amber-200 rounded px-3 py-2">
+                    ⚠️ Todas as alterações ficam registradas no histórico e podem ser visualizadas pelo gestor.
+                  </p>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">Título</label>
+                    <Input
+                      value={editForm.title}
+                      onChange={e => setEditForm(f => ({...f, title: e.target.value}))}
+                      placeholder="Título do chamado"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">Descrição</label>
+                    <Textarea
+                      value={editForm.description}
+                      onChange={e => setEditForm(f => ({...f, description: e.target.value}))}
+                      className="h-28"
+                      placeholder="Descreva o problema em detalhes..."
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">Endereço</label>
+                      <Input
+                        value={editForm.address}
+                        onChange={e => setEditForm(f => ({...f, address: e.target.value}))}
+                        placeholder="Rua, número..."
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">Bairro</label>
+                      <Input
+                        value={editForm.neighborhood}
+                        onChange={e => setEditForm(f => ({...f, neighborhood: e.target.value}))}
+                        placeholder="Bairro"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <Button variant="outline" className="flex-1 font-bold text-xs h-11" onClick={() => setShowEditModal(false)} disabled={isEditing}>
+                      Cancelar
+                    </Button>
+                    <Button className="flex-1 font-bold text-xs h-11 bg-[#1E3A8A]" onClick={handleEditSubmit} isLoading={isEditing} disabled={isEditing}>
+                      Salvar Alterações
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Cancel Confirmation Modal */}
         {showCancelConfirm && (
