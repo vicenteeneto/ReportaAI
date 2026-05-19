@@ -116,7 +116,6 @@ export function CitizenNewTicket() {
   const navigate = useNavigate();
   const { categories, currentUser, addTicket, cities } = useAppContext();
   
-  const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [newProtocol, setNewProtocol] = useState('');
@@ -137,11 +136,12 @@ export function CitizenNewTicket() {
     longitude: undefined as number | undefined,
   });
 
+  const [submitProgress, setSubmitProgress] = useState(0);
+  const [submitStatusText, setSubmitStatusText] = useState('');
+
   // Photo state: compressed blob (ready for upload) + compression status
   const [compressedPhoto, setCompressedPhoto] = useState<Blob | null>(null);
   const [isCompressing, setIsCompressing] = useState(false);
-  // Ref to the in-flight compression promise so handleSubmit can await it
-  const compressionPromiseRef = useRef<Promise<Blob> | null>(null);
 
   // Cleanup object URLs on unmount
   useEffect(() => {
@@ -175,27 +175,22 @@ export function CitizenNewTicket() {
     setCompressedPhoto(null);
     setIsCompressing(true);
 
-    // Start compression in background — runs while user fills out the form
-    const promise = withTimeout(compressPhoto(safeFile), 25000, 'compressão da foto')
+    // Start compression in background
+    withTimeout(compressPhoto(safeFile), 25000, 'compressão da foto')
       .then((blob) => {
         setCompressedPhoto(blob);
         // Replace preview with the compressed version (saves memory)
         const compressedUrl = URL.createObjectURL(blob);
         URL.revokeObjectURL(previewUrl);
         setFormData(prev => ({...prev, photoUrl: compressedUrl}));
-        return blob;
       })
       .catch((err) => {
-        console.warn('Compressão da foto falhou:', err?.message || err);
-        setCompressedPhoto(null);
-        throw err;
+        console.warn('Compressão da foto falhou, usando arquivo original:', err?.message || err);
+        setCompressedPhoto(safeFile); // Fallback to original file
       })
       .finally(() => {
         setIsCompressing(false);
-        compressionPromiseRef.current = null;
       });
-
-    compressionPromiseRef.current = promise;
   };
 
   // ─── Remove photo ───
@@ -205,7 +200,6 @@ export function CitizenNewTicket() {
     }
     setCompressedPhoto(null);
     setIsCompressing(false);
-    compressionPromiseRef.current = null;
     setFormData(prev => ({...prev, photoUrl: undefined}));
   };
 
@@ -216,6 +210,8 @@ export function CitizenNewTicket() {
     if (!formData.categoryId) { setErrorMsg('Por favor, selecione uma categoria.'); return; }
 
     setIsSubmitting(true);
+    setSubmitProgress(10);
+    setSubmitStatusText('Iniciando envio...');
     
     try {
       const userId = currentUser?.id;
@@ -223,19 +219,18 @@ export function CitizenNewTicket() {
 
       let uploadedPhotoUrl: string | undefined = undefined;
 
-      // ── Photo upload (photo is already compressed — just upload the small blob) ──
+      // ── Photo upload ──
       let photoBlob = compressedPhoto;
 
-      // If compression is still running, wait up to 8s for it
-      if (!photoBlob && compressionPromiseRef.current) {
-        try {
-          photoBlob = await withTimeout(compressionPromiseRef.current, 8000, 'aguardando compressão');
-        } catch (_) {
-          console.warn('Compressão não terminou a tempo, enviando sem foto');
-        }
-      }
-
       if (photoBlob) {
+        setSubmitProgress(20);
+        setSubmitStatusText('Enviando foto...');
+        
+        // Simula progresso enquanto a foto sobe
+        const progressInterval = setInterval(() => {
+          setSubmitProgress(p => p < 80 ? p + 5 : p);
+        }, 600);
+
         try {
           const fileName = `${Date.now()}-${userId}.jpg`;
           const { data, error }: any = await withTimeout(
@@ -254,8 +249,13 @@ export function CitizenNewTicket() {
           }
         } catch (uploadErr: any) {
           console.warn('Upload ignorado:', uploadErr?.message || uploadErr);
+        } finally {
+          clearInterval(progressInterval);
         }
       }
+
+      setSubmitProgress(85);
+      setSubmitStatusText('Gerando protocolo...');
 
       // ── Protocol number ──
       // Usamos fetch nativo para evitar o travamento do cliente Supabase no Android.
@@ -293,6 +293,9 @@ export function CitizenNewTicket() {
 
       const generatedProtocol = `RD-${new Date().getFullYear()}-${String(nextNum).padStart(6, '0')}`;
       
+      setSubmitProgress(95);
+      setSubmitStatusText('Salvando registro...');
+
       // ── Create ticket ──
       const newTicket: Ticket = {
         id: generateUUID(),
@@ -314,8 +317,16 @@ export function CitizenNewTicket() {
       };
 
       await addTicket(newTicket);
-      setNewProtocol(generatedProtocol);
-      setSuccess(true);
+      
+      setSubmitProgress(100);
+      setSubmitStatusText('Concluído!');
+      
+      // Pequeno delay para o usuário ver o 100%
+      setTimeout(() => {
+        setNewProtocol(generatedProtocol);
+        setSuccess(true);
+      }, 400);
+      
     } catch (err: any) {
       console.error("Error creating ticket", err);
       const msg = err?.message || 'Erro ao salvar chamado.';
@@ -447,14 +458,9 @@ export function CitizenNewTicket() {
 
       <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-3">
         <h2 className="text-lg font-bold text-slate-900 uppercase tracking-tight">Nova Ocorrência</h2>
-        <span className="text-[10px] font-bold text-[#1E3A8A] uppercase tracking-wider bg-blue-50 px-2 py-0.5 rounded border border-blue-100">Etapa {step} de 2</span>
       </div>
 
-      <div className="w-full bg-slate-200 h-1 mb-8">
-        <div className="bg-[#1E3A8A] h-1 transition-all duration-300" style={{ width: step === 1 ? '50%' : '100%' }}></div>
-      </div>
-
-      <form onSubmit={step === 1 ? (e) => { e.preventDefault(); setStep(2); } : handleSubmit}>
+      <form onSubmit={handleSubmit}>
 
         {/* Error banner — always visible on screen, never suppressed unlike alert() */}
         {errorMsg && (
@@ -468,7 +474,6 @@ export function CitizenNewTicket() {
           </div>
         )}
 
-        {step === 1 && (
           <div className="space-y-5 animate-in slide-in-from-right-8">
             <div className="space-y-1.5">
               <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Qual problema você identificou?</label>
@@ -513,7 +518,7 @@ export function CitizenNewTicket() {
                   />
                   {/* Compression overlay indicator */}
                   {isCompressing && (
-                    <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-white">
+                    <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-white z-10">
                       <Loader2 className="w-6 h-6 animate-spin mb-1" />
                       <span className="text-[10px] font-bold uppercase tracking-wider">Processando foto...</span>
                     </div>
@@ -521,12 +526,34 @@ export function CitizenNewTicket() {
                   <button 
                     type="button" 
                     onClick={handleRemovePhoto}
-                    className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-2 shadow-lg hover:bg-red-700 transition-colors"
+                    className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-2 shadow-lg hover:bg-red-700 transition-colors z-20"
                   >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
               )}
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Título (Resumo)</label>
+              <Input 
+                placeholder="Ex: Buraco na via pública" 
+                required
+                value={formData.title}
+                onChange={(e) => setFormData({...formData, title: e.target.value})}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Descrição Detalhada</label>
+              <Textarea 
+                placeholder="Descreva detalhes que ajudem a equipe..." 
+                className="h-28"
+                required
+                value={formData.description}
+                onChange={(e) => setFormData({...formData, description: e.target.value})}
+              />
+              <p className="text-[9px] text-slate-500 font-medium">Os dados informados alimentam o sistema central da prefeitura.</p>
             </div>
 
             <div className="space-y-1.5">
@@ -561,40 +588,27 @@ export function CitizenNewTicket() {
               />
             </div>
 
-            <Button type="submit" className="w-full mt-6 h-12 font-bold uppercase tracking-wide text-xs">Avançar</Button>
-          </div>
-        )}
-
-        {step === 2 && (
-          <div className="space-y-5 animate-in slide-in-from-right-8">
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Título (Resumo)</label>
-              <Input 
-                placeholder="Ex: Buraco na via pública" 
-                required
-                value={formData.title}
-                onChange={(e) => setFormData({...formData, title: e.target.value})}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Descrição Detalhada</label>
-              <Textarea 
-                placeholder="Descreva detalhes que ajudem a equipe..." 
-                className="h-28"
-                required
-                value={formData.description}
-                onChange={(e) => setFormData({...formData, description: e.target.value})}
-              />
-              <p className="text-[9px] text-slate-500 font-medium">Os dados informados alimentam o sistema central da prefeitura.</p>
-            </div>
-
-            <div className="flex gap-2 pt-4">
-              <Button type="button" disabled={isSubmitting} variant="outline" className="flex-1 font-bold uppercase tracking-wide text-[10px] h-12" onClick={() => setStep(1)}>Voltar</Button>
-              <Button type="submit" className="flex-[2] font-bold uppercase tracking-wide text-[10px] h-12" isLoading={isSubmitting}>Confirmar Solicitação</Button>
+            <div className="pt-4">
+              {isSubmitting ? (
+                <div className="w-full bg-slate-50 border border-slate-200 rounded p-4 space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-bold text-[#1E3A8A] uppercase tracking-wider">{submitStatusText}</span>
+                    <span className="text-[10px] font-bold text-slate-500">{submitProgress}%</span>
+                  </div>
+                  <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                    <div 
+                      className="bg-[#1E3A8A] h-full transition-all duration-300 ease-out" 
+                      style={{ width: `${submitProgress}%` }}
+                    ></div>
+                  </div>
+                </div>
+              ) : (
+                <Button type="submit" className="w-full font-bold uppercase tracking-wide text-[10px] h-12" disabled={isCompressing}>
+                  {isCompressing ? 'Processando foto...' : 'Confirmar Solicitação'}
+                </Button>
+              )}
             </div>
           </div>
-        )}
       </form>
 
       {/* Image Viewer Modal */}
