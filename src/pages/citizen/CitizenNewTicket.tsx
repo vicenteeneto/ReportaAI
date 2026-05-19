@@ -33,6 +33,56 @@ function generateUUID() {
 
 // Photo compression: handled by browser-image-compression library
 
+/**
+ * Upload a file via XMLHttpRequest — the most reliable method on Android
+ * (Supabase SDK uses fetch/streams which can hang on Android PWA/WebView).
+ * Returns the public URL of the uploaded file.
+ */
+function uploadViaXHR(
+  file: File,
+  fileName: string,
+  supabaseUrl: string,
+  anonKey: string,
+  bucketName: string,
+  onProgress?: (pct: number) => void
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const url = `${supabaseUrl}/storage/v1/object/${bucketName}/${fileName}`;
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url, true);
+    xhr.setRequestHeader('Authorization', `Bearer ${anonKey}`);
+    xhr.setRequestHeader('x-upsert', 'false');
+    // Do NOT set Content-Type manually — let XHR set it with the boundary for FormData
+
+    if (xhr.upload && onProgress) {
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          onProgress(Math.round((event.loaded / event.total) * 100));
+        }
+      };
+    }
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        const publicUrl = `${supabaseUrl}/storage/v1/object/public/${bucketName}/${fileName}`;
+        resolve(publicUrl);
+      } else {
+        let errMsg = `HTTP ${xhr.status}`;
+        try { errMsg = JSON.parse(xhr.responseText)?.message || errMsg; } catch (_) {}
+        reject(new Error(errMsg));
+      }
+    };
+
+    xhr.onerror = () => reject(new Error('Erro de rede (XHR onError)'));
+    xhr.ontimeout = () => reject(new Error('Timeout no upload'));
+    xhr.timeout = 60000; // 60s timeout
+
+    const formData = new FormData();
+    formData.append('', file, fileName);
+    xhr.send(formData);
+  });
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function CitizenNewTicket() {
@@ -138,7 +188,7 @@ export function CitizenNewTicket() {
       URL.revokeObjectURL(formData.photoUrl);
     }
 
-    // Normalize MIME type (some Android cameras return empty type)
+    // Normalize MIME type (some Android cameras return empty string)
     const safeFile = (file.type && file.type.startsWith('image/'))
       ? file
       : new File([file], file.name || 'photo.jpg', { type: 'image/jpeg' });
@@ -149,25 +199,27 @@ export function CitizenNewTicket() {
     setCompressedPhoto(null);
     setIsCompressing(true);
 
-    // Start compression using browser-image-compression
+    // Compression: useWebWorker: FALSE is critical for Android PWA/WebViews
+    // Web Workers are frequently blocked in Android Chrome PWA mode
     const options = {
       maxSizeMB: 0.5,
-      maxWidthOrHeight: 800,
-      useWebWorker: true,
-      fileType: 'image/jpeg'
+      maxWidthOrHeight: 1024,
+      useWebWorker: false,         // <-- must be false for Android
+      initialQuality: 0.8,
+      fileType: 'image/jpeg' as const
     };
 
     imageCompression(safeFile, options)
-      .then((compressedBlob) => {
-        setCompressedPhoto(compressedBlob);
-        // Replace preview with the compressed version
-        const compressedUrl = URL.createObjectURL(compressedBlob);
+      .then((compressedFile) => {
+        setCompressedPhoto(compressedFile);
+        const compressedUrl = URL.createObjectURL(compressedFile);
         URL.revokeObjectURL(previewUrl);
         setFormData(prev => ({...prev, photoUrl: compressedUrl}));
       })
       .catch((err) => {
-        console.warn('Compressão da foto falhou, usando arquivo original:', err);
-        setCompressedPhoto(safeFile); // Fallback to original file
+        // If compression fails, use original file — never block the flow
+        console.warn('Compressão falhou, usando arquivo original:', err);
+        setCompressedPhoto(safeFile);
       })
       .finally(() => {
         setIsCompressing(false);
@@ -200,55 +252,48 @@ export function CitizenNewTicket() {
 
       let uploadedPhotoUrl: string | undefined = undefined;
 
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      // Get the real session token so storage RLS is satisfied
+      const { data: { session } } = await supabase.auth.getSession();
+      const authToken = session?.access_token || anonKey;
+
       // ── Photo upload ──
       let photoBlob = compressedPhoto;
 
       if (photoBlob) {
         setSubmitProgress(20);
         setSubmitStatusText('Enviando foto...');
-        
-        // Simula progresso enquanto a foto sobe
-        const progressInterval = setInterval(() => {
-          setSubmitProgress(p => p < 80 ? p + 5 : p);
-        }, 600);
 
-        try {
-          const fileName = `${Date.now()}-${userId}.jpg`;
-          
-          // Ensure it's a File object (some mobile browsers have quirks with raw Blobs in FormData)
-          const fileToUpload = photoBlob instanceof File 
-            ? photoBlob 
-            : new File([photoBlob], fileName, { type: 'image/jpeg' });
+        const fileName = `${Date.now()}-${userId}.jpg`;
 
-          const { data, error }: any = await supabase.storage.from('tickets').upload(fileName, fileToUpload, {
-            contentType: 'image/jpeg',
-            upsert: false
-          });
+        // Always create a clean File object with proper JPEG metadata
+        const fileToUpload = new File([photoBlob], fileName, {
+          type: 'image/jpeg',
+          lastModified: Date.now()
+        });
 
-          if (!error && data) {
-            const { data: { publicUrl } } = supabase.storage.from('tickets').getPublicUrl(fileName);
-            uploadedPhotoUrl = publicUrl;
-          } else if (error) {
-            console.warn('Upload falhou:', error?.message || error);
-            throw new Error(error?.message || 'Erro desconhecido no storage');
+        // Upload via XHR — most reliable on Android (fetch/SDK can hang in PWA mode)
+        uploadedPhotoUrl = await uploadViaXHR(
+          fileToUpload,
+          fileName,
+          supabaseUrl,
+          authToken,
+          'tickets',
+          (pct) => {
+            // Map XHR progress (0→100) to our UI range (20→80)
+            setSubmitProgress(20 + Math.round(pct * 0.6));
           }
-        } catch (uploadErr: any) {
-          console.warn('Upload ignorado/falhou:', uploadErr?.message || uploadErr);
-          throw new Error(`A foto não pôde ser enviada (${uploadErr?.message || 'timeout/rede'}). Tente novamente ou envie sem foto.`);
-        } finally {
-          clearInterval(progressInterval);
-        }
+        );
       }
 
       setSubmitProgress(85);
       setSubmitStatusText('Gerando protocolo...');
 
       // ── Protocol number ──
-      // Usamos fetch nativo para evitar o travamento do cliente Supabase no Android.
       let nextNum = Math.floor(Math.random() * 900000) + 100000; // Fallback caso dê erro de rede
       try {
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s limite
         
