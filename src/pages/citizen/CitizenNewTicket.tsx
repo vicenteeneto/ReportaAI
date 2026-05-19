@@ -85,8 +85,13 @@ function uploadViaXHR(
     xhr.ontimeout = () => reject(new Error('Upload cancelado por timeout'));
     xhr.timeout = 90000; // 90s — generous for slow 3G connections
 
-    // Send raw binary — this is what Supabase Storage REST API expects
-    xhr.send(file);
+    // CRITICAL for Android gallery photos:
+    // Gallery photos use content:// URIs that don't serialize reliably when passed
+    // as File objects to XHR. Reading as ArrayBuffer first loads all bytes into
+    // memory, making the XHR send reliable on all Android browsers.
+    file.arrayBuffer()
+      .then(buffer => xhr.send(buffer))
+      .catch(err => reject(new Error(`Falha ao ler arquivo para upload: ${err.message || err}`)));
   });
 }
 
@@ -344,10 +349,46 @@ export function CitizenNewTicket() {
         URL.revokeObjectURL(previewUrl);
         setFormData(prev => ({...prev, photoUrl: compressedUrl}));
       })
-      .catch((err) => {
-        // If compression fails, use original file — never block the flow
-        console.warn('Compressão falhou, usando arquivo original:', err);
-        setCompressedPhoto(safeFile);
+      .catch(async (err) => {
+        // browser-image-compression failed (common with gallery HEIC/WebP on Android)
+        // Try canvas-based conversion to JPEG before falling back to raw file
+        console.warn('browser-image-compression falhou, tentando canvas fallback:', err);
+        try {
+          const objectUrl = URL.createObjectURL(safeFile);
+          const img = await new Promise<HTMLImageElement>((res, rej) => {
+            const i = new Image();
+            i.onload = () => res(i);
+            i.onerror = rej;
+            i.src = objectUrl;
+          });
+          URL.revokeObjectURL(objectUrl);
+
+          const MAX = 1024;
+          let { naturalWidth: w, naturalHeight: h } = img;
+          if (w > MAX || h > MAX) {
+            if (w >= h) { h = Math.round(h * MAX / w); w = MAX; }
+            else { w = Math.round(w * MAX / h); h = MAX; }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, w, h);
+
+          const blob = await new Promise<Blob>((res, rej) =>
+            canvas.toBlob(b => b ? res(b) : rej(new Error('canvas toBlob falhou')), 'image/jpeg', 0.82)
+          );
+          const canvasFile = new File([blob], 'photo.jpg', { type: 'image/jpeg' });
+          setCompressedPhoto(canvasFile);
+          // Update preview with canvas-converted version
+          const canvasUrl = URL.createObjectURL(canvasFile);
+          URL.revokeObjectURL(previewUrl);
+          setFormData(prev => ({ ...prev, photoUrl: canvasUrl }));
+          console.log(`Canvas fallback ok: ${(blob.size / 1024).toFixed(0)}KB`);
+        } catch (canvasErr) {
+          // Last resort: use original file (may be large but will attempt upload)
+          console.warn('Canvas fallback também falhou, usando arquivo original:', canvasErr);
+          setCompressedPhoto(safeFile);
+        }
       })
       .finally(() => {
         setIsCompressing(false);
