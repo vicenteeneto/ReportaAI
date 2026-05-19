@@ -1,12 +1,23 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input, Textarea, Select } from '../../components/ui/Input';
 import { useAppContext } from '../../context/AppContext';
 import { Camera, MapPin, CheckCircle2, ArrowLeft, Loader2, Upload, X } from 'lucide-react';
 import { Ticket } from '../../data/types';
 import { supabase } from '../../lib/supabase';
+import imageCompression from 'browser-image-compression';
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// Fix leaflet icon default
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
 
 // ─── Utilities ───────────────────────────────────────────────────────────────
 
@@ -20,95 +31,7 @@ function generateUUID() {
   });
 }
 
-/** Wraps any promise with a hard timeout. */
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`Timeout: ${label} (${ms / 1000}s)`)), ms);
-    promise.then(
-      (v) => { clearTimeout(timer); resolve(v); },
-      (e) => { clearTimeout(timer); reject(e); }
-    );
-  });
-}
-
-// ─── Photo Compression ──────────────────────────────────────────────────────
-// Target: 800px max dimension, JPEG quality 0.75 → result is ~80-200KB.
-// Two strategies for maximum Android compatibility:
-//   1. createImageBitmap (Chrome/Android) — decodes OFF the main thread, fast
-//   2. Image + Canvas fallback (Safari/iOS)
-
-const PHOTO_MAX_PX = 800;
-const PHOTO_QUALITY = 0.75;
-
-/** Draws an ImageBitmap or HTMLImageElement to a canvas and exports as JPEG blob. */
-function canvasExport(source: ImageBitmap | HTMLImageElement, w: number, h: number): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) { reject(new Error('Canvas indisponível')); return; }
-    ctx.drawImage(source, 0, 0, w, h);
-    canvas.toBlob(
-      (blob) => blob ? resolve(blob) : reject(new Error('toBlob falhou')),
-      'image/jpeg',
-      PHOTO_QUALITY
-    );
-  });
-}
-
-/** Calculate target dimensions keeping aspect ratio. */
-function targetSize(w: number, h: number): [number, number] {
-  if (w <= PHOTO_MAX_PX && h <= PHOTO_MAX_PX) return [w, h];
-  if (w > h) return [PHOTO_MAX_PX, Math.round((h / w) * PHOTO_MAX_PX)];
-  return [Math.round((w / h) * PHOTO_MAX_PX), PHOTO_MAX_PX];
-}
-
-/**
- * Compress a photo file to a small JPEG blob.
- * Uses createImageBitmap when available (Android Chrome) for off-thread decoding.
- * Falls back to Image element (iOS Safari).
- */
-async function compressPhoto(file: File): Promise<Blob> {
-  // ── Strategy 1: createImageBitmap (Chrome 50+, ideal for Android) ──
-  if (typeof createImageBitmap === 'function') {
-    try {
-      const bmp = await createImageBitmap(file);
-      const [tw, th] = targetSize(bmp.width, bmp.height);
-
-      // Try resize during decode (Chrome 54+) — most memory-efficient
-      try {
-        const resized = await createImageBitmap(file, { resizeWidth: tw, resizeHeight: th, resizeQuality: 'medium' } as any);
-        bmp.close();
-        const blob = await canvasExport(resized, tw, th);
-        resized.close();
-        return blob;
-      } catch (_) {
-        // resizeWidth/Height not supported (Safari) — draw full bitmap to small canvas
-        const blob = await canvasExport(bmp, tw, th);
-        bmp.close();
-        return blob;
-      }
-    } catch (e) {
-      console.warn('createImageBitmap falhou, usando fallback Image:', e);
-    }
-  }
-
-  // ── Strategy 2: Image element fallback (Safari/older browsers) ──
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      try {
-        const [tw, th] = targetSize(img.naturalWidth || img.width, img.naturalHeight || img.height);
-        canvasExport(img, tw, th).then(resolve, reject);
-      } catch (err) { reject(err); }
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Imagem não suportada')); };
-    img.src = url;
-  });
-}
+// Photo compression: handled by browser-image-compression library
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -139,9 +62,60 @@ export function CitizenNewTicket() {
   const [submitProgress, setSubmitProgress] = useState(0);
   const [submitStatusText, setSubmitStatusText] = useState('');
 
+  // Address Autocomplete and Map states
+  const [addressSuggestions, setAddressSuggestions] = useState<any[]>([]);
+  const [isSearchingAddress, setIsSearchingAddress] = useState(false);
+  const searchTimeoutRef = useRef<any>(null);
+  const [showMap, setShowMap] = useState(false);
+
   // Photo state: compressed blob (ready for upload) + compression status
   const [compressedPhoto, setCompressedPhoto] = useState<Blob | null>(null);
   const [isCompressing, setIsCompressing] = useState(false);
+
+  // Close autocomplete dropdown on outside click
+  const addressWrapperRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (addressWrapperRef.current && !addressWrapperRef.current.contains(e.target as Node)) {
+        setAddressSuggestions([]);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Manual Map Marker Component
+  function LocationMarker() {
+    const map = useMapEvents({
+      click(e) {
+        setFormData(prev => ({ ...prev, latitude: e.latlng.lat, longitude: e.latlng.lng }));
+        // reverse geocode upon manual click
+        fetch(`https://nominatim.openstreetmap.org/reverse?lat=${e.latlng.lat}&lon=${e.latlng.lng}&format=json&addressdetails=1`)
+          .then(res => res.json())
+          .then(data => {
+            if (data && data.address) {
+              const road = data.address.road || data.address.pedestrian || '';
+              const suburb = data.address.suburb || data.address.neighbourhood || '';
+              setFormData(prev => ({
+                 ...prev,
+                 address: road || prev.address,
+                 neighborhood: suburb || prev.neighborhood
+              }));
+            }
+          }).catch(err => console.error("Erro geocoding reverso (click):", err));
+      },
+    });
+
+    useEffect(() => {
+      if (formData.latitude && formData.longitude) {
+         map.flyTo([formData.latitude, formData.longitude], map.getZoom());
+      }
+    }, [formData.latitude, formData.longitude, map]);
+
+    return formData.latitude && formData.longitude ? (
+      <Marker position={[formData.latitude, formData.longitude]} />
+    ) : null;
+  }
 
   // Cleanup object URLs on unmount
   useEffect(() => {
@@ -175,17 +149,24 @@ export function CitizenNewTicket() {
     setCompressedPhoto(null);
     setIsCompressing(true);
 
-    // Start compression in background
-    withTimeout(compressPhoto(safeFile), 25000, 'compressão da foto')
-      .then((blob) => {
-        setCompressedPhoto(blob);
-        // Replace preview with the compressed version (saves memory)
-        const compressedUrl = URL.createObjectURL(blob);
+    // Start compression using browser-image-compression
+    const options = {
+      maxSizeMB: 0.5,
+      maxWidthOrHeight: 800,
+      useWebWorker: true,
+      fileType: 'image/jpeg'
+    };
+
+    imageCompression(safeFile, options)
+      .then((compressedBlob) => {
+        setCompressedPhoto(compressedBlob);
+        // Replace preview with the compressed version
+        const compressedUrl = URL.createObjectURL(compressedBlob);
         URL.revokeObjectURL(previewUrl);
         setFormData(prev => ({...prev, photoUrl: compressedUrl}));
       })
       .catch((err) => {
-        console.warn('Compressão da foto falhou, usando arquivo original:', err?.message || err);
+        console.warn('Compressão da foto falhou, usando arquivo original:', err);
         setCompressedPhoto(safeFile); // Fallback to original file
       })
       .finally(() => {
@@ -340,6 +321,8 @@ export function CitizenNewTicket() {
       try { alert('Atenção: ' + msg); } catch (_) {}
     } finally {
       setIsSubmitting(false);
+      setSubmitProgress(0);
+      setSubmitStatusText('');
     }
   };
 
@@ -421,6 +404,72 @@ export function CitizenNewTicket() {
       },
       { timeout: 15100, enableHighAccuracy: true }
     );
+  };
+
+  // ─── Autocomplete Handlers ───
+  const fetchAddressSuggestions = async (query: string) => {
+    if (!query || query.length < 4) {
+      setAddressSuggestions([]);
+      return;
+    }
+    setIsSearchingAddress(true);
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&countrycodes=br&format=json&addressdetails=1&limit=8`;
+      const response = await fetch(url, { headers: { 'Accept-Language': 'pt-BR' } });
+      const data = await response.json();
+      
+      // Filtra primariamente pelas cidades do sistema se achar, senão mostra todos
+      const filtered = data.filter((d: any) => {
+        const c = d.address?.city || d.address?.town || d.address?.municipality || '';
+        return c.includes('Rondonópolis') || c.includes('Itajaí');
+      });
+      
+      setAddressSuggestions(filtered.length > 0 ? filtered : data);
+    } catch (e) {
+      console.error("Autocomplete failed", e);
+    } finally {
+      setIsSearchingAddress(false);
+    }
+  };
+
+  const handleAddressInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setFormData(prev => ({...prev, address: value}));
+    
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    searchTimeoutRef.current = setTimeout(() => {
+      fetchAddressSuggestions(value);
+    }, 600);
+  };
+
+  const selectAddress = (suggestion: any) => {
+    const addr = suggestion.address;
+    const road = addr.road || addr.pedestrian || '';
+    const suburb = addr.suburb || addr.neighbourhood || '';
+    
+    // Attempt to match city ID if available
+    const cityStr = addr.city || addr.town || addr.village || addr.municipality || '';
+    let foundCityId = formData.cityId;
+    if (cityStr) {
+      const matchedCity = cities.find(c => 
+        c.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === 
+        cityStr.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      );
+      if (matchedCity) foundCityId = matchedCity.id;
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      address: road || suggestion.name,
+      neighborhood: suburb || prev.neighborhood,
+      latitude: parseFloat(suggestion.lat),
+      longitude: parseFloat(suggestion.lon),
+      cityId: foundCityId
+    }));
+    setAddressSuggestions([]);
+    
+    // Automatically show map if they select an address, so they can verify
+    setShowMap(true);
   };
 
   // ─── Success screen ───
@@ -561,28 +610,79 @@ export function CitizenNewTicket() {
               <p className="text-[9px] text-slate-500 font-medium">Os dados informados alimentam o sistema central da prefeitura.</p>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Endereço do Local</label>
+            <div className="space-y-1.5 relative" ref={addressWrapperRef}>
+              <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider flex justify-between">
+                <span>Endereço do Local</span>
+                <button 
+                  type="button" 
+                  onClick={() => setShowMap(!showMap)} 
+                  className="text-[#1E3A8A] hover:underline"
+                >
+                  {showMap ? 'Ocultar Mapa' : 'Selecionar no Mapa'}
+                </button>
+              </label>
+              
               <div className="flex gap-2 relative">
                 <Input 
-                  placeholder="Local da ocorrência" 
+                  placeholder="Digite o endereço para buscar..." 
                   className="flex-1"
                   required
                   value={formData.address}
-                  onChange={(e) => setFormData({...formData, address: e.target.value})}
+                  onChange={handleAddressInputChange}
+                  autoComplete="off"
                 />
                 <Button 
                   type="button" 
                   variant="outline" 
                   className="px-3 border-slate-300 bg-white min-w-[50px]" 
-                  title="Localizar via GPS"
+                  title="Meu Local Atual (GPS)"
                   disabled={isLocating}
                   onClick={handleGetLocation}
                 >
                   {isLocating ? <Loader2 className="w-5 h-5 text-[#1E3A8A] animate-spin" /> : <MapPin className="w-5 h-5 text-[#1E3A8A]" />}
                 </Button>
               </div>
+
+              {/* Autocomplete Dropdown */}
+              {addressSuggestions.length > 0 && (
+                <div className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-xl max-h-60 overflow-y-auto mt-1 divide-y divide-slate-100">
+                  {addressSuggestions.map((sug, idx) => (
+                    <div 
+                      key={idx} 
+                      onClick={() => selectAddress(sug)}
+                      className="p-3 hover:bg-slate-50 cursor-pointer transition-colors"
+                    >
+                      <p className="text-sm font-bold text-slate-800 truncate">{sug.address?.road || sug.name}</p>
+                      <p className="text-[10px] text-slate-500 uppercase tracking-wider truncate">
+                        {sug.address?.suburb || sug.address?.neighbourhood || 'Bairro Indefinido'} - {sug.address?.city || sug.address?.town || ''}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {isSearchingAddress && (
+                 <p className="text-[10px] text-slate-400 absolute -bottom-4 right-0">Buscando...</p>
+              )}
             </div>
+
+            {/* Manual Pin Map */}
+            {showMap && (
+              <div className="w-full h-48 sm:h-64 rounded-xl overflow-hidden border border-slate-300 shadow-inner relative animate-in fade-in zoom-in-95 duration-300">
+                <div className="absolute top-2 left-2 z-[400] bg-white/90 backdrop-blur px-2 py-1 rounded shadow text-[10px] font-bold text-slate-700 pointer-events-none">
+                  Toque no mapa para ajustar o pino
+                </div>
+                <MapContainer 
+                  center={formData.latitude && formData.longitude ? [formData.latitude, formData.longitude] : [-16.4672, -54.6383]} 
+                  zoom={15} 
+                  className="w-full h-full z-0"
+                >
+                  <TileLayer
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  />
+                  <LocationMarker />
+                </MapContainer>
+              </div>
+            )}
              <div className="space-y-1.5">
               <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Bairro</label>
               <Input 
