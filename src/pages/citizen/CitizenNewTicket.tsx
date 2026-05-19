@@ -34,25 +34,29 @@ function generateUUID() {
 // Photo compression: handled by browser-image-compression library
 
 /**
- * Upload a file via XMLHttpRequest — the most reliable method on Android
- * (Supabase SDK uses fetch/streams which can hang on Android PWA/WebView).
- * Returns the public URL of the uploaded file.
+ * Upload a file via XMLHttpRequest — the most reliable method on Android.
+ * Supabase Storage REST API expects the raw file bytes as the request body.
+ * (FormData/multipart is NOT supported by Supabase Storage.)
  */
 function uploadViaXHR(
   file: File,
   fileName: string,
   supabaseUrl: string,
-  anonKey: string,
+  authToken: string,
   bucketName: string,
   onProgress?: (pct: number) => void
 ): Promise<string> {
   return new Promise((resolve, reject) => {
-    const url = `${supabaseUrl}/storage/v1/object/${bucketName}/${fileName}`;
+    const url = `${supabaseUrl}/storage/v1/object/${bucketName}/${encodeURIComponent(fileName)}`;
     const xhr = new XMLHttpRequest();
     xhr.open('POST', url, true);
-    xhr.setRequestHeader('Authorization', `Bearer ${anonKey}`);
+
+    // Auth header
+    xhr.setRequestHeader('Authorization', `Bearer ${authToken}`);
+    // Supabase Storage needs the MIME type as Content-Type on the raw body
+    xhr.setRequestHeader('Content-Type', 'image/jpeg');
+    // Do NOT upsert — always new file
     xhr.setRequestHeader('x-upsert', 'false');
-    // Do NOT set Content-Type manually — let XHR set it with the boundary for FormData
 
     if (xhr.upload && onProgress) {
       xhr.upload.onprogress = (event) => {
@@ -64,23 +68,46 @@ function uploadViaXHR(
 
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
-        const publicUrl = `${supabaseUrl}/storage/v1/object/public/${bucketName}/${fileName}`;
+        // Construct public URL directly — no extra fetch needed
+        const publicUrl = `${supabaseUrl}/storage/v1/object/public/${bucketName}/${encodeURIComponent(fileName)}`;
         resolve(publicUrl);
       } else {
         let errMsg = `HTTP ${xhr.status}`;
-        try { errMsg = JSON.parse(xhr.responseText)?.message || errMsg; } catch (_) {}
-        reject(new Error(errMsg));
+        try {
+          const parsed = JSON.parse(xhr.responseText);
+          errMsg = parsed?.message || parsed?.error || errMsg;
+        } catch (_) {}
+        reject(new Error(`Upload falhou: ${errMsg}`));
       }
     };
 
-    xhr.onerror = () => reject(new Error('Erro de rede (XHR onError)'));
-    xhr.ontimeout = () => reject(new Error('Timeout no upload'));
-    xhr.timeout = 60000; // 60s timeout
+    xhr.onerror = () => reject(new Error('Falha de rede no upload (XHR onerror)'));
+    xhr.ontimeout = () => reject(new Error('Upload cancelado por timeout'));
+    xhr.timeout = 90000; // 90s — generous for slow 3G connections
 
-    const formData = new FormData();
-    formData.append('', file, fileName);
-    xhr.send(formData);
+    // Send raw binary — this is what Supabase Storage REST API expects
+    xhr.send(file);
   });
+}
+
+/**
+ * Get Supabase auth token synchronously from localStorage.
+ * Avoids a secondary async fetch call that can also hang on Android.
+ */
+function getStoredAuthToken(supabaseUrl: string, fallback: string): string {
+  try {
+    // Supabase stores the session under the key: sb-<project-ref>-auth-token
+    // Extract project ref from URL: https://XXXXXX.supabase.co
+    const projectRef = supabaseUrl.replace('https://', '').split('.')[0];
+    const key = `sb-${projectRef}-auth-token`;
+    const raw = localStorage.getItem(key);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      const token = parsed?.access_token;
+      if (token) return token;
+    }
+  } catch (_) {}
+  return fallback;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -255,9 +282,8 @@ export function CitizenNewTicket() {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-      // Get the real session token so storage RLS is satisfied
-      const { data: { session } } = await supabase.auth.getSession();
-      const authToken = session?.access_token || anonKey;
+      // Get auth token synchronously from localStorage — avoids a secondary fetch that also hangs on Android
+      const authToken = getStoredAuthToken(supabaseUrl, anonKey);
 
       // ── Photo upload ──
       let photoBlob = compressedPhoto;
@@ -268,7 +294,7 @@ export function CitizenNewTicket() {
 
         const fileName = `${Date.now()}-${userId}.jpg`;
 
-        // Always create a clean File object with proper JPEG metadata
+        // Always create a clean File object with explicit JPEG type
         const fileToUpload = new File([photoBlob], fileName, {
           type: 'image/jpeg',
           lastModified: Date.now()
