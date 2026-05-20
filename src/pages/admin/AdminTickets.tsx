@@ -1,60 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Input';
 import { StatusBadge, PriorityBadge } from '../../components/ui/Badge';
 import { useAppContext } from '../../context/AppContext';
-import { Search, Filter, Eye, ArrowLeft } from 'lucide-react';
+import { Search, Filter, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { AdminTicketDetailsModal } from '../../components/admin/AdminTicketDetailsModal';
 import { Ticket } from '../../data/types';
 
 export function AdminTickets() {
-  const { tickets, categories, departments, currentUser, cities } = useAppContext();
-  const location = useLocation();
-  const navigate = useNavigate();
-  const { id } = useParams();
-
+  const { tickets, categories, departments, currentUser } = useAppContext();
   const [searchTerm, setSearchTerm] = useState('');
-  
-  // Custom filter handling from state
-  const initialFilter = location.state?.filter || '';
-  const [statusFilter, setStatusFilter] = useState(initialFilter);
+  const [statusFilter, setStatusFilter] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('');
-  const [cityFilter, setCityFilter] = useState('');
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
-
-  const isSuperadmin = currentUser?.role === 'superadmin';
-
-  // Parse custom filters like 'urgent' or 'in_progress' from dashboard
-  useEffect(() => {
-    if (location.state?.filter) {
-      const f = location.state.filter;
-      if (f === 'in_progress') setStatusFilter('in_progress'); // We need to handle this in filter logic
-      else if (f === 'resolved') setStatusFilter('resolved');
-      else if (f === 'urgent') setStatusFilter('urgent');
-      else setStatusFilter('');
-    }
-  }, [location.state]);
-
-  // Handle direct ticket link via URL
-  useEffect(() => {
-    if (id && tickets.length > 0) {
-      const ticket = tickets.find(t => t.id === id);
-      if (ticket) {
-        setSelectedTicket(ticket);
-      }
-    }
-  }, [id, tickets]);
-
-  const handleCloseModal = () => {
-    setSelectedTicket(null);
-    if (id) {
-      navigate('/admin/tickets', { replace: true });
-    }
-  };
 
   const filteredTickets = tickets.filter(t => {
     // Role-based security: Secretary sees only their department
@@ -62,19 +23,10 @@ export function AdminTickets() {
     const belongsToDept = isSecretary ? t.departmentId === currentUser?.departmentId : true;
     
     const matchesSearch = t.protocol.includes(searchTerm) || t.title.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    let matchesStatus = true;
-    if (statusFilter === 'in_progress') {
-      matchesStatus = t.status !== 'received' && t.status !== 'resolved' && t.status !== 'closed' && t.status !== 'rejected' && t.status !== 'canceled';
-    } else if (statusFilter === 'urgent') {
-      matchesStatus = t.priority === 'urgent' && t.status !== 'resolved' && t.status !== 'closed' && t.status !== 'rejected' && t.status !== 'canceled';
-    } else if (statusFilter) {
-      matchesStatus = t.status === statusFilter;
-    }
+    const matchesStatus = statusFilter ? t.status === statusFilter : true;
     const matchesDept = departmentFilter ? t.departmentId === departmentFilter : true;
-    const matchesCity = cityFilter ? t.cityId === cityFilter : true;
     
-    return belongsToDept && matchesSearch && matchesStatus && matchesDept && matchesCity;
+    return belongsToDept && matchesSearch && matchesStatus && matchesDept;
   });
 
   const handleExport = () => {
@@ -83,13 +35,6 @@ export function AdminTickets() {
 
   return (
     <div className="flex flex-col h-full gap-4">
-      <button 
-        onClick={() => navigate(-1)}
-        className="flex items-center text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-[#1E3A8A] transition-colors w-fit"
-      >
-        <ArrowLeft className="w-4 h-4 mr-1" /> Retornar
-      </button>
-
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
         <div>
           <h2 className="text-xl font-bold text-slate-800 tracking-tight">Gestão de Chamados</h2>
@@ -112,13 +57,12 @@ export function AdminTickets() {
           <div className="flex gap-2 flex-wrap">
              <Select className="w-36 h-9 text-xs" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <option value="">Status (Todos)</option>
-              <option value="urgent">Prioridade Crítica</option>
               <option value="received">Recebido</option>
               <option value="triage">Triagem</option>
               <option value="forwarded">Encaminhado</option>
               <option value="analyzing">Em Análise</option>
               <option value="scheduled">Agendado</option>
-              <option value="in_progress">Em Execução (Todos)</option>
+              <option value="in_progress">Em Execução</option>
               <option value="resolved">Resolvido</option>
               <option value="rejected">Indeferido</option>
             </Select>
@@ -133,18 +77,6 @@ export function AdminTickets() {
                 <option key={d.id} value={d.id}>{d.acronym} - {d.name}</option>
               ))}
             </Select>
-            {isSuperadmin && (
-              <Select 
-                className="w-48 h-9 text-xs" 
-                value={cityFilter} 
-                onChange={(e) => setCityFilter(e.target.value)}
-              >
-                <option value="">Todas Cidades</option>
-                {cities.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </Select>
-            )}
             <Button variant="outline" size="sm" icon={Filter} className="h-9 px-3 text-xs">Filtros</Button>
           </div>
         </CardHeader>
@@ -155,7 +87,6 @@ export function AdminTickets() {
                 <th className="px-4 py-2 uppercase">Protocolo</th>
                 <th className="px-4 py-2 uppercase">Categoria</th>
                 <th className="px-4 py-2 uppercase">Bairro</th>
-                {isSuperadmin && <th className="px-4 py-2 uppercase">Cidade</th>}
                 <th className="px-4 py-2 uppercase">Abertura</th>
                 <th className="px-4 py-2 uppercase">Prioridade</th>
                 <th className="px-4 py-2 uppercase">Status</th>
@@ -165,18 +96,12 @@ export function AdminTickets() {
             <tbody className="divide-y divide-slate-100">
               {filteredTickets.map(ticket => {
                 const category = categories.find(c => c.id === ticket.categoryId);
-                const city = cities.find(c => c.id === ticket.cityId);
                 
                 return (
                   <tr key={ticket.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-4 py-2.5 font-mono text-[10px] font-bold text-slate-500">{ticket.protocol}</td>
                     <td className="px-4 py-2.5 font-medium text-slate-800">{category?.name}</td>
                     <td className="px-4 py-2.5 text-slate-500">{ticket.neighborhood}</td>
-                    {isSuperadmin && (
-                      <td className="px-4 py-2.5 text-slate-500 font-medium">
-                        {city?.name || 'Sistema Padrão'}
-                      </td>
-                    )}
                     <td className="px-4 py-2.5 text-slate-500">{format(new Date(ticket.createdAt), 'dd/MM/yy')}</td>
                     <td className="px-4 py-2.5"><PriorityBadge priority={ticket.priority} /></td>
                     <td className="px-4 py-2.5"><StatusBadge status={ticket.status} /></td>
@@ -201,7 +126,7 @@ export function AdminTickets() {
       {selectedTicket && (
         <AdminTicketDetailsModal 
           ticket={selectedTicket} 
-          onClose={handleCloseModal} 
+          onClose={() => setSelectedTicket(null)} 
         />
       )}
     </div>

@@ -46,53 +46,80 @@ function uploadViaXHR(
   bucketName: string,
   onProgress?: (pct: number) => void
 ): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const url = `${supabaseUrl}/storage/v1/object/${bucketName}/${encodeURIComponent(fileName)}`;
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', url, true);
-
-    // Auth header
-    xhr.setRequestHeader('Authorization', `Bearer ${authToken}`);
-    // Supabase Storage needs the MIME type as Content-Type on the raw body
-    xhr.setRequestHeader('Content-Type', 'image/jpeg');
-    // Do NOT upsert — always new file
-    xhr.setRequestHeader('x-upsert', 'false');
-
-    if (xhr.upload && onProgress) {
-      xhr.upload.onprogress = (event) => {
-        if (event.lengthComputable) {
-          onProgress(Math.round((event.loaded / event.total) * 100));
+  const attemptUpload = (useArrayBuffer: boolean): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const url = `${supabaseUrl}/storage/v1/object/${bucketName}/${encodeURIComponent(fileName)}`;
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', url, true);
+  
+      xhr.setRequestHeader('Authorization', `Bearer ${authToken}`);
+      xhr.setRequestHeader('Content-Type', 'image/jpeg');
+      xhr.setRequestHeader('x-upsert', 'false');
+  
+      if (xhr.upload && onProgress) {
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            onProgress(Math.round((event.loaded / event.total) * 100));
+          }
+        };
+      }
+  
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          const publicUrl = `${supabaseUrl}/storage/v1/object/public/${bucketName}/${encodeURIComponent(fileName)}`;
+          resolve(publicUrl);
+        } else {
+          let errMsg = `HTTP ${xhr.status}`;
+          try {
+            const parsed = JSON.parse(xhr.responseText);
+            errMsg = parsed?.message || parsed?.error || errMsg;
+          } catch (_) {}
+          reject(new Error(`Upload falhou: ${errMsg}`));
         }
       };
-    }
-
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        // Construct public URL directly — no extra fetch needed
-        const publicUrl = `${supabaseUrl}/storage/v1/object/public/${bucketName}/${encodeURIComponent(fileName)}`;
-        resolve(publicUrl);
+  
+      // XHR onerror occurs for network interruption, CORS issues, or browser-level request cancellations (ex: memory bounds)
+      xhr.onerror = () => reject(new Error('Falha de rede no upload (XHR onerror)'));
+      xhr.ontimeout = () => reject(new Error('Upload cancelado por timeout'));
+      xhr.timeout = 60000; 
+  
+      if (useArrayBuffer) {
+        file.arrayBuffer()
+          .then(buffer => xhr.send(buffer))
+          .catch(err => reject(new Error(`Falha ao ler arquivo: ${err.message || err}`)));
       } else {
-        let errMsg = `HTTP ${xhr.status}`;
-        try {
-          const parsed = JSON.parse(xhr.responseText);
-          errMsg = parsed?.message || parsed?.error || errMsg;
-        } catch (_) {}
-        reject(new Error(`Upload falhou: ${errMsg}`));
+        // Envio direto do arquivo, usa streaming do browser, gasta pouca RAM
+        xhr.send(file);
       }
-    };
+    });
+  };
 
-    xhr.onerror = () => reject(new Error('Falha de rede no upload (XHR onerror)'));
-    xhr.ontimeout = () => reject(new Error('Upload cancelado por timeout'));
-    xhr.timeout = 90000; // 90s — generous for slow 3G connections
-
-    // CRITICAL for Android gallery photos:
-    // Gallery photos use content:// URIs that don't serialize reliably when passed
-    // as File objects to XHR. Reading as ArrayBuffer first loads all bytes into
-    // memory, making the XHR send reliable on all Android browsers.
-    file.arrayBuffer()
-      .then(buffer => xhr.send(buffer))
-      .catch(err => reject(new Error(`Falha ao ler arquivo para upload: ${err.message || err}`)));
-  });
+  // 1º Tentamos enviar diretamente como blob/file (usando xhr.send(file)). 
+  // É mais leve em memória e evita crashes de RAM em celulares Android mais simples.
+  return attemptUpload(false)
+    .catch((err) => {
+      console.warn("Upload direto falhou, tentando via ArrayBuffer (fallback):", err);
+      // 2º Se falhar (ex: problemas em alguns Webviews mais antigos com URIs originais `content://`),
+      // tentamos carregar primeiro na memória e enviar como ArrayBuffer
+      return attemptUpload(true);
+    })
+    .catch((err2) => {
+      console.warn("Upload via ArrayBuffer também falhou, tentando Supabase SDK:", err2);
+      // 3º Fallback final: Fetch / Supabase SDK padrão
+      return new Promise((resolve, reject) => {
+        supabase.storage
+          .from(bucketName)
+          .upload(fileName, file, { contentType: 'image/jpeg', upsert: false })
+          .then(({ data, error }) => {
+            if (error) reject(new Error(error.message));
+            else if (data) {
+              const { data: { publicUrl } } = supabase.storage.from(bucketName).getPublicUrl(fileName);
+              resolve(publicUrl);
+            }
+          })
+          .catch(reject);
+      });
+    });
 }
 
 /**

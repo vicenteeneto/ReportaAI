@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Input, Select } from '../../components/ui/Input';
+import { Input } from '../../components/ui/Input';
 import { useAppContext } from '../../context/AppContext';
-import { User, Save, Upload, MapPin, Phone, Hash, Building2, LogOut } from 'lucide-react';
+import { User, Save, Upload, MapPin, Phone, Hash } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 export function CitizenProfile() {
-  const { currentUser, tickets: appTickets, cities, logout } = useAppContext();
+  const { currentUser, tickets: appTickets } = useAppContext();
   
   const formatCPF = (value: string) => {
     return value
@@ -30,7 +30,6 @@ export function CitizenProfile() {
   const [phone, setPhone] = useState(formatPhone(currentUser?.phone || ''));
   const [cpf, setCpf] = useState(formatCPF(currentUser?.cpf || ''));
   const [neighborhood, setNeighborhood] = useState(currentUser?.neighborhood || '');
-  const [cityId, setCityId] = useState(currentUser?.cityId || '');
   const [avatarUrl, setAvatarUrl] = useState(currentUser?.avatarUrl || '');
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -67,50 +66,15 @@ export function CitizenProfile() {
         phone,
         cpf,
         neighborhood,
-        cityId: cityId || null,
       };
 
       if (finalAvatarUrl !== currentUser.avatarUrl) {
         updates.avatarUrl = finalAvatarUrl;
       }
       
-      // Use native fetch to avoid PWA/WebView lock issues with Supabase JS
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const { error } = await supabase.from('users').update(updates).eq('id', currentUser.id);
       
-      let token = '';
-      try {
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && key.includes('-auth-token')) {
-            const val = localStorage.getItem(key);
-            if (val) token = JSON.parse(val).access_token || '';
-          }
-        }
-      } catch (e) {
-        console.warn('Erro ao ler token do localStorage', e);
-      }
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 12000);
-
-      const res = await fetch(`${supabaseUrl}/rest/v1/users?id=eq.${currentUser.id}`, {
-        method: 'PATCH',
-        headers: {
-          'apikey': anonKey,
-          'Authorization': `Bearer ${token || anonKey}`,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=minimal'
-        },
-        body: JSON.stringify(updates),
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-
-      if (!res.ok) {
-        throw new Error(`Erro HTTP: ${res.status}`);
-      }
+      if (error) throw error;
       
       alert('Perfil atualizado com sucesso!');
       setTimeout(() => {
@@ -196,20 +160,9 @@ export function CitizenProfile() {
             onChange={(e) => setNeighborhood(e.target.value)}
             icon={MapPin}
           />
-          <Select
-            label="Sua Cidade"
-            value={cityId}
-            onChange={(e) => setCityId(e.target.value)}
-            icon={Building2}
-          >
-            <option value="">Selecione sua cidade principal...</option>
-            {cities.filter(c => c.isActive).map(city => (
-              <option key={city.id} value={city.id}>{city.name}</option>
-            ))}
-          </Select>
         </div>
 
-        <div className="mt-8 space-y-3">
+        <div className="mt-8">
           <Button 
             className="w-full font-bold uppercase tracking-widest h-12"
             onClick={handleSave}
@@ -217,15 +170,6 @@ export function CitizenProfile() {
             icon={Save}
           >
             {isSaving ? 'Salvando...' : 'Salvar Alterações'}
-          </Button>
-          
-          <Button
-            variant="outline"
-            className="w-full font-bold uppercase tracking-widest h-12 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
-            onClick={logout}
-            icon={LogOut}
-          >
-            Sair da Conta
           </Button>
         </div>
       </Card>

@@ -43,7 +43,6 @@ export const StatusBadge = ({ status }: { status: TicketStatus }) => {
     closed: { label: 'Finalizado', variant: 'green' },
     duplicated: { label: 'Duplicado', variant: 'gray' },
     rejected: { label: 'Indeferido', variant: 'red' },
-    canceled: { label: 'Cancelado', variant: 'red' },
     waiting_info: { label: 'Aguardando Info', variant: 'orange' },
   };
 

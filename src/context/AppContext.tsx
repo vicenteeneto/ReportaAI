@@ -9,12 +9,10 @@ interface AppContextType {
   registerWithEmail: (email: string, password: string, role: string) => Promise<void>;
   logout: () => Promise<void> | void;
   tickets: Ticket[];
-  addTicket: (t: Ticket) => Promise<void>;
-  updateTicket: (id: string, changes: Partial<Ticket>, changeDescription: string) => Promise<void>;
+  addTicket: (t: Ticket) => void;
   updateTicketStatus: (id: string, status: TicketStatus) => void;
   categories: Category[];
   departments: Department[];
-  cities: any[];
   loading?: boolean;
 }
 
@@ -25,7 +23,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [cities, setCities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -34,30 +31,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     // Subscribe to database changes (optional depending on needs, but let's implement basic fetch for now)
     const loadData = async (userProfile?: User) => {
       setLoading(true);
-      let deptQuery = supabase.from('departments').select('*').order('name');
-      let catQuery = supabase.from('categories').select('*').order('name');
-      let ticketQuery = supabase.from('tickets').select('*');
-
-      if (userProfile && userProfile.role === 'citizen') {
-        // Cidadão vê todos os SEUS chamados, não importa de qual cidade
-        ticketQuery = ticketQuery.eq('userId', userProfile.id);
-        // Não filtramos departamentos/categorias para que ele consiga ver detalhes de chamados de outras cidades
-      } else if (userProfile && userProfile.role !== 'superadmin' && userProfile.cityId) {
-        // Gestores vêem apenas os dados da própria cidade
-        deptQuery = deptQuery.eq('cityId', userProfile.cityId);
-        catQuery = catQuery.eq('cityId', userProfile.cityId);
-        ticketQuery = ticketQuery.eq('cityId', userProfile.cityId);
-      }
-
-      const [depsRes, catsRes, ticketsRes, citiesRes] = await Promise.all([
-        deptQuery,
-        catQuery,
-        ticketQuery,
-        supabase.from('cities').select('*').order('name')
+      const [depsRes, catsRes, ticketsRes] = await Promise.all([
+        supabase.from('departments').select('*').order('name'),
+        supabase.from('categories').select('*').order('name'),
+        supabase.from('tickets').select('*')
       ]);
       
       const allTickets = ticketsRes.data || [];
-      const allCities = citiesRes.data || [];
       const parseSafeDate = (val: any) => {
         if (!val) return 0;
         if (typeof val === 'number') return val;
@@ -132,10 +112,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         });
       }
 
-      setTickets(fetchedTickets);
       setDepartments(deps);
       setCategories(mappedCats);
-      setCities(allCities);
+      setTickets(fetchedTickets);
       
       // Calculate points for current user if available
       const activeUser = userProfile || currentUser;
@@ -158,60 +137,31 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       const { data: { session } } = await supabase.auth.getSession();
       
       const fetchUserProfile = async (userId: string) => {
-        const { data: userRow } = await supabase.from('users').select('*').eq('id', userId).single();
-        if (userRow) {
-          const isHardcodedSuperadmin = userRow.email === 'contato@kngflow.com';
-          const mappedUser = {
-            ...userRow,
-            role: isHardcodedSuperadmin ? 'superadmin' : userRow.role,
-            departmentId: userRow.departmentId || userRow.department_id || userRow.departmentid,
-            avatarUrl: userRow.avatarUrl || userRow.avatar_url || userRow.avatarurl,
-            pointsValidating: userRow.pointsValidating || userRow.points_validating || userRow.pointsvalidating,
-            pointsValidated: userRow.pointsValidated || userRow.points_validated || userRow.pointsvalidated,
-            cityId: userRow.cityId || userRow.city_id || userRow.cityid,
-          } as User;
-          
-          if (isHardcodedSuperadmin && userRow.role !== 'superadmin') {
-            supabase.from('users').update({ role: 'superadmin' }).eq('id', userId).then();
-          }
-
-          setCurrentUser(mappedUser);
+        const { data } = await supabase.from('users').select('*').eq('id', userId).single();
+        if (data) {
+          const mappedUser: User = {
+            id: data.id,
+            name: data.name,
+            email: data.email,
+            role: data.role as any,
+            avatarUrl: data.avatar_url || data.avatarurl || data.avatarUrl || null,
+            departmentId: data.department_id || data.departmentid || data.departmentId || null
+          };
           return mappedUser;
         } else {
           // In case user hasn't synced to users table, fetch profile email
            const { data: authData } = await supabase.auth.getUser();
            if (authData.user) {
-             const email = authData.user.email || '';
-             // Ensure contato@kngflow is always superadmin
-             const isSuper = email === 'contato@kngflow.com';
-             
-             // Check if user exists by email but with different auth ID (sync issue)
-             const { data: existingEmailUser } = await supabase.from('users').select('*').eq('email', email).single();
-             
-             if (existingEmailUser) {
-               // Update the existing user row with the new auth ID if possible, or just use their role
-               const mappedUser = {
-                 ...existingEmailUser,
-                 id: userId,
-                 role: isSuper ? 'superadmin' : existingEmailUser.role,
-               } as User;
-               // Try to update DB to sync ID
-               supabase.from('users').update({ id: userId, role: mappedUser.role }).eq('email', email).then();
-               setCurrentUser(mappedUser);
-               return mappedUser;
-             }
-
              const metadata = authData.user.user_metadata || {};
-             const name = metadata.full_name || metadata.name || email.split('@')[0] || 'Usuário';
+             const name = metadata.full_name || metadata.name || authData.user.email?.split('@')[0] || 'Usuário';
              const avatarUrl = metadata.avatar_url || metadata.picture || null;
              
              const newUser = {
                id: userId,
                name: name,
-               email: email,
-               role: isSuper ? 'superadmin' : 'citizen',
-               avatar_url: avatarUrl,
-               cityId: '11111111-1111-1111-1111-111111111111' // Fallback para a cidade padrão por enquanto
+               email: authData.user.email || '',
+               role: 'citizen',
+               avatar_url: avatarUrl
              };
              const { error: insErr } = await supabase.from('users').upsert(newUser);
              if (insErr) console.error("Error creating user", insErr);
@@ -295,86 +245,20 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = async () => {
-    // Força limpeza de estado imediata para evitar travamento no PWA (Android)
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.error('Logout error:', e);
+    }
+    // Força limpeza de estado imediata:
     setCurrentUser(null);
     setTickets([]);
     setDepartments([]);
     setCategories([]);
-    
-    try {
-      // Dispara o signOut mas não trava a UI se a promise ficar pendente
-      supabase.auth.signOut().catch(e => console.error('Logout error:', e));
-      
-      // Limpeza forçada do localStorage por segurança
-      Object.keys(localStorage).forEach(key => {
-        if (key.startsWith('sb-')) localStorage.removeItem(key);
-      });
-    } catch (e) {
-      console.error('Logout cleanup error:', e);
-    }
   };
 
-  const addTicket = async (t: Ticket): Promise<void> => {
-    // ── Bypass Supabase JS Client for this operation ──
-    // The Supabase JS client on Android WebViews/PWA sometimes hangs indefinitely 
-    // due to internal auth token refresh locks. We bypass it by using native fetch.
-    
-    // 1. Get token synchronously from localStorage to avoid any async locks
-    let token = '';
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.includes('-auth-token')) {
-          const val = localStorage.getItem(key);
-          if (val) {
-            token = JSON.parse(val).access_token || '';
-            break;
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('Erro ao ler token do localStorage', e);
-    }
-
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-    const apiUrl = `${supabaseUrl}/rest/v1/tickets`;
-
-    const headers = {
-      'apikey': anonKey,
-      'Authorization': `Bearer ${token || anonKey}`,
-      'Content-Type': 'application/json',
-      'Prefer': 'return=minimal' // Don't ask for the row back, just insert
-    };
-
-    // Helper: raw fetch with hard abort
-    const doFetch = async (payload: any): Promise<{ error: string | null }> => {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s timeout
-      
-      try {
-        const res = await fetch(apiUrl, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(payload),
-          signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-        
-        if (!res.ok) {
-          const errText = await res.text();
-          return { error: `HTTP ${res.status}: ${errText}` };
-        }
-        return { error: null };
-      } catch (err: any) {
-        clearTimeout(timeoutId);
-        if (err.name === 'AbortError') return { error: 'Timeout de conexão (12s)' };
-        return { error: err.message || String(err) };
-      }
-    };
-
-    // ── Insert with exact schema (camelCase columns, bigint timestamps) ──
-    const payload = {
+  const addTicket = async (t: Ticket) => {
+    const insertPayload: any = {
       id: t.id,
       protocol: t.protocol,
       userId: t.userId,
@@ -388,76 +272,26 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       longitude: t.longitude,
       address: t.address,
       neighborhood: t.neighborhood,
-      photoUrl: t.photoUrl ?? null,
-      cityId: t.cityId,
+      photoUrl: t.photoUrl,
       createdAt: Date.now(),
-      updatedAt: Date.now(),
+      updatedAt: Date.now()
     };
 
-    const res = await doFetch(payload);
-    if (!res.error) {
-      setTickets((prev) => [{ ...t, createdAt: Date.now() }, ...prev]);
-      return;
+    const { error, data } = await supabase.from('tickets').insert(insertPayload).select().single();
+
+    if (error) {
+      console.error('Error saving ticket:', error);
+      throw error;
     }
 
-    throw new Error(`Falha ao salvar: ${res.error}`);
-  };
+    const savedTicket = data ? { 
+      ...t, 
+      id: data.id, 
+      userId: data.userId || data.user_id || data.userid,
+      createdAt: data.createdAt ? (typeof data.createdAt === 'string' && /^\d+$/.test(data.createdAt) ? parseInt(data.createdAt, 10) : new Date(data.createdAt).getTime()) : Date.now()
+    } : { ...t, createdAt: Date.now() };
 
-
-  const updateTicket = async (id: string, changes: Partial<Ticket>, changeDescription: string): Promise<void> => {
-    // Use native fetch pattern (same as addTicket) for Android PWA compatibility
-    let token = '';
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.includes('-auth-token')) {
-          const val = localStorage.getItem(key);
-          if (val) { token = JSON.parse(val).access_token || ''; break; }
-        }
-      }
-    } catch (e) { console.warn('Erro ao ler token', e); }
-
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-    const headers = {
-      'apikey': anonKey,
-      'Authorization': `Bearer ${token || anonKey}`,
-      'Content-Type': 'application/json',
-      'Prefer': 'return=minimal'
-    };
-
-    // Update ticket row
-    const controller = new AbortController();
-    const tid = setTimeout(() => controller.abort(), 12000);
-    const res = await fetch(`${supabaseUrl}/rest/v1/tickets?id=eq.${id}`, {
-      method: 'PATCH',
-      headers,
-      body: JSON.stringify({ ...changes, updatedAt: Date.now() }),
-      signal: controller.signal
-    });
-    clearTimeout(tid);
-    if (!res.ok) {
-      const txt = await res.text();
-      throw new Error(`Erro ao atualizar: HTTP ${res.status} - ${txt}`);
-    }
-
-    // Write history entry
-    try {
-      await fetch(`${supabaseUrl}/rest/v1/ticket_history`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          ticketId: id,
-          userId: currentUser?.id,
-          action: `Cidadão editou o chamado`,
-          comment: changeDescription,
-          createdAt: Date.now()
-        })
-      });
-    } catch (e) { console.warn('Falha ao gravar histórico da edição', e); }
-
-    // Update local state
-    setTickets(prev => prev.map(t => t.id === id ? { ...t, ...changes, updatedAt: Date.now() } : t));
+    setTickets(prev => [savedTicket, ...prev]);
   };
 
   const updateTicketStatus = async (id: string, status: TicketStatus) => {
@@ -476,7 +310,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AppContext.Provider value={{ currentUser, loginWithEmail, registerWithEmail, loginWithGoogle, logout, tickets, addTicket, updateTicket, updateTicketStatus, categories, departments, cities, loading }}>
+    <AppContext.Provider value={{ currentUser, loginWithEmail, registerWithEmail, loginWithGoogle, logout, tickets, addTicket, updateTicketStatus, categories, departments, loading }}>
       {children}
     </AppContext.Provider>
   );

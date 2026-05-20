@@ -29,9 +29,9 @@ export function CitizenHome() {
   const recentTickets = myTickets.slice(0, 3); // Get latest 3
 
   const stats = {
-    abertos: myTickets.filter(t => ['received', 'triage'].includes(t.status)).length,
-    emAndamento: myTickets.filter(t => ['forwarded', 'in_progress', 'scheduled', 'analyzing'].includes(t.status)).length,
-    resolvidos: myTickets.filter(t => ['resolved', 'closed'].includes(t.status)).length,
+    total: myTickets.length,
+    pending: myTickets.filter(t => ['received', 'forwarded', 'in_progress', 'scheduled', 'analyzing', 'triage'].includes(t.status)).length,
+    resolved: myTickets.filter(t => ['resolved', 'closed'].includes(t.status)).length,
   };
 
   if (loading) {
@@ -96,11 +96,11 @@ export function CitizenHome() {
       <div className="grid grid-cols-3 gap-2 sm:gap-4">
         <Card 
           className="bg-white hover:shadow-md transition-shadow cursor-pointer hover:border-[#1E3A8A] overflow-hidden"
-          onClick={() => navigate('/citizen/tickets', { state: { filter: 'received' } })}
+          onClick={() => navigate('/citizen/tickets', { state: { filter: 'all' } })}
         >
           <CardContent className="p-2 sm:p-4 flex flex-col items-center justify-center text-center h-full">
-            <span className="text-xl sm:text-3xl font-black text-slate-800">{stats.abertos}</span>
-            <span className="text-[9px] sm:text-xs font-bold text-slate-500 uppercase tracking-tight mt-0.5">Abertos</span>
+            <span className="text-xl sm:text-3xl font-black text-slate-800">{stats.total}</span>
+            <span className="text-[9px] sm:text-xs font-bold text-slate-500 uppercase tracking-tight mt-0.5">Total</span>
           </CardContent>
         </Card>
         <Card 
@@ -108,8 +108,8 @@ export function CitizenHome() {
           onClick={() => navigate('/citizen/tickets', { state: { filter: 'in_progress' } })}
         >
           <CardContent className="p-2 sm:p-4 flex flex-col items-center justify-center text-center h-full">
-            <span className="text-xl sm:text-3xl font-black text-amber-600">{stats.emAndamento}</span>
-            <span className="text-[9px] sm:text-xs font-bold text-amber-700 uppercase tracking-tight mt-0.5">Em andamento</span>
+            <span className="text-xl sm:text-3xl font-black text-amber-600">{stats.pending}</span>
+            <span className="text-[9px] sm:text-xs font-bold text-amber-700 uppercase tracking-tight mt-0.5">Abertos</span>
           </CardContent>
         </Card>
         <Card 
@@ -117,7 +117,7 @@ export function CitizenHome() {
           onClick={() => navigate('/citizen/tickets', { state: { filter: 'resolved' } })}
         >
           <CardContent className="p-2 sm:p-4 flex flex-col items-center justify-center text-center h-full">
-            <span className="text-xl sm:text-3xl font-black text-emerald-600">{stats.resolvidos}</span>
+            <span className="text-xl sm:text-3xl font-black text-emerald-600">{stats.resolved}</span>
             <span className="text-[9px] sm:text-xs font-bold text-emerald-700 uppercase tracking-tight mt-0.5">Resolvidos</span>
           </CardContent>
         </Card>

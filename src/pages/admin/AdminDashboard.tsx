@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { useAppContext } from '../../context/AppContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
-import { AlertTriangle, TrendingUp, Clock, MapPin, ChevronRight, Activity } from 'lucide-react';
+import { AlertTriangle, TrendingUp, Clock, MapPin, ChevronRight, Activity, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 export function AdminDashboard() {

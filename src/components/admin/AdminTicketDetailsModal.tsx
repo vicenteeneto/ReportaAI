@@ -7,35 +7,22 @@ import { format } from 'date-fns';
 import { X, MapPin, Clock, MessageSquare, AlertCircle, Upload } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`Timeout: ${label} (${ms / 1000}s)`)), ms);
-    promise.then(
-      (v) => { clearTimeout(timer); resolve(v); },
-      (e) => { clearTimeout(timer); reject(e); }
-    );
-  });
-}
-
 interface Props {
   ticket: Ticket;
   onClose: () => void;
 }
 
 export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
-  const { tickets, categories, departments, updateTicketStatus, cities } = useAppContext();
+  const { tickets, categories, departments, updateTicketStatus } = useAppContext();
   const category = categories.find(c => c.id === ticket.categoryId);
   const department = departments.find(d => d.id === ticket.departmentId);
-  const city = cities?.find(c => c.id === ticket.cityId);
 
   const [isUpdating, setIsUpdating] = useState(false);
   const [newStatus, setNewStatus] = useState<TicketStatus>(ticket.status as TicketStatus);
-  const [newPriority, setNewPriority] = useState<'low' | 'medium' | 'high' | 'urgent'>(ticket.priority);
   const [resolutionComment, setResolutionComment] = useState('');
   const [resolutionFile, setResolutionFile] = useState<File | null>(null);
   const [ticketHistory, setTicketHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
-  const [viewingImage, setViewingImage] = useState<string | null>(null);
 
   React.useEffect(() => {
     const fetchHistory = async () => {
@@ -55,27 +42,15 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
       if (newStatus === 'resolved' && resolutionFile) {
         const fileExt = resolutionFile.name.split('.').pop();
         const fileName = `resolution-${ticket.id}-${Date.now()}.${fileExt}`;
-        try {
-          const { error: uploadError }: any = await withTimeout(
-            supabase.storage.from('tickets').upload(fileName, resolutionFile),
-            15000,
-            'upload da foto de resolução'
-          );
-          if (!uploadError) {
-            const { data: { publicUrl } } = supabase.storage.from('tickets').getPublicUrl(fileName);
-            resolvedPhotoUrl = publicUrl;
-          } else {
-             console.warn('Erro do supabase storage:', uploadError);
-          }
-        } catch (e: any) {
-          console.warn('Upload ignorado ou falhou por timeout:', e.message);
-          // O fluxo continua mesmo se a foto falhar, para que o status pelo menos seja resolvido
+        const { error: uploadError } = await supabase.storage.from('tickets').upload(fileName, resolutionFile);
+        if (!uploadError) {
+          const { data: { publicUrl } } = supabase.storage.from('tickets').getPublicUrl(fileName);
+          resolvedPhotoUrl = publicUrl;
         }
       }
 
       await supabase.from('tickets').update({ 
         status: newStatus,
-        priority: newPriority,
         resolvedPhotoUrl: resolvedPhotoUrl,
         updatedAt: Date.now()
       }).eq('id', ticket.id);
@@ -85,7 +60,7 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
         userId: (await supabase.auth.getUser()).data.user?.id,
         action: `Status alterado para ${newStatus}`,
         newStatus: newStatus,
-        comment: resolutionComment || (newPriority !== ticket.priority ? `Prioridade alterada de ${ticket.priority} para ${newPriority}` : ''),
+        comment: resolutionComment,
         createdAt: Date.now()
       });
 
@@ -123,8 +98,7 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
                     <img 
                       src={ticket.photoUrl} 
                       alt="Problema" 
-                      className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" 
-                      onClick={() => setViewingImage(ticket.photoUrl || null)}
+                      className="w-full h-full object-cover" 
                     />
                   </div>
                 ) : (
@@ -141,8 +115,7 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
                     <img 
                       src={ticket.resolvedPhotoUrl} 
                       alt="Resolução" 
-                      className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" 
-                      onClick={() => setViewingImage(ticket.resolvedPhotoUrl || null)}
+                      className="w-full h-full object-cover" 
                     />
                   </div>
                 ) : (
@@ -168,8 +141,7 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
                   <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Localização</p>
                     <p className="text-sm font-bold text-slate-800 mb-1">{ticket.address}</p>
-                    <p className="text-xs text-slate-500 mb-1">Bairro: {ticket.neighborhood}</p>
-                    <p className="text-xs text-slate-500 mb-2">Cidade: {city?.name || 'Sistema Padrão'}</p>
+                    <p className="text-xs text-slate-500 mb-2">Bairro: {ticket.neighborhood}</p>
                   </div>
                 </div>
               </div>
@@ -244,20 +216,6 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Urgência / Prioridade (Triagem)</label>
-                  <select 
-                    className="w-full h-10 px-3 py-2 text-sm rounded-lg border-slate-300 focus:ring-[#1E3A8A] focus:border-[#1E3A8A] bg-white text-slate-800 shadow-sm border"
-                    value={newPriority}
-                    onChange={(e) => setNewPriority(e.target.value as any)}
-                  >
-                    <option value="low">Baixa</option>
-                    <option value="medium">Média</option>
-                    <option value="high">Alta</option>
-                    <option value="urgent">Crítica / Urgente</option>
-                  </select>
-                </div>
-
-                <div className="space-y-2">
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Observações / Comentários</label>
                   <textarea 
                     className="w-full text-sm rounded-lg border-slate-300 focus:ring-[#1E3A8A] focus:border-[#1E3A8A] bg-white text-slate-800 shadow-sm border p-3 min-h-[80px]"
@@ -291,40 +249,18 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
                   </div>
                 )}
 
-                <div className="flex flex-col gap-2">
-                  <Button 
-                    className="w-full font-bold uppercase tracking-widest text-xs h-11 shadow-md bg-[#1E3A8A]" 
-                    disabled={(newStatus === ticket.status && newPriority === ticket.priority && !resolutionComment && !resolutionFile) || isUpdating}
-                    onClick={handleUpdate}
-                    isLoading={isUpdating}
-                  >
-                    Confirmar Atualização
-                  </Button>
-                  <Button 
-                    variant="outline"
-                    className="w-full font-bold uppercase tracking-widest text-xs h-11 text-slate-500 hover:text-slate-700" 
-                    onClick={onClose}
-                    disabled={isUpdating}
-                  >
-                    Fechar / Retornar
-                  </Button>
-                </div>
+                <Button 
+                  className="w-full font-bold uppercase tracking-widest text-xs h-11 shadow-md bg-[#1E3A8A]" 
+                  disabled={newStatus === ticket.status && !resolutionComment && !resolutionFile || isUpdating}
+                  onClick={handleUpdate}
+                  isLoading={isUpdating}
+                >
+                  Confirmar Atualização
+                </Button>
               </div>
             </div>
           </div>
         </div>
-        {viewingImage && (
-          <div className="fixed inset-0 z-[200] bg-black/95 flex flex-col animate-in fade-in duration-200">
-            <div className="flex justify-end p-4 absolute top-0 right-0 z-10">
-              <button onClick={() => setViewingImage(null)} className="p-2 text-white/70 hover:text-white rounded-full bg-white/10 hover:bg-white/20 transition-colors backdrop-blur-sm">
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-            <div className="flex-1 flex items-center justify-center p-4">
-              <img src={viewingImage} alt="Fullscreen preview" className="max-w-full max-h-full object-contain rounded" />
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

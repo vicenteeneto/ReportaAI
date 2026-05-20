@@ -19,7 +19,6 @@ import { AdminTriage } from './pages/admin/AdminTriage';
 import { AdminMap } from './pages/admin/AdminMap';
 import { AdminSettings } from './pages/admin/AdminSettings';
 import { SystemSettings } from './pages/admin/SystemSettings';
-import { PlatformManagement } from './pages/admin/PlatformManagement';
 import { AdminSetup } from './pages/AdminSetup';
 
 // Placeholder for reports
@@ -42,7 +41,7 @@ const AppRoutes = () => {
   const getDashboardRoute = () => {
     if (!currentUser) return '/login';
     if (currentUser.role === 'superadmin') {
-      return '/admin/platform';
+      return '/admin/system';
     }
     if (currentUser.role === 'admin' || currentUser.role === 'coordinator' || currentUser.role === 'mayor' || currentUser.role === 'secretary') {
       return '/admin/dashboard';
@@ -76,13 +75,11 @@ const AppRoutes = () => {
         <Route path="dashboard" element={<AdminDashboard />} />
         <Route path="executive" element={<ExecDashboard />} />
         <Route path="tickets" element={<AdminTickets />} />
-        <Route path="tickets/:id" element={<AdminTickets />} />
         <Route path="triage" element={<AdminTriage />} />
         <Route path="map" element={<AdminMap />} />
         <Route path="reports" element={<AdminReports />} />
         <Route path="settings" element={<AdminSettings />} />
         <Route path="system" element={<SystemSettings />} />
-        <Route path="platform" element={<PlatformManagement />} />
       </Route>
     </Routes>
   );
