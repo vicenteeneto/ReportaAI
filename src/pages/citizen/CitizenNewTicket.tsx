@@ -600,18 +600,22 @@ export function CitizenNewTicket() {
           let foundCityId: string | undefined = undefined;
 
           if (data && data.address) {
-             const road = data.address.road || '';
-             const houseNumber = data.address.house_number || '';
+             const road = data.address.road || data.address.pedestrian || '';
+             const houseNum = data.address.house_number || '';
              const suburb = data.address.suburb || data.address.neighbourhood || '';
              const cityStr = data.address.city || data.address.town || data.address.village || data.address.municipality || '';
              
              if (road) {
-               addressLocal = houseNumber ? `${road}, ${houseNumber}` : road;
+               addressLocal = houseNum ? `${road}, ${houseNum}` : road;
+               setStreetSearch(road);
+               if (houseNum) setHouseNumber(houseNum);
              }
              if (suburb) {
                neighborhoodLocal = cityStr ? `${suburb} - ${cityStr}` : suburb;
+               setNeighborhoodSearch(neighborhoodLocal);
              } else if (cityStr) {
                neighborhoodLocal = cityStr;
+               setNeighborhoodSearch(neighborhoodLocal);
              }
              
              // Try to find the city in our database by name (case-insensitive, ignoring accents if possible, but exact match for now or substring)
@@ -622,6 +626,9 @@ export function CitizenNewTicket() {
                );
                if (matchedCity) {
                  foundCityId = matchedCity.id;
+                 setCitySearch(matchedCity.name);
+               } else {
+                 setCitySearch(cityStr);
                }
              }
           }
@@ -796,7 +803,13 @@ export function CitizenNewTicket() {
 
             {/* ─── LOCALIZAÇÃO ─── */}
             <div className="border border-slate-200 rounded-xl p-4 space-y-4 bg-slate-50/60">
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">📍 Localização da Ocorrência</p>
+              <div className="flex justify-between items-center w-full mb-2">
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest content-center">📍 Localização da Ocorrência</p>
+                <button type="button" onClick={handleGetLocation} disabled={isLocating} className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-bold text-[10px] uppercase tracking-wider transition-colors shadow-sm whitespace-nowrap">
+                  {isLocating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MapPin className="w-3.5 h-3.5" />}
+                  {isLocating ? 'Buscando...' : 'Obter pelo GPS'}
+                </button>
+              </div>
 
               {/* 1. CIDADE */}
               <div className="space-y-1 relative" ref={cityRef}>
@@ -820,79 +833,71 @@ export function CitizenNewTicket() {
                 )}
               </div>
 
-              {/* 2. BAIRRO — só aparece após selecionar cidade */}
-              {formData.cityId && (
-                <div className="space-y-1 relative" ref={nbhdRef}>
-                  <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">
-                    Bairro {isSearchingNbhd && <span className="text-slate-400 font-normal">(buscando...)</span>}
-                  </label>
+              {/* 2. BAIRRO */}
+              <div className="space-y-1 relative" ref={nbhdRef}>
+                <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">
+                  Bairro {isSearchingNbhd && <span className="text-slate-400 font-normal">(buscando...)</span>}
+                </label>
+                <Input
+                  placeholder="Digite o bairro..."
+                  value={neighborhoodSearch}
+                  onChange={handleNeighborhoodChange}
+                  autoComplete="off"
+                  required
+                />
+                {neighborhoodSugs.length > 0 && (
+                  <div className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-y-auto divide-y divide-slate-100 mt-1">
+                    {neighborhoodSugs.map((s, i) => {
+                      const name = s.address?.suburb || s.address?.neighbourhood || s.address?.residential || s.name;
+                      return (
+                        <div key={i} onClick={() => selectNeighborhood(s)} className="px-3 py-2.5 hover:bg-blue-50 cursor-pointer transition-colors">
+                          <p className="text-sm font-bold text-slate-800 truncate">{name}</p>
+                          <p className="text-[10px] text-slate-400 truncate">{s.display_name}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* 3. RUA */}
+              <div className="space-y-1 relative" ref={streetRef}>
+                <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider flex justify-between items-center">
+                  <span>Logradouro / Rua {isSearchingStreet && <span className="text-slate-400 font-normal">(buscando...)</span>}</span>
+                </label>
+                <div className="flex gap-2">
                   <Input
-                    placeholder="Digite o bairro..."
-                    value={neighborhoodSearch}
-                    onChange={handleNeighborhoodChange}
+                    placeholder="Ex: Avenida Tiradentes..."
+                    value={streetSearch}
+                    onChange={handleStreetChange}
                     autoComplete="off"
+                    className="flex-1"
                     required
                   />
-                  {neighborhoodSugs.length > 0 && (
-                    <div className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-y-auto divide-y divide-slate-100 mt-1">
-                      {neighborhoodSugs.map((s, i) => {
-                        const name = s.address?.suburb || s.address?.neighbourhood || s.address?.residential || s.name;
-                        return (
-                          <div key={i} onClick={() => selectNeighborhood(s)} className="px-3 py-2.5 hover:bg-blue-50 cursor-pointer transition-colors">
-                            <p className="text-sm font-bold text-slate-800 truncate">{name}</p>
-                            <p className="text-[10px] text-slate-400 truncate">{s.display_name}</p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                  <Input
+                    placeholder="Nº"
+                    value={houseNumber}
+                    onChange={e => {
+                      setHouseNumber(e.target.value);
+                      setFormData(prev => ({ ...prev, address: streetSearch ? `${streetSearch}, ${e.target.value}` : prev.address }));
+                    }}
+                    className="w-20"
+                  />
                 </div>
-              )}
-
-              {/* 3. RUA — ViaCEP autocomplete */}
-              {formData.cityId && (
-                <div className="space-y-1 relative" ref={streetRef}>
-                  <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider flex justify-between items-center">
-                    <span>Logradouro / Rua {isSearchingStreet && <span className="text-slate-400 font-normal">(buscando...)</span>}</span>
-                    <button type="button" onClick={handleGetLocation} disabled={isLocating} className="flex items-center gap-1 text-[#1E3A8A] hover:underline font-bold">
-                      {isLocating ? <Loader2 className="w-3 h-3 animate-spin" /> : <MapPin className="w-3 h-3" />}
-                      GPS
-                    </button>
-                  </label>
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Ex: Avenida Tiradentes..."
-                      value={streetSearch}
-                      onChange={handleStreetChange}
-                      autoComplete="off"
-                      className="flex-1"
-                      required
-                    />
-                    <Input
-                      placeholder="Nº"
-                      value={houseNumber}
-                      onChange={e => {
-                        setHouseNumber(e.target.value);
-                        setFormData(prev => ({ ...prev, address: streetSearch ? `${streetSearch}, ${e.target.value}` : prev.address }));
-                      }}
-                      className="w-20"
-                    />
+                {streetSugs.length > 0 && (
+                  <div className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-xl max-h-56 overflow-y-auto divide-y divide-slate-100 mt-1">
+                    {streetSugs.map((s, i) => (
+                      <div key={i} onClick={() => selectStreet(s)} className="px-3 py-2.5 hover:bg-blue-50 cursor-pointer transition-colors">
+                        <p className="text-sm font-bold text-slate-800 truncate">{s.logradouro}</p>
+                        <p className="text-[10px] text-slate-500 truncate uppercase tracking-wider">
+                          {s.bairro && <span>{s.bairro} · </span>}
+                          CEP {s.cep}
+                        </p>
+                      </div>
+                    ))}
                   </div>
-                  {streetSugs.length > 0 && (
-                    <div className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-xl max-h-56 overflow-y-auto divide-y divide-slate-100 mt-1">
-                      {streetSugs.map((s, i) => (
-                        <div key={i} onClick={() => selectStreet(s)} className="px-3 py-2.5 hover:bg-blue-50 cursor-pointer transition-colors">
-                          <p className="text-sm font-bold text-slate-800 truncate">{s.logradouro}</p>
-                          <p className="text-[10px] text-slate-500 truncate uppercase tracking-wider">
-                            {s.bairro && <span>{s.bairro} · </span>}
-                            CEP {s.cep}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+                )}
+              </div>
 
               {/* MAP — always visible once city is selected, auto-centers on pin */}
               {formData.cityId && (
