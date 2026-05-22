@@ -296,6 +296,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       userId: t.userId,
       categoryId: t.categoryId,
       departmentId: t.departmentId,
+      cityId: t.cityId,
       title: t.title,
       description: t.description,
       status: t.status,
@@ -309,7 +310,21 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       updatedAt: Date.now()
     };
 
-    const { error, data } = await supabase.from('tickets').insert(insertPayload).select().single();
+    const timeoutPromise = new Promise<{error: any, data: any}>((_, reject) => 
+      setTimeout(() => reject(new Error('Timeout de rede ao salvar chamado. Tente novamente.')), 15000)
+    );
+    
+    let result: { error: any, data: any } = { error: null, data: null };
+    try {
+      result = await Promise.race([
+        supabase.from('tickets').insert(insertPayload).select().single(),
+        timeoutPromise
+      ]);
+    } catch (err) {
+      console.error('Error saving ticket (timeout/network):', err);
+      throw err;
+    }
+    const { error, data } = result;
 
     if (error) {
       console.error('Error saving ticket:', error);

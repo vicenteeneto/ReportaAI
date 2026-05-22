@@ -530,6 +530,9 @@ export function CitizenNewTicket() {
       setSubmitProgress(95);
       setSubmitStatusText('Salvando registro...');
 
+      // Breve pausa para o Android WebView esvaziar a fila de sockets e memory da XHR upload (evita travamento no PostgREST)
+      await new Promise(r => setTimeout(r, 800));
+
       // ── Create ticket ──
       const newTicket: Ticket = {
         id: generateUUID(),
