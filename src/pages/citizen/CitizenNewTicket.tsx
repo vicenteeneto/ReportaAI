@@ -348,78 +348,86 @@ export function CitizenNewTicket() {
       URL.revokeObjectURL(formData.photoUrl);
     }
 
-    // Normalize MIME type (some Android cameras return empty string)
-    const safeFile = (file.type && file.type.startsWith('image/'))
-      ? file
-      : new File([file], file.name || 'photo.jpg', { type: 'image/jpeg' });
-
-    // Show instant preview from original file
-    const previewUrl = URL.createObjectURL(safeFile);
-    setFormData(prev => ({...prev, photoUrl: previewUrl}));
     setCompressedPhoto(null);
     setIsCompressing(true);
 
-    // Compression: useWebWorker: FALSE is critical for Android PWA/WebViews
-    // Web Workers are frequently blocked in Android Chrome PWA mode
-    const options = {
-      maxSizeMB: 0.5,
-      maxWidthOrHeight: 1024,
-      useWebWorker: false,         // <-- must be false for Android
-      initialQuality: 0.8,
-      fileType: 'image/jpeg' as const
-    };
-
-    imageCompression(safeFile, options)
-      .then((compressedFile) => {
-        setCompressedPhoto(compressedFile);
-        const compressedUrl = URL.createObjectURL(compressedFile);
-        URL.revokeObjectURL(previewUrl);
-        setFormData(prev => ({...prev, photoUrl: compressedUrl}));
-      })
-      .catch(async (err) => {
-        // browser-image-compression failed (common with gallery HEIC/WebP on Android)
-        // Try canvas-based conversion to JPEG before falling back to raw file
-        console.warn('browser-image-compression falhou, tentando canvas fallback:', err);
-        try {
-          const objectUrl = URL.createObjectURL(safeFile);
-          const img = await new Promise<HTMLImageElement>((res, rej) => {
-            const i = new Image();
-            i.onload = () => res(i);
-            i.onerror = rej;
-            i.src = objectUrl;
-          });
-          URL.revokeObjectURL(objectUrl);
-
-          const MAX = 1024;
-          let { naturalWidth: w, naturalHeight: h } = img;
-          if (w > MAX || h > MAX) {
-            if (w >= h) { h = Math.round(h * MAX / w); w = MAX; }
-            else { w = Math.round(w * MAX / h); h = MAX; }
-          }
-          const canvas = document.createElement('canvas');
-          canvas.width = w; canvas.height = h;
-          const ctx = canvas.getContext('2d');
-          ctx?.drawImage(img, 0, 0, w, h);
-
-          const blob = await new Promise<Blob>((res, rej) =>
-            canvas.toBlob(b => b ? res(b) : rej(new Error('canvas toBlob falhou')), 'image/jpeg', 0.82)
-          );
-          const canvasFile = new File([blob], 'photo.jpg', { type: 'image/jpeg' });
-          setCompressedPhoto(canvasFile);
-          // Update preview with canvas-converted version
-          const canvasUrl = URL.createObjectURL(canvasFile);
-          URL.revokeObjectURL(previewUrl);
-          setFormData(prev => ({ ...prev, photoUrl: canvasUrl }));
-          console.log(`Canvas fallback ok: ${(blob.size / 1024).toFixed(0)}KB`);
-        } catch (canvasErr) {
-          // Last resort: use original file (may be large but will attempt upload)
-          console.warn('Canvas fallback também falhou, usando arquivo original:', canvasErr);
-          setCompressedPhoto(safeFile);
+    // Eagerly read the file into memory to avoid delayed 'content://' URI permission issues on Android gallery
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const arrayBuffer = event.target?.result as ArrayBuffer;
+        
+        let mimeType = file.type;
+        if (!mimeType || !mimeType.startsWith('image/')) {
+          mimeType = 'image/jpeg';
         }
-      })
-      .finally(() => {
+        
+        const safeFile = new File([arrayBuffer], file.name || 'photo.jpg', { type: mimeType });
+        
+        // Show instant preview from memory safe file
+        const previewUrl = URL.createObjectURL(safeFile);
+        setFormData(prev => ({...prev, photoUrl: previewUrl}));
+
+        const options = {
+          maxSizeMB: 0.5,
+          maxWidthOrHeight: 1024,
+          useWebWorker: false, // <-- must be false for Android WebViews
+          initialQuality: 0.8,
+          fileType: 'image/jpeg' as const
+        };
+
+        try {
+          const compressedFile = await imageCompression(safeFile, options);
+          setCompressedPhoto(compressedFile);
+          const compressedUrl = URL.createObjectURL(compressedFile);
+          URL.revokeObjectURL(previewUrl);
+          setFormData(prev => ({...prev, photoUrl: compressedUrl}));
+        } catch (err) {
+          console.warn('browser-image-compression falhou, tentando canvas fallback:', err);
+          try {
+            const img = new Image();
+            img.src = previewUrl;
+            await new Promise((res, rej) => { img.onload = res; img.onerror = rej; });
+            
+            const MAX = 1024;
+            let { naturalWidth: w, naturalHeight: h } = img;
+            if (w > MAX || h > MAX) {
+              if (w >= h) { h = Math.round(h * MAX / w); w = MAX; }
+              else { w = Math.round(w * MAX / h); h = MAX; }
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx?.drawImage(img, 0, 0, w, h);
+
+            const blob = await new Promise<Blob>((res, rej) =>
+              canvas.toBlob(b => b ? res(b) : rej(new Error('canvas toBlob falhou')), 'image/jpeg', 0.82)
+            );
+            const canvasFile = new File([blob], 'photo.jpg', { type: 'image/jpeg' });
+            setCompressedPhoto(canvasFile);
+            
+            const canvasUrl = URL.createObjectURL(canvasFile);
+            URL.revokeObjectURL(previewUrl);
+            setFormData(prev => ({ ...prev, photoUrl: canvasUrl }));
+          } catch (canvasErr) {
+            console.warn('Canvas fallback também falhou, usando arquivo original:', canvasErr);
+            setCompressedPhoto(safeFile);
+          }
+        }
+      } catch (fatal) {
+        console.error("Erro fatal ao processar foto:", fatal);
+        try { alert('Falha ao armazenar imagem em cache duplo.'); } catch (_) {}
+      } finally {
         setIsCompressing(false);
-      });
+      }
+    };
+    
+    reader.onerror = () => {
+      setIsCompressing(false);
+      try { alert('Não foi possível ler a imagem, tente escolher outra ou confirme as permissões do navegador.'); } catch (_) {}
+    };
+    
+    reader.readAsArrayBuffer(file);
   };
 
   // ─── Remove photo ───
