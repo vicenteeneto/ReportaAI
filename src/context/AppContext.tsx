@@ -316,8 +316,40 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     
     let result: { error: any, data: any } = { error: null, data: null };
     try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      
+      let token = anonKey;
+      try {
+        const projectRef = supabaseUrl.replace('https://', '').split('.')[0];
+        const raw = localStorage.getItem(`sb-${projectRef}-auth-token`);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed?.access_token) token = parsed.access_token;
+        }
+      } catch (e) {}
+
+      const fetchPromise = fetch(`${supabaseUrl}/rest/v1/tickets`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': anonKey,
+          'Authorization': `Bearer ${token}`,
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify(insertPayload)
+      }).then(async res => {
+        if (!res.ok) {
+          let errBody;
+          try { errBody = await res.json(); } catch(e) {}
+          return { error: errBody || new Error(`HTTP ${res.status}`), data: null };
+        }
+        const dataArr = await res.json();
+        return { error: null, data: dataArr[0] };
+      });
+
       result = await Promise.race([
-        supabase.from('tickets').insert(insertPayload).select().single(),
+        fetchPromise,
         timeoutPromise
       ]);
     } catch (err) {
