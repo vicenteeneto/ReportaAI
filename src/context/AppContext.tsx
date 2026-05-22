@@ -31,166 +31,190 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     // Subscribe to database changes (optional depending on needs, but let's implement basic fetch for now)
     const loadData = async (userProfile?: User) => {
       setLoading(true);
-      const [depsRes, catsRes, ticketsRes] = await Promise.all([
-        supabase.from('departments').select('*').order('name'),
-        supabase.from('categories').select('*').order('name'),
-        supabase.from('tickets').select('*')
-      ]);
-      
-      const allTickets = ticketsRes.data || [];
-      const parseSafeDate = (val: any) => {
-        if (!val) return 0;
-        if (typeof val === 'number') return val;
-        if (typeof val === 'string') {
-          if (/^\d+$/.test(val)) return parseInt(val, 10);
-          return new Date(val).getTime();
-        }
-        return 0;
-      };
-
-      const sortedTickets = allTickets.sort((a, b) => {
-        const dateA = parseSafeDate(a.createdAt || a.created_at || a.createdat);
-        const dateB = parseSafeDate(b.createdAt || b.created_at || b.createdat);
-        return dateB - dateA;
-      });
-
-      let deps = depsRes.data || [];
-      let cats = catsRes.data || [];
-
-      // Auto-seed para não ficar em branco caso o SQL não tenha rodado
-      if (deps.length === 0 && !depsRes.error) {
-        const defaultDeps = [
-          { id: 'dep-infra', name: 'Secretaria Municipal de Infraestrutura', acronym: 'SINFRA', active: true, color: '#eab308' },
-          { id: 'dep-saude', name: 'Secretaria Municipal de Saúde', acronym: 'SMS', active: true, color: '#ef4444' },
-          { id: 'dep-meio', name: 'Secretaria Municipal de Meio Ambiente', acronym: 'SEMMA', active: true, color: '#22c55e' },
-          { id: 'dep-mobilidade', name: 'Secretaria de Transporte e Trânsito', acronym: 'SETAT', active: true, color: '#3b82f6' }
-        ];
-        deps = defaultDeps;
-        try { await supabase.from('departments').insert(defaultDeps); } catch(e) {}
-      }
-
-      if (cats.length === 0 && !catsRes.error) {
-        const defaultCatsDb = [
-          { id: 'cat-buraco', name: 'Buraco na rua', icon_name: 'AlertTriangle', color: 'bg-orange-500', default_department_id: 'dep-infra', default_priority: 'high' },
-          { id: 'cat-iluminacao', name: 'Iluminação pública', icon_name: 'Lightbulb', color: 'bg-yellow-500', default_department_id: 'dep-infra', default_priority: 'medium' },
-          { id: 'cat-lixo', name: 'Lixo ou entulho', icon_name: 'Trash2', color: 'bg-amber-700', default_department_id: 'dep-infra', default_priority: 'medium' },
-          { id: 'cat-mato', name: 'Mato alto', icon_name: 'Leaf', color: 'bg-green-500', default_department_id: 'dep-meio', default_priority: 'low' },
-          { id: 'cat-arvore', name: 'Risco Ambiental / Árvore', icon_name: 'TreePine', color: 'bg-emerald-700', default_department_id: 'dep-meio', default_priority: 'high' }
-        ];
-        cats = defaultCatsDb;
-        try { await supabase.from('categories').insert(defaultCatsDb); } catch(e) { console.error('Failed to seed categories', e); }
-      }
-
-      // Handle raw cases from DB due to postgres unquoted columns
-      const mappedCats = cats.map(c => ({
-        ...c,
-        iconName: c.iconName || c.icon_name || c.iconname || 'HelpCircle',
-        defaultDepartmentId: c.defaultDepartmentId || c.default_department_id || c.defaultdepartmentid,
-        defaultPriority: c.defaultPriority || c.default_priority || c.defaultpriority || 'low',
-      }));
-
-      const fetchedTickets = sortedTickets.map(t => {
-        const mappedTicket = {
-          ...t,
-          categoryId: t.categoryId || t.categoryid || t.category_id,
-          departmentId: t.departmentId || t.departmentid || t.department_id,
-          photoUrl: t.photoUrl || t.photourl || t.photo_url,
-          resolvedPhotoUrl: t.resolvedPhotoUrl || t.resolvedphotourl || t.resolved_photo_url,
-          userId: t.userId || t.userid || t.user_id,
-          createdAt: parseSafeDate(t.createdAt || t.created_at || t.createdat) || Date.now(),
-          updatedAt: parseSafeDate(t.updatedAt || t.updated_at || t.updatedat) || Date.now(),
-        };
-        return mappedTicket;
-      });
-
-      console.log("Fetched and mapped tickets:", fetchedTickets.length);
-      if (fetchedTickets.length > 0) {
-        console.log("First ticket sample:", { 
-          id: fetchedTickets[0].id, 
-          userId: fetchedTickets[0].userId,
-          protocol: fetchedTickets[0].protocol
-        });
-      }
-
-      setDepartments(deps);
-      setCategories(mappedCats);
-      setTickets(fetchedTickets);
-      
-      // Calculate points for current user if available
-      const activeUser = userProfile || currentUser;
-      if (activeUser) {
-        const userTickets = fetchedTickets.filter(t => t.userId === activeUser.id);
-        const validating = userTickets.filter(t => !['resolved', 'closed', 'rejected', 'duplicated'].includes(t.status)).length * 10;
-        const validated = userTickets.filter(t => ['resolved', 'closed'].includes(t.status)).length * 50;
+      try {
+        const [depsRes, catsRes, ticketsRes] = await Promise.all([
+          supabase.from('departments').select('*').order('name'),
+          supabase.from('categories').select('*').order('name'),
+          supabase.from('tickets').select('*')
+        ]);
         
-        setCurrentUser({
-          ...activeUser,
-          pointsValidating: validating,
-          pointsValidated: validated
+        const allTickets = ticketsRes.data || [];
+        const parseSafeDate = (val: any) => {
+          if (!val) return 0;
+          if (typeof val === 'number') return val;
+          if (typeof val === 'string') {
+            if (/^\d+$/.test(val)) return parseInt(val, 10);
+            return new Date(val).getTime();
+          }
+          return 0;
+        };
+
+        const sortedTickets = allTickets.sort((a, b) => {
+          const dateA = parseSafeDate(a.createdAt || a.created_at || a.createdat);
+          const dateB = parseSafeDate(b.createdAt || b.created_at || b.createdat);
+          return dateB - dateA;
         });
+
+        let deps = depsRes.data || [];
+        let cats = catsRes.data || [];
+
+        // Auto-seed para não ficar em branco caso o SQL não tenha rodado
+        if (deps.length === 0 && !depsRes.error) {
+          const defaultDeps = [
+            { id: 'dep-infra', name: 'Secretaria Municipal de Infraestrutura', acronym: 'SINFRA', active: true, color: '#eab308' },
+            { id: 'dep-saude', name: 'Secretaria Municipal de Saúde', acronym: 'SMS', active: true, color: '#ef4444' },
+            { id: 'dep-meio', name: 'Secretaria Municipal de Meio Ambiente', acronym: 'SEMMA', active: true, color: '#22c55e' },
+            { id: 'dep-mobilidade', name: 'Secretaria de Transporte e Trânsito', acronym: 'SETAT', active: true, color: '#3b82f6' }
+          ];
+          deps = defaultDeps;
+          try { await supabase.from('departments').insert(defaultDeps); } catch(e) {}
+        }
+
+        if (cats.length === 0 && !catsRes.error) {
+          const defaultCatsDb = [
+            { id: 'cat-buraco', name: 'Buraco na rua', icon_name: 'AlertTriangle', color: 'bg-orange-500', default_department_id: 'dep-infra', default_priority: 'high' },
+            { id: 'cat-iluminacao', name: 'Iluminação pública', icon_name: 'Lightbulb', color: 'bg-yellow-500', default_department_id: 'dep-infra', default_priority: 'medium' },
+            { id: 'cat-lixo', name: 'Lixo ou entulho', icon_name: 'Trash2', color: 'bg-amber-700', default_department_id: 'dep-infra', default_priority: 'medium' },
+            { id: 'cat-mato', name: 'Mato alto', icon_name: 'Leaf', color: 'bg-green-500', default_department_id: 'dep-meio', default_priority: 'low' },
+            { id: 'cat-arvore', name: 'Risco Ambiental / Árvore', icon_name: 'TreePine', color: 'bg-emerald-700', default_department_id: 'dep-meio', default_priority: 'high' }
+          ];
+          cats = defaultCatsDb;
+          try { await supabase.from('categories').insert(defaultCatsDb); } catch(e) { console.error('Failed to seed categories', e); }
+        }
+
+        // Handle raw cases from DB due to postgres unquoted columns
+        const mappedCats = cats.map(c => ({
+          ...c,
+          iconName: c.iconName || c.icon_name || c.iconname || 'HelpCircle',
+          defaultDepartmentId: c.defaultDepartmentId || c.default_department_id || c.defaultdepartmentid,
+          defaultPriority: c.defaultPriority || c.default_priority || c.defaultpriority || 'low',
+        }));
+
+        const fetchedTickets = sortedTickets.map(t => {
+          const mappedTicket = {
+            ...t,
+            categoryId: t.categoryId || t.categoryid || t.category_id,
+            departmentId: t.departmentId || t.departmentid || t.department_id,
+            photoUrl: t.photoUrl || t.photourl || t.photo_url,
+            resolvedPhotoUrl: t.resolvedPhotoUrl || t.resolvedphotourl || t.resolved_photo_url,
+            userId: t.userId || t.userid || t.user_id,
+            createdAt: parseSafeDate(t.createdAt || t.created_at || t.createdat) || Date.now(),
+            updatedAt: parseSafeDate(t.updatedAt || t.updated_at || t.updatedat) || Date.now(),
+          };
+          return mappedTicket;
+        });
+
+        console.log("Fetched and mapped tickets:", fetchedTickets.length);
+        if (fetchedTickets.length > 0) {
+          console.log("First ticket sample:", { 
+            id: fetchedTickets[0].id, 
+            userId: fetchedTickets[0].userId,
+            protocol: fetchedTickets[0].protocol
+          });
+        }
+
+        setDepartments(deps);
+        setCategories(mappedCats);
+        setTickets(fetchedTickets);
+        
+        // Calculate points for current user if available
+        const activeUser = userProfile || currentUser;
+        if (activeUser) {
+          const userTickets = fetchedTickets.filter(t => t.userId === activeUser.id);
+          const validating = userTickets.filter(t => !['resolved', 'closed', 'rejected', 'duplicated'].includes(t.status)).length * 10;
+          const validated = userTickets.filter(t => ['resolved', 'closed'].includes(t.status)).length * 50;
+          
+          setCurrentUser({
+            ...activeUser,
+            pointsValidating: validating,
+            pointsValidated: validated
+          });
+        }
+      } catch (err) {
+        console.error("Error in loadData:", err);
+      } finally {
+        setLoading(false);
       }
-      
-      setLoading(false);
     };
 
     const subscribeAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      const fetchUserProfile = async (userId: string) => {
-        const { data } = await supabase.from('users').select('*').eq('id', userId).single();
-        if (data) {
-          const mappedUser: User = {
-            id: data.id,
-            name: data.name,
-            email: data.email,
-            role: data.role as any,
-            avatarUrl: data.avatar_url || data.avatarurl || data.avatarUrl || null,
-            departmentId: data.department_id || data.departmentid || data.departmentId || null
-          };
-          return mappedUser;
-        } else {
-          // In case user hasn't synced to users table, fetch profile email
-           const { data: authData } = await supabase.auth.getUser();
-           if (authData.user) {
-             const metadata = authData.user.user_metadata || {};
-             const name = metadata.full_name || metadata.name || authData.user.email?.split('@')[0] || 'Usuário';
-             const avatarUrl = metadata.avatar_url || metadata.picture || null;
-             
-             const newUser = {
-               id: userId,
-               name: name,
-               email: authData.user.email || '',
-               role: 'citizen',
-               avatar_url: avatarUrl
-             };
-             const { error: insErr } = await supabase.from('users').upsert(newUser);
-             if (insErr) console.error("Error creating user", insErr);
-             
-             return {
-               ...newUser,
-               avatarUrl: newUser.avatar_url,
-               role: newUser.role as any
-             } as User;
-           }
-        }
-        return null;
-      };
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        const fetchUserProfile = async (userId: string) => {
+          try {
+            const { data } = await supabase.from('users').select('*').eq('id', userId).single();
+            if (data) {
+              const mappedUser: User = {
+                id: data.id,
+                name: data.name,
+                email: data.email,
+                role: data.role as any,
+                avatarUrl: data.avatar_url || data.avatarurl || data.avatarUrl || null,
+                departmentId: data.department_id || data.departmentid || data.departmentId || null
+              };
+              return mappedUser;
+            } else {
+              // In case user hasn't synced to users table, fetch profile email
+               const { data: authData } = await supabase.auth.getUser();
+               if (authData?.user) {
+                 const metadata = authData.user.user_metadata || {};
+                 const name = metadata.full_name || metadata.name || authData.user.email?.split('@')[0] || 'Usuário';
+                 const avatarUrl = metadata.avatar_url || metadata.picture || null;
+                 
+                 const newUser = {
+                   id: userId,
+                   name: name,
+                   email: authData.user.email || '',
+                   role: 'citizen',
+                   avatar_url: avatarUrl
+                 };
+                 const { error: insErr } = await supabase.from('users').upsert(newUser);
+                 if (insErr) console.error("Error creating user", insErr);
+                 
+                 return {
+                   ...newUser,
+                   avatarUrl: newUser.avatar_url,
+                   role: newUser.role as any
+                 } as User;
+               }
+            }
+          } catch (err) {
+            console.error("Error in fetchUserProfile:", err);
+          }
+          return null;
+        };
 
-      if (session) {
-        const profile = await fetchUserProfile(session.user.id);
-        if (profile) {
-          await loadData(profile);
-        } else {
-          setLoading(false);
+        if (session) {
+          const profile = await fetchUserProfile(session.user.id);
+          if (profile) {
+            await loadData(profile);
+          }
         }
-      } else {
+      } catch (err) {
+        console.error("Error during auth init:", err);
+      } finally {
         setLoading(false);
       }
 
       const { data: authSubscription } = supabase.auth.onAuthStateChange(async (event, session) => {
         if (session) {
-          const profile = await fetchUserProfile(session.user.id);
-          if (profile) await loadData(profile);
+          try {
+            const { data } = await supabase.from('users').select('*').eq('id', session.user.id).single();
+            if (data) {
+              const mappedUser: User = {
+                id: data.id,
+                name: data.name,
+                email: data.email,
+                role: data.role as any,
+                avatarUrl: data.avatar_url || data.avatarurl || data.avatarUrl || null,
+                departmentId: data.department_id || data.departmentid || data.departmentId || null
+              };
+              await loadData(mappedUser);
+            }
+          } catch(e) {
+            console.error(e);
+          }
         } else {
           setCurrentUser(null);
           setTickets([]);
