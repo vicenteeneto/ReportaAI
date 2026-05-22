@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, Ticket, Category, Department, TicketStatus } from '../data/types';
+import { User, Ticket, Category, Department, TicketStatus, City } from '../data/types';
 import { supabase } from '../lib/supabase';
 
 interface AppContextType {
@@ -13,6 +13,7 @@ interface AppContextType {
   updateTicketStatus: (id: string, status: TicketStatus) => void;
   categories: Category[];
   departments: Department[];
+  cities: City[];
   loading?: boolean;
 }
 
@@ -23,6 +24,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [cities, setCities] = useState<City[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -32,10 +34,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const loadData = async (userProfile?: User) => {
       setLoading(true);
       try {
-        const [depsRes, catsRes, ticketsRes] = await Promise.all([
+        const [depsRes, catsRes, ticketsRes, citiesRes] = await Promise.all([
           supabase.from('departments').select('*').order('name'),
           supabase.from('categories').select('*').order('name'),
-          supabase.from('tickets').select('*')
+          supabase.from('tickets').select('*'),
+          supabase.from('cities').select('*').order('name')
         ]);
         
         const allTickets = ticketsRes.data || [];
@@ -116,6 +119,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setDepartments(deps);
         setCategories(mappedCats);
         setTickets(fetchedTickets);
+        if (citiesRes && citiesRes.data) {
+          setCities(citiesRes.data);
+        }
         
         // Calculate points for current user if available
         const activeUser = userProfile || currentUser;
@@ -220,6 +226,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           setTickets([]);
           setDepartments([]);
           setCategories([]);
+          setCities([]);
         }
       });
       authListener = authSubscription;
@@ -279,6 +286,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setTickets([]);
     setDepartments([]);
     setCategories([]);
+    setCities([]);
   };
 
   const addTicket = async (t: Ticket) => {
@@ -334,7 +342,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AppContext.Provider value={{ currentUser, loginWithEmail, registerWithEmail, loginWithGoogle, logout, tickets, addTicket, updateTicketStatus, categories, departments, loading }}>
+    <AppContext.Provider value={{ currentUser, loginWithEmail, registerWithEmail, loginWithGoogle, logout, tickets, addTicket, updateTicketStatus, categories, departments, cities, loading }}>
       {children}
     </AppContext.Provider>
   );
