@@ -311,7 +311,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     };
 
     const timeoutPromise = new Promise<{error: any, data: any}>((_, reject) => 
-      setTimeout(() => reject(new Error('Timeout de rede ao salvar chamado. Tente novamente.')), 15000)
+      setTimeout(() => reject(new Error('Timeout de rede ao salvar chamado. Tente novamente.')), 35000)
     );
     
     let result: { error: any, data: any } = { error: null, data: null };
