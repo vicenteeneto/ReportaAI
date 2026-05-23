@@ -277,7 +277,7 @@ export function CitizenMap() {
               <div className="relative">
                 {selectedTicket.photoUrl && (
                   <div className="h-32 w-full">
-                    <img src={selectedTicket.photoUrl} alt="" className="w-full h-full object-cover" />
+                    <img src={selectedTicket.photoUrl.split(',')[0]} alt="" className="w-full h-full object-cover" />
                   </div>
                 )}
                 <button onClick={() => setSelectedTicket(null)} className="absolute top-2 right-2 w-8 h-8 bg-black/50 hover:bg-black/70 text-white rounded-full flex items-center justify-center text-lg backdrop-blur-sm transition-colors">

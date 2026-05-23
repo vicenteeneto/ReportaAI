@@ -49,7 +49,7 @@ export function AdminTriage() {
               </CardHeader>
               <CardContent className="py-4 flex-1 flex flex-col md:flex-row gap-4">
                 {ticket.photoUrl ? (
-                  <img src={ticket.photoUrl} alt="Problema" className="w-full md:w-48 h-32 object-cover rounded-md flex-shrink-0" />
+                  <img src={ticket.photoUrl.split(',')[0]} alt="Problema" className="w-full md:w-48 h-32 object-cover rounded-md flex-shrink-0" />
                 ) : (
                   <div className="w-full md:w-48 h-32 bg-slate-100 rounded-md flex items-center justify-center flex-shrink-0 text-slate-400">
                     Sem foto

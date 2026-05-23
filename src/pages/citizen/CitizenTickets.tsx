@@ -60,7 +60,7 @@ export function CitizenTickets() {
           {selectedTicket.photoUrl && (
             <div className="relative">
               <img 
-                src={selectedTicket.photoUrl} 
+                src={selectedTicket.photoUrl.split(',')[0]} 
                 alt="Evidência fotográfica" 
                 className="w-full h-48 md:h-64 object-cover rounded shadow-sm border border-slate-200 bg-slate-100"
                 onError={(e) => {

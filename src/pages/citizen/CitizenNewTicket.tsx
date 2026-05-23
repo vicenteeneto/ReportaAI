@@ -155,6 +155,7 @@ export function CitizenNewTicket() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
 
+  const [photos, setPhotos] = useState<{file: File | Blob; previewUrl: string}[]>([]);
   const [formData, setFormData] = useState({
     categoryId: '',
     title: '',
@@ -218,7 +219,6 @@ export function CitizenNewTicket() {
   };
 
   // Photo state
-  const [compressedPhoto, setCompressedPhoto] = useState<Blob | null>(null);
   const [isCompressing, setIsCompressing] = useState(false);
 
   // Neighborhood search (Nominatim)
@@ -330,81 +330,53 @@ export function CitizenNewTicket() {
   // Cleanup object URLs on unmount
   useEffect(() => {
     return () => {
-      if (formData.photoUrl && formData.photoUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(formData.photoUrl);
-      }
+      photos.forEach(p => {
+        if (p.previewUrl.startsWith('blob:')) URL.revokeObjectURL(p.previewUrl);
+      });
     };
-  }, [formData.photoUrl]);
+  }, [photos]);
 
   // ─── Photo handler: compress IMMEDIATELY on capture ───
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const files = Array.from(e.target.files || []);
     e.target.value = ''; // Reset so Android allows re-selection
 
-    if (!file) return;
+    if (files.length === 0) return;
 
-    // Revoke old preview
-    if (formData.photoUrl && formData.photoUrl.startsWith('blob:')) {
-      URL.revokeObjectURL(formData.photoUrl);
-    }
+    // Limit to max 3 photos to prevent out of memory issues
+    const allowedNewFiles = files.slice(0, 3 - photos.length);
+    if (allowedNewFiles.length === 0) return;
 
-    setCompressedPhoto(null);
     setIsCompressing(true);
 
     try {
-      // Normalize MIME type
-      const mimeType = (file.type && file.type.startsWith('image/')) ? file.type : 'image/jpeg';
-      const safeFile = new File([file], file.name || 'photo.jpg', { type: mimeType });
+      for (const file of allowedNewFiles) {
+        // Normalize MIME type
+        const mimeType = (file.type && file.type.startsWith('image/')) ? file.type : 'image/jpeg';
+        const safeFile = new File([file], file.name || 'photo.jpg', { type: mimeType });
+        
+        let compressedFile: File | Blob = safeFile;
+        // Show temp preview fallback if compression fails
+        let finalPreviewUrl = URL.createObjectURL(safeFile);
 
-      // Show instant preview
-      const previewUrl = URL.createObjectURL(safeFile);
-      setFormData(prev => ({...prev, photoUrl: previewUrl}));
+        const options = {
+          maxSizeMB: 0.5,
+          maxWidthOrHeight: 1024,
+          useWebWorker: false, // <-- must be false for Android WebViews to avoid bugs
+          initialQuality: 0.8,
+          fileType: 'image/jpeg' as const
+        };
 
-      const options = {
-        maxSizeMB: 0.5,
-        maxWidthOrHeight: 1024,
-        useWebWorker: false, // <-- must be false for Android WebViews to avoid bugs
-        initialQuality: 0.8,
-        fileType: 'image/jpeg' as const
-      };
-
-      try {
-        const compressedFile = await imageCompression(safeFile, options);
-        setCompressedPhoto(compressedFile);
-        const compressedUrl = URL.createObjectURL(compressedFile);
-        URL.revokeObjectURL(previewUrl);
-        setFormData(prev => ({...prev, photoUrl: compressedUrl}));
-      } catch (err) {
-        console.warn('browser-image-compression falhou, tentando canvas fallback:', err);
         try {
-          const img = new Image();
-          img.src = previewUrl;
-          await new Promise((res, rej) => { img.onload = res; img.onerror = rej; });
-          
-          const MAX = 1024;
-          let { naturalWidth: w, naturalHeight: h } = img;
-          if (w > MAX || h > MAX) {
-            if (w >= h) { h = Math.round(h * MAX / w); w = MAX; }
-            else { w = Math.round(w * MAX / h); h = MAX; }
-          }
-          const canvas = document.createElement('canvas');
-          canvas.width = w; canvas.height = h;
-          const ctx = canvas.getContext('2d');
-          ctx?.drawImage(img, 0, 0, w, h);
-
-          const blob = await new Promise<Blob>((res, rej) =>
-            canvas.toBlob(b => b ? res(b) : rej(new Error('canvas toBlob falhou')), 'image/jpeg', 0.82)
-          );
-          const canvasFile = new File([blob], 'photo.jpg', { type: 'image/jpeg' });
-          setCompressedPhoto(canvasFile);
-          
-          const canvasUrl = URL.createObjectURL(canvasFile);
-          URL.revokeObjectURL(previewUrl);
-          setFormData(prev => ({ ...prev, photoUrl: canvasUrl }));
-        } catch (canvasErr) {
-          console.warn('Canvas fallback também falhou, usando arquivo original:', canvasErr);
-          setCompressedPhoto(safeFile);
+          compressedFile = await imageCompression(safeFile, options);
+          const compressedUrl = URL.createObjectURL(compressedFile);
+          URL.revokeObjectURL(finalPreviewUrl);
+          finalPreviewUrl = compressedUrl;
+        } catch (err) {
+          console.warn('browser-image-compression falhou:', err);
         }
+        
+        setPhotos(prev => [...prev, { file: compressedFile, previewUrl: finalPreviewUrl }]);
       }
     } catch (fatal) {
       console.error("Erro fatal ao processar foto:", fatal);
@@ -414,13 +386,15 @@ export function CitizenNewTicket() {
   };
 
   // ─── Remove photo ───
-  const handleRemovePhoto = () => {
-    if (formData.photoUrl && formData.photoUrl.startsWith('blob:')) {
-      URL.revokeObjectURL(formData.photoUrl);
-    }
-    setCompressedPhoto(null);
-    setIsCompressing(false);
-    setFormData(prev => ({...prev, photoUrl: undefined}));
+  const handleRemovePhoto = (index: number) => {
+    setPhotos(prev => {
+      const newUrls = [...prev];
+      const removed = newUrls.splice(index, 1)[0];
+      if (removed && removed.previewUrl.startsWith('blob:')) {
+         URL.revokeObjectURL(removed.previewUrl);
+      }
+      return newUrls;
+    });
   };
 
   // ─── Submit ───
@@ -446,33 +420,45 @@ export function CitizenNewTicket() {
       const authToken = getStoredAuthToken(supabaseUrl, anonKey);
 
       // ── Photo upload ──
-      let photoBlob = compressedPhoto;
+      const uploadedUrls: string[] = [];
+      const totalPhotos = photos.length;
 
-      if (photoBlob) {
-        setSubmitProgress(20);
-        setSubmitStatusText('Enviando foto...');
+      if (totalPhotos > 0) {
+        let currentPhotoIdx = 0;
+        
+        for (const photo of photos) {
+          setSubmitProgress(20 + Math.round((currentPhotoIdx / totalPhotos) * 60));
+          setSubmitStatusText(totalPhotos > 1 ? `Enviando foto ${currentPhotoIdx + 1} de ${totalPhotos}...` : 'Enviando foto...');
 
-        const fileName = `${Date.now()}-${userId}.jpg`;
+          const fileName = `${Date.now()}-${userId}-${currentPhotoIdx}.jpg`;
+          const fileToUpload = new File([photo.file], fileName, {
+            type: 'image/jpeg',
+            lastModified: Date.now()
+          });
 
-        // Always create a clean File object with explicit JPEG type
-        const fileToUpload = new File([photoBlob], fileName, {
-          type: 'image/jpeg',
-          lastModified: Date.now()
-        });
-
-        // Upload via XHR — most reliable on Android (fetch/SDK can hang in PWA mode)
-        uploadedPhotoUrl = await uploadViaXHR(
-          fileToUpload,
-          fileName,
-          supabaseUrl,
-          authToken,
-          'tickets',
-          (pct) => {
-            // Map XHR progress (0→100) to our UI range (20→80)
-            setSubmitProgress(20 + Math.round(pct * 0.6));
+          // Upload via XHR — most reliable on Android (fetch/SDK can hang in PWA mode)
+          const singleUrl = await uploadViaXHR(
+            fileToUpload,
+            fileName,
+            supabaseUrl,
+            authToken,
+            'tickets',
+            (pct) => {
+              // Map chunk progress
+              const basePct = 20 + Math.round((currentPhotoIdx / totalPhotos) * 60);
+              const chunkPctLength = 60 / totalPhotos;
+              setSubmitProgress(basePct + Math.round((pct / 100) * chunkPctLength));
+            }
+          );
+          
+          if (singleUrl) {
+            uploadedUrls.push(singleUrl);
           }
-        );
+          currentPhotoIdx++;
+        }
       }
+
+      uploadedPhotoUrl = uploadedUrls.length > 0 ? uploadedUrls.join(',') : undefined;
 
       setSubmitProgress(85);
       setSubmitStatusText('Gerando protocolo...');
@@ -724,43 +710,43 @@ export function CitizenNewTicket() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Registro Fotográfico Físico (Opcional)</label>
-              {!formData.photoUrl ? (
-                <div className="grid grid-cols-2 gap-3 h-28">
-                  <label className="border border-dashed border-slate-300 rounded bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer text-slate-500 flex flex-col items-center justify-center relative overflow-hidden group text-center p-2">
-                    <input type="file" accept="image/jpeg,image/png,image/webp,image/*" capture="environment" className="hidden" onChange={handlePhotoChange} />
+              <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider flex justify-between">
+                <span>Registro Fotográfico (Até 3)</span>
+                <span className="text-slate-400">{photos.length}/3</span>
+              </label>
+              
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {photos.map((photo, index) => (
+                  <div key={index} className="relative h-28 rounded overflow-hidden border border-slate-200 bg-slate-100 group">
+                    <img 
+                      src={photo.previewUrl} 
+                      alt={`Preview ${index + 1}`}
+                      className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" 
+                      onClick={() => setViewingImage(photo.previewUrl)}
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => handleRemovePhoto(index)}
+                      className="absolute top-1 right-1 bg-red-600/90 text-white rounded-full p-1.5 shadow-md hover:bg-red-700 transition-colors z-20"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+
+                {photos.length < 3 && (
+                  <label className="h-28 border border-dashed border-slate-300 rounded bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer text-slate-500 flex flex-col items-center justify-center relative overflow-hidden group text-center p-2">
+                    <input type="file" multiple accept="image/jpeg,image/png,image/webp,image/*" className="hidden" onChange={handlePhotoChange} />
                     <Camera className="w-5 h-5 mb-1 text-slate-400 group-hover:text-blue-500 transition-colors" />
-                    <span className="text-[10px] font-bold uppercase tracking-wider group-hover:text-blue-600 transition-colors text-slate-500 leading-tight">Câmera</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider group-hover:text-blue-600 transition-colors text-slate-500 leading-tight">Add Foto</span>
                   </label>
-                  
-                  <label className="border border-dashed border-slate-300 rounded bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer text-slate-500 flex flex-col items-center justify-center relative overflow-hidden group text-center p-2">
-                    <input type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
-                    <Upload className="w-5 h-5 mb-1 text-slate-400 group-hover:text-blue-500 transition-colors" />
-                    <span className="text-[10px] font-bold uppercase tracking-wider group-hover:text-blue-600 transition-colors text-slate-500 leading-tight">Escolher Foto</span>
-                  </label>
-                </div>
-              ) : (
-                <div className="relative h-48 rounded overflow-hidden border border-slate-200 bg-slate-100 group">
-                  <img 
-                    src={formData.photoUrl} 
-                    alt="Preview" 
-                    className="w-full h-full object-contain cursor-pointer hover:opacity-90 transition-opacity" 
-                    onClick={() => setViewingImage(formData.photoUrl || null)}
-                  />
-                  {/* Compression overlay indicator */}
-                  {isCompressing && (
-                    <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-white z-10">
-                      <Loader2 className="w-6 h-6 animate-spin mb-1" />
-                      <span className="text-[10px] font-bold uppercase tracking-wider">Processando foto...</span>
-                    </div>
-                  )}
-                  <button 
-                    type="button" 
-                    onClick={handleRemovePhoto}
-                    className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-2 shadow-lg hover:bg-red-700 transition-colors z-20"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+                )}
+              </div>
+
+              {isCompressing && (
+                <div className="flex items-center justify-center gap-2 text-blue-600 animate-pulse mt-1">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider">Processando fotos...</span>
                 </div>
               )}
             </div>

@@ -96,7 +96,7 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
                 {ticket.photoUrl ? (
                   <div className="w-full aspect-video rounded-xl overflow-hidden bg-slate-100 border border-slate-200 relative">
                     <img 
-                      src={ticket.photoUrl} 
+                      src={ticket.photoUrl.split(',')[0]} 
                       alt="Problema" 
                       className="w-full h-full object-cover" 
                     />

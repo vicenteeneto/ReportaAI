@@ -181,7 +181,7 @@ export function AdminMap() {
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {selectedTicket.photoUrl && (
-                <img src={selectedTicket.photoUrl} alt="Local" className="w-full h-40 object-cover rounded-lg" />
+                <img src={selectedTicket.photoUrl.split(',')[0]} alt="Local" className="w-full h-40 object-cover rounded-lg" />
               )}
               <div>
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest">{selectedTicket.protocol}</p>
