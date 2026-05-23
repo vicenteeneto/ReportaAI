@@ -338,7 +338,7 @@ export function CitizenNewTicket() {
 
   // ─── Photo handler: compress IMMEDIATELY on capture ───
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
+    const files = Array.from(e.target.files || []) as File[];
     e.target.value = ''; // Reset so Android allows re-selection
 
     if (files.length === 0) return;
@@ -700,12 +700,16 @@ export function CitizenNewTicket() {
                 onChange={(e) => setFormData({...formData, categoryId: e.target.value})}
               >
                 <option value="">Selecione uma categoria...</option>
-                {categories.filter(cat => {
-                   const activeCityId = formData.cityId || currentUser?.cityId || '11111111-1111-1111-1111-111111111111';
-                   return cat.cityId === activeCityId || !cat.cityId || cat.id === formData.categoryId;
-                }).map(cat => (
-                  <option key={cat.id} value={cat.id}>{cat.name}</option>
-                ))}
+                {(() => {
+                    let filtered = categories.filter(cat => {
+                       const activeCityId = formData.cityId || currentUser?.cityId || '11111111-1111-1111-1111-111111111111';
+                       return cat.cityId === activeCityId || !cat.cityId || cat.id === formData.categoryId;
+                    });
+                    if (filtered.length === 0) filtered = categories;
+                    return filtered.map(cat => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ));
+                 })()}
               </Select>
             </div>
 
@@ -735,11 +739,18 @@ export function CitizenNewTicket() {
                 ))}
 
                 {photos.length < 3 && (
+                  <>
                   <label className="h-28 border border-dashed border-slate-300 rounded bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer text-slate-500 flex flex-col items-center justify-center relative overflow-hidden group text-center p-2">
-                    <input type="file" multiple accept="image/jpeg,image/png,image/webp,image/*" className="hidden" onChange={handlePhotoChange} />
+                    <input type="file" accept="image/jpeg,image/png,image/webp,image/*" capture="environment" className="hidden" onChange={handlePhotoChange} />
                     <Camera className="w-5 h-5 mb-1 text-slate-400 group-hover:text-blue-500 transition-colors" />
-                    <span className="text-[10px] font-bold uppercase tracking-wider group-hover:text-blue-600 transition-colors text-slate-500 leading-tight">Add Foto</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider group-hover:text-blue-600 transition-colors text-slate-500 leading-tight">Câmera</span>
                   </label>
+                  <label className="h-28 border border-dashed border-slate-300 rounded bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer text-slate-500 flex flex-col items-center justify-center relative overflow-hidden group text-center p-2">
+                    <input type="file" multiple accept="image/*" className="hidden" onChange={handlePhotoChange} />
+                    <Upload className="w-5 h-5 mb-1 text-slate-400 group-hover:text-blue-500 transition-colors" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider group-hover:text-blue-600 transition-colors text-slate-500 leading-tight">Galeria</span>
+                  </label>
+                  </>
                 )}
               </div>
 

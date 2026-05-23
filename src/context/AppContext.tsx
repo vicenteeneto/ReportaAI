@@ -91,6 +91,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           iconName: c.iconName || c.icon_name || c.iconname || 'HelpCircle',
           defaultDepartmentId: c.defaultDepartmentId || c.default_department_id || c.defaultdepartmentid,
           defaultPriority: c.defaultPriority || c.default_priority || c.defaultpriority || 'low',
+          cityId: c.cityId || c.city_id || c.cityid
         }));
 
         const fetchedTickets = sortedTickets.map(t => {
