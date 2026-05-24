@@ -47,8 +47,10 @@ export function SystemSettings() {
   };
 
   const handleUpdateDepartment = async (userId: string, departmentId: string) => {
+    console.log('Update department called:', userId, departmentId);
     const val = departmentId === '' ? null : departmentId;
     const { error } = await supabase.from('users').update({ departmentId: val } as any).eq('id', userId);
+    console.log('Update department error:', error);
     if (!error) {
        setUsers(users.map(u => u.id === userId ? { ...u, departmentId: val } as any : u));
     } else {
@@ -57,8 +59,10 @@ export function SystemSettings() {
   };
 
   const handleUpdateCity = async (userId: string, cityId: string) => {
+    console.log('Update city called:', userId, cityId);
     const val = cityId === '' ? null : cityId;
     const { error } = await supabase.from('users').update({ cityId: val } as any).eq('id', userId);
+    console.log('Update city error:', error);
     if (!error) {
        setUsers(users.map(u => u.id === userId ? { ...u, cityId: val } as any : u));
     } else {
@@ -172,7 +176,7 @@ export function SystemSettings() {
                             value={user.departmentId || ''}
                             onChange={(e) => handleUpdateDepartment(user.id, e.target.value)}
                           >
-                            <option value="">-- Nenhuma --</option>
+                            <option value="">-- Todas --</option>
                             {departments.map(d => (
                               <option key={d.id} value={d.id}>{d.name}</option>
                             ))}
@@ -261,7 +265,7 @@ export function SystemSettings() {
                       value={newDepartment}
                       onChange={(e) => setNewDepartment(e.target.value)}
                     >
-                      <option value="">-- Selecione (Opcional) --</option>
+                      <option value="">-- Todas --</option>
                       {departments.map(d => (
                         <option key={d.id} value={d.id}>{d.name} ({d.acronym})</option>
                       ))}
