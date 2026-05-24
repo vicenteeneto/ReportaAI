@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 export function SystemSettings() {
   const [users, setUsers] = useState<User[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [cities, setCities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
   // New User Form State
@@ -17,6 +18,7 @@ export function SystemSettings() {
   const [newPassword, setNewPassword] = useState('');
   const [newRole, setNewRole] = useState('admin');
   const [newDepartment, setNewDepartment] = useState('');
+  const [newCity, setNewCity] = useState('');
   
   const navigate = useNavigate();
 
@@ -26,12 +28,14 @@ export function SystemSettings() {
 
   const fetchData = async () => {
     setLoading(true);
-    const [usersRes, depsRes] = await Promise.all([
+    const [usersRes, depsRes, citiesRes] = await Promise.all([
       supabase.from('users').select('*').order('name'),
-      supabase.from('departments').select('*').order('name')
+      supabase.from('departments').select('*').order('name'),
+      supabase.from('cities').select('*').order('name')
     ]);
     if (usersRes.data) setUsers(usersRes.data);
     if (depsRes.data) setDepartments(depsRes.data);
+    if (citiesRes.data) setCities(citiesRes.data);
     setLoading(false);
   };
 
@@ -46,6 +50,15 @@ export function SystemSettings() {
     const { error } = await supabase.from('users').update({ department_id: departmentId }).eq('id', userId);
     if (!error) {
        setUsers(users.map(u => u.id === userId ? { ...u, departmentId } : u));
+    }
+  };
+
+  const handleUpdateCity = async (userId: string, cityId: string) => {
+    const { error } = await supabase.from('users').update({ city_id: cityId }).eq('id', userId);
+    if (!error) {
+       setUsers(users.map(u => u.id === userId ? { ...u, cityId, city_id: cityId } as any : u));
+    } else {
+      alert('Erro ao atualizar cidade: ' + error.message);
     }
   };
 
@@ -78,7 +91,8 @@ export function SystemSettings() {
           name: newEmail.split('@')[0],
           email: newEmail,
           role: newRole,
-          department_id: newDepartment || null
+          department_id: newDepartment || null,
+          city_id: newCity || null
         });
       }
 
@@ -121,6 +135,7 @@ export function SystemSettings() {
                       <th className="px-4 py-3 font-semibold uppercase tracking-wider text-xs">Nome / E-mail</th>
                       <th className="px-4 py-3 font-semibold uppercase tracking-wider text-xs">Função (Role)</th>
                       <th className="px-4 py-3 font-semibold uppercase tracking-wider text-xs">Secretaria</th>
+                      <th className="px-4 py-3 font-semibold uppercase tracking-wider text-xs">Cidade</th>
                       <th className="px-4 py-3 font-semibold uppercase tracking-wider text-xs text-right">Ações</th>
                     </tr>
                   </thead>
@@ -150,12 +165,24 @@ export function SystemSettings() {
                         <td className="px-4 py-4">
                           <select 
                             className="border border-slate-200 rounded p-1 text-sm bg-white max-w-[150px] hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-[#1E3A8A]"
-                            value={user.departmentId || user.department_id || ''}
+                            value={user.departmentId || (user as any).department_id || ''}
                             onChange={(e) => handleUpdateDepartment(user.id, e.target.value)}
                           >
                             <option value="">-- Nenhuma --</option>
                             {departments.map(d => (
                               <option key={d.id} value={d.id}>{d.name}</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-4 py-4">
+                          <select 
+                            className="border border-slate-200 rounded p-1 text-sm bg-white max-w-[150px] hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-[#1E3A8A]"
+                            value={user.cityId || (user as any).city_id || ''}
+                            onChange={(e) => handleUpdateCity(user.id, e.target.value)}
+                          >
+                            <option value="">-- Nenhuma --</option>
+                            {cities.map(c => (
+                              <option key={c.id} value={c.id}>{c.name}</option>
                             ))}
                           </select>
                         </td>
@@ -238,6 +265,20 @@ export function SystemSettings() {
                   </div>
                 )}
                 
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Vincular Cidade</label>
+                  <select 
+                    className="w-full border border-slate-200 rounded-md p-2 text-sm bg-white"
+                    value={newCity}
+                    onChange={(e) => setNewCity(e.target.value)}
+                  >
+                    <option value="">-- Selecione (Opcional) --</option>
+                    {cities.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+                
                 <Button type="submit" isLoading={isCreating} className="w-full bg-[#1E3A8A] hover:bg-blue-800 font-bold uppercase tracking-wide text-sm mt-2">
                   Cadastrar Usuário
                 </Button>
@@ -254,12 +295,12 @@ export function SystemSettings() {
             </CardHeader>
             <CardContent>
                <p className="text-slate-500 text-sm mb-4 leading-relaxed">
-                 O sistema opera integrando as Secretarias. Para o Super Admin KNG Flow, os <strong className="text-slate-700">Departamentos</strong> listados abaixo representam as unidades que podem receber usuários delegados.
+                 O sistema opera integrando as Cidades. Para o Super Admin KNG Flow, as <strong className="text-slate-700">Cidades</strong> cadastradas são listadas abaixo e podem ser atribuídas aos usuários.
                </p>
                <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2">
-                 {departments.map(d => (
-                   <div key={d.id} className="p-3 border border-slate-200 rounded-lg flex justify-between items-center bg-slate-50/50 hover:bg-slate-50 transition-colors">
-                     <div className="font-medium text-sm text-slate-800">{d.name} <span className="opacity-50 ml-1 text-xs">({d.acronym})</span></div>
+                 {cities.map(c => (
+                   <div key={c.id} className="p-3 border border-slate-200 rounded-lg flex justify-between items-center bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                     <div className="font-medium text-sm text-slate-800">{c.name} {c.state && <span className="opacity-50 ml-1 text-xs">({c.state})</span>}</div>
                    </div>
                  ))}
                </div>

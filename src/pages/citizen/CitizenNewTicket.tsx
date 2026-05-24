@@ -700,16 +700,9 @@ export function CitizenNewTicket() {
                 onChange={(e) => setFormData({...formData, categoryId: e.target.value})}
               >
                 <option value="">Selecione uma categoria...</option>
-                {(() => {
-                    let filtered = categories.filter(cat => {
-                       const activeCityId = formData.cityId || currentUser?.cityId || '11111111-1111-1111-1111-111111111111';
-                       return cat.cityId === activeCityId || !cat.cityId || cat.id === formData.categoryId;
-                    });
-                    if (filtered.length === 0) filtered = categories;
-                    return filtered.map(cat => (
-                      <option key={cat.id} value={cat.id}>{cat.name}</option>
-                    ));
-                 })()}
+                {categories.map(cat => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
               </Select>
             </div>
 

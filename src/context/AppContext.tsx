@@ -108,26 +108,36 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           return mappedTicket;
         });
 
-        console.log("Fetched and mapped tickets:", fetchedTickets.length);
-        if (fetchedTickets.length > 0) {
+        const activeUser = userProfile || currentUser;
+
+        let finalTickets = fetchedTickets;
+        if (activeUser && activeUser.role !== 'superadmin' && activeUser.cityId) {
+           finalTickets = fetchedTickets.filter(t => !t.cityId || t.cityId === activeUser.cityId);
+        }
+
+        console.log("Fetched and mapped tickets:", finalTickets.length);
+        if (finalTickets.length > 0) {
           console.log("First ticket sample:", { 
-            id: fetchedTickets[0].id, 
-            userId: fetchedTickets[0].userId,
-            protocol: fetchedTickets[0].protocol
+            id: finalTickets[0].id, 
+            userId: finalTickets[0].userId,
+            protocol: finalTickets[0].protocol
           });
         }
 
-        setDepartments(deps);
-        setCategories(mappedCats);
-        setTickets(fetchedTickets);
+        setDepartments(activeUser && activeUser.role !== 'superadmin' && activeUser.cityId 
+          ? deps.filter(d => !d.cityId || d.cityId === activeUser.cityId) : deps);
+        
+        setCategories(activeUser && activeUser.role !== 'superadmin' && activeUser.cityId 
+          ? mappedCats.filter(c => !c.cityId || c.cityId === activeUser.cityId) : mappedCats);
+        
+        setTickets(finalTickets);
         if (citiesRes && citiesRes.data) {
           setCities(citiesRes.data);
         }
         
         // Calculate points for current user if available
-        const activeUser = userProfile || currentUser;
         if (activeUser) {
-          const userTickets = fetchedTickets.filter(t => t.userId === activeUser.id);
+          const userTickets = finalTickets.filter(t => t.userId === activeUser.id);
           const validating = userTickets.filter(t => !['resolved', 'closed', 'rejected', 'duplicated'].includes(t.status)).length * 10;
           const validated = userTickets.filter(t => ['resolved', 'closed'].includes(t.status)).length * 50;
           
