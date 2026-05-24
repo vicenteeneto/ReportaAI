@@ -298,6 +298,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setDepartments([]);
     setCategories([]);
     setCities([]);
+    window.location.href = '/';
   };
 
   const addTicket = async (t: Ticket) => {

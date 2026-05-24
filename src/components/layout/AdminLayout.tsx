@@ -53,7 +53,7 @@ export function AdminLayout() {
                 currentUser?.role === 'citizen' ? 'Cidadão' : currentUser?.role
               }</p>
             </div>
-            <button onClick={logout} className="w-8 h-8 rounded-full bg-slate-300 flex items-center justify-center text-[#1E3A8A] hover:bg-white transition-colors" title="Sair">
+            <button type="button" onClick={logout} className="w-8 h-8 rounded-full bg-slate-300 flex items-center justify-center text-[#1E3A8A] hover:bg-white transition-colors relative z-50 cursor-pointer pointer-events-auto" title="Sair">
               <LogOut className="w-4 h-4" />
             </button>
           </div>
