@@ -55,49 +55,19 @@ export function LandingPage() {
           <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '40px 40px' }}></div>
           <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center gap-16 relative z-10 w-full">
             <div className="flex-1 space-y-8 text-center lg:text-left">
-              <div className="inline-flex items-center gap-2 bg-blue-900/50 border border-blue-400/30 rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-blue-200">
-                <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse"></span>
-                Inovação em Govtech
-              </div>
               <h2 className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.1] text-white">
                 Gestão urbana inteligente para cidades que querem ouvir, organizar e resolver.
               </h2>
               <p className="text-lg text-blue-100 max-w-2xl mx-auto lg:mx-0 leading-relaxed font-medium">
                 Com o reportaAI, cidadãos registram problemas urbanos com foto e localização, enquanto a prefeitura acompanha tudo em tempo real por meio de mapa, dashboard, protocolos e inteligência artificial.
               </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start pt-4">
-                <Button size="lg" className="bg-white text-[#1E3A8A] hover:bg-slate-100 text-sm px-8 uppercase tracking-wide font-bold h-14" onClick={() => navigate('/login?flow=register')}>
-                  Registrar problema
-                </Button>
-                <Button variant="outline" size="lg" className="border-blue-400/50 hover:bg-blue-900/50 text-white text-sm px-8 uppercase tracking-wide font-bold h-14" onClick={() => navigate('/login?role=admin')}>
-                  Acesso gestão
-                </Button>
-                <Button variant="ghost" size="lg" className="text-blue-100 hover:text-white hover:bg-blue-800/50 text-sm px-8 uppercase tracking-wide font-bold h-14" onClick={() => { document.getElementById('como-funciona')?.scrollIntoView({ behavior: 'smooth' }); }}>
-                  Ver como funciona
-                </Button>
-              </div>
-              
-              <div className="pt-6">
-                <p className="text-sm font-semibold text-blue-300 italic mb-4">"Viu um problema na cidade? reportaAI."</p>
-                <div className="flex flex-wrap items-center justify-center lg:justify-start gap-4 text-sm text-blue-200 font-medium">
-                  <div className="flex items-center gap-1.5"><Camera className="w-4 h-4 text-blue-400"/> Foto do local</div>
-                  <div className="w-1 h-1 rounded-full bg-blue-400/50"></div>
-                  <div className="flex items-center gap-1.5"><MapPin className="w-4 h-4 text-blue-400"/> Localização por GPS</div>
-                  <div className="w-1 h-1 rounded-full bg-blue-400/50"></div>
-                  <div className="flex items-center gap-1.5"><ClipboardCheck className="w-4 h-4 text-blue-400"/> Protocolo</div>
-                  <div className="w-1 h-1 rounded-full bg-blue-400/50 hidden sm:block"></div>
-                  <div className="flex items-center gap-1.5"><BarChart3 className="w-4 h-4 text-blue-400"/> Dashboard gestão</div>
-                  <div className="w-1 h-1 rounded-full bg-blue-400/50 hidden sm:block"></div>
-                  <div className="flex items-center gap-1.5"><Sparkles className="w-4 h-4 text-purple-400"/> Triagem com IA</div>
-                </div>
-              </div>
             </div>
 
             {/* Visual Principal do Hero */}
             <div className="flex-1 w-full max-w-xl relative hidden md:block">
               {/* Fake Dashboard Base */}
-              <div className="bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200 transform lg:rotate-2 hover:rotate-0 transition-transform duration-500">
-                <div className="h-10 border-b border-slate-100 bg-slate-50 flex items-center px-4 gap-2">
+              <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 transform lg:rotate-2 hover:rotate-0 transition-transform duration-500">
+                <div className="h-10 border-b border-slate-100 bg-slate-50 flex items-center px-4 gap-2 rounded-t-2xl">
                   <div className="w-3 h-3 rounded-full bg-red-400"></div>
                   <div className="w-3 h-3 rounded-full bg-amber-400"></div>
                   <div className="w-3 h-3 rounded-full bg-green-400"></div>
@@ -137,7 +107,7 @@ export function LandingPage() {
                   </div>
 
                   {/* Occurrence Card floating */}
-                  <div className="absolute bottom-6 right-[-10px] lg:right-[-30px] bg-white rounded-xl shadow-xl border border-slate-100 p-4 w-72 z-20 transform -rotate-1">
+                  <div className="absolute top-1/2 right-[-20px] lg:right-[-40px] bg-white rounded-xl shadow-xl border border-slate-100 p-4 w-72 z-40 transform -translate-y-1/2 rotate-1">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">Em Análise</span>
                       <span className="text-[10px] font-bold uppercase tracking-wider text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-200">Alta</span>
@@ -417,25 +387,46 @@ export function LandingPage() {
 
             <div className="flex-1 w-full">
               {/* Map mockup */}
-              <div className="w-full aspect-[4/3] bg-slate-100 rounded-3xl relative overflow-hidden border border-slate-200 shadow-lg">
-                 <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'linear-gradient(#cbd5e1 1px, transparent 1px), linear-gradient(90deg, #cbd5e1 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
-                 
-                 <div className="absolute top-4 left-4 bg-white/90 backdrop-blur text-[10px] uppercase font-bold text-slate-500 py-1 px-3 rounded shadow-sm border border-white">
-                   Visão Geral do Mapa
+              <div className="w-full aspect-[4/3] bg-slate-100 rounded-3xl relative overflow-hidden border border-slate-200 shadow-lg z-0">
+                 <div className="absolute inset-0 bg-[#f8fafc] z-0 overflow-hidden">
+                    {/* Abstract Rondonópolis Rivers and Roads via SVG */}
+                    <svg className="absolute inset-0 w-full h-full opacity-30" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M-100,200 Q150,300 300,450 T800,550" fill="none" stroke="#94a3b8" strokeWidth="8" />
+                      <path d="M200,-50 L350,650" fill="none" stroke="#cbd5e1" strokeWidth="12" />
+                      <path d="M100,-50 L250,650" fill="none" stroke="#e2e8f0" strokeWidth="6" />
+                      <path d="M500,-50 L400,650" fill="none" stroke="#e2e8f0" strokeWidth="6" />
+                      <path d="M-50,400 L850,250" fill="none" stroke="#cbd5e1" strokeWidth="4" />
+                      <path d="M-50,100 L850,300" fill="none" stroke="#e2e8f0" strokeWidth="4" />
+                      
+                      {/* Rio Vermelho abstraction */}
+                      <path d="M-100,500 Q 200,450 350,350 T 900,100" fill="none" stroke="#bae6fd" strokeWidth="24" strokeLinecap="round" />
+                      <path d="M-100,500 Q 200,450 350,350 T 900,100" fill="none" stroke="#7dd3fc" strokeWidth="8" strokeLinecap="round" opacity="0.5" />
+                    </svg>
+
+                    {/* Neighborhood patches */}
+                    <div className="absolute top-[20%] right-[20%] w-64 h-64 bg-green-100/50 rounded-full blur-3xl pointer-events-none"></div>
+                    <div className="absolute bottom-[10%] left-[20%] w-72 h-48 bg-amber-50/50 rounded-full blur-3xl pointer-events-none"></div>
+                    <div className="absolute top-[40%] left-[40%] w-48 h-48 bg-blue-50/50 rounded-full blur-3xl pointer-events-none"></div>
                  </div>
 
-                 {/* Simulated Pins */}
-                 <div className="absolute top-[30%] left-[40%]"><MapPin className="w-8 h-8 text-red-500 drop-shadow-md" fill="currentColor" /></div>
-                 <div className="absolute top-[45%] left-[25%]"><MapPin className="w-6 h-6 text-amber-500 drop-shadow-md" fill="currentColor" /></div>
-                 <div className="absolute top-[60%] left-[50%]"><MapPin className="w-7 h-7 text-green-500 drop-shadow-md" fill="currentColor" /></div>
-                 <div className="absolute top-[20%] left-[70%]"><MapPin className="w-6 h-6 text-blue-500 drop-shadow-md" fill="currentColor" /></div>
-                 <div className="absolute top-[75%] left-[30%]"><MapPin className="w-8 h-8 text-purple-500 drop-shadow-md" fill="currentColor" /></div>
+                 {/* Simulated Map Pins */}
+                 <div className="absolute top-[35%] left-[45%] z-10 w-6 h-6 -translate-x-1/2 -translate-y-full bg-red-600 rounded-t-full rounded-bl-full border-2 border-white shadow-md transform -rotate-45"></div>
+                 <div className="absolute top-[45%] left-[25%] z-10 w-5 h-5 -translate-x-1/2 -translate-y-full bg-amber-500 rounded-t-full rounded-bl-full border-2 border-white shadow-md transform -rotate-45"></div>
+                 <div className="absolute top-[60%] left-[55%] z-10 w-6 h-6 -translate-x-1/2 -translate-y-full bg-green-500 rounded-t-full rounded-bl-full border-2 border-white shadow-md transform -rotate-45"></div>
+                 <div className="absolute top-[25%] left-[75%] z-10 w-5 h-5 -translate-x-1/2 -translate-y-full bg-blue-500 rounded-t-full rounded-bl-full border-2 border-white shadow-md transform -rotate-45"></div>
+                 <div className="absolute top-[75%] left-[30%] z-10 w-6 h-6 -translate-x-1/2 -translate-y-full bg-purple-500 rounded-t-full rounded-bl-full border-2 border-white shadow-md transform -rotate-45"></div>
+
+                 <div className="absolute top-4 left-4 bg-white/90 backdrop-blur text-[10px] uppercase font-bold text-slate-500 py-1 px-3 rounded shadow-sm border border-white z-10">
+                   Visão Geral do Mapa
+                 </div>
                  
                  {/* Legend */}
-                 <div className="absolute bottom-4 right-4 bg-white rounded-lg shadow-md border border-slate-200 p-3 flex flex-col gap-2">
+                 <div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur rounded-lg shadow-md border border-slate-200 p-3 flex flex-col gap-2 z-10 pointer-events-none">
                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-500"></div><span className="text-[10px] font-bold text-slate-600">Infraestrutura</span></div>
                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-amber-500"></div><span className="text-[10px] font-bold text-slate-600">Iluminação</span></div>
                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-green-500"></div><span className="text-[10px] font-bold text-slate-600">Meio ambiente</span></div>
+                   <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-blue-500"></div><span className="text-[10px] font-bold text-slate-600">Saneamento</span></div>
+                   <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-purple-500"></div><span className="text-[10px] font-bold text-slate-600">Trânsito</span></div>
                  </div>
               </div>
             </div>
