@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { 
   MapPin, Camera, ClipboardCheck, 
-  BarChart3, Smartphone, Sparkles, Navigation, CheckCircle2, ShieldCheck
+  BarChart3, Smartphone, Sparkles, Navigation, CheckCircle2, ShieldCheck,
+  HardHat, PlaySquare, ArrowRight
 } from 'lucide-react';
 
 export function LandingPage() {
@@ -18,10 +19,10 @@ export function LandingPage() {
             <span className="text-white font-bold text-lg">AI</span>
           </div>
           <div>
-            <h1 className="font-bold text-xl leading-none tracking-tight text-slate-800">
+            <h1 className="font-extrabold text-2xl leading-none tracking-tight text-slate-800">
               reporta<span className="text-[#1E3A8A]">AI</span>
             </h1>
-            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold mt-0.5">Gestão urbana inteligente</p>
+            <p className="text-[11px] text-slate-500 uppercase tracking-widest font-semibold mt-0.5">Gestão urbana inteligente</p>
           </div>
         </div>
         
@@ -59,11 +60,15 @@ export function LandingPage() {
               <div className="pt-2">
                 <p className="text-sm font-semibold text-blue-300 uppercase tracking-widest mb-6">O cidadão informa. A prefeitura acompanha. A cidade melhora.</p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                  <Button size="lg" className="bg-white text-[#1E3A8A] hover:bg-slate-100 text-sm px-8 uppercase tracking-wide font-bold h-14 w-full sm:w-auto" onClick={() => navigate('/login?flow=register')}>
+                  <Button size="lg" className="bg-white text-[#1E3A8A] hover:bg-slate-100 text-sm px-8 uppercase tracking-wide font-bold h-14 w-full sm:w-auto shadow-lg" onClick={() => navigate('/login?flow=register')}>
                     Registrar problema
                   </Button>
-                  <Button variant="outline" size="lg" className="border-blue-400/50 hover:bg-blue-900/50 text-white text-sm px-8 uppercase tracking-wide font-bold h-14 w-full sm:w-auto" onClick={() => navigate('/login?role=admin')}>
+                  <Button size="lg" className="bg-blue-600 text-white hover:bg-blue-700 text-sm px-8 uppercase tracking-wide font-bold h-14 border border-blue-500 w-full sm:w-auto shadow-lg" onClick={() => navigate('/login?role=admin')}>
                     Acessar gestão
+                  </Button>
+                  <Button variant="outline" size="lg" className="border-blue-400/50 hover:bg-blue-900/50 text-white text-sm px-8 uppercase tracking-wide font-bold h-14 w-full sm:w-auto" onClick={() => navigate('/login?role=admin')}>
+                    <PlaySquare className="w-4 h-4 mr-2"/>
+                    Ver demonstração
                   </Button>
                 </div>
               </div>
@@ -127,19 +132,20 @@ export function LandingPage() {
                   </div>
 
                   {/* Occurrence Card floating */}
-                  <div className="absolute top-1/2 right-[-20px] lg:right-[-40px] bg-white rounded-xl shadow-xl border border-slate-100 p-4 w-72 z-40 transform -translate-y-1/2 rotate-1">
-                    <div className="flex items-center justify-between mb-2">
+                  <div className="absolute top-1/2 right-[-20px] lg:right-[-40px] bg-white rounded-xl shadow-2xl border border-slate-100 p-4 w-80 z-40 transform -translate-y-1/2 rotate-1">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">REP-2026-001248</span>
                       <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">Em Análise</span>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-200">Prioridade: Alta</span>
                     </div>
-                    <p className="font-bold text-slate-800 text-sm">Buraco na via</p>
-                    <p className="text-[11px] text-slate-500 mb-2">Avenida Principal, Centro</p>
-                    <div className="flex justify-between items-center pt-2 border-t border-slate-100 mb-2">
-                      <span className="text-[10px] font-semibold text-slate-600">Sec. Infraestrutura</span>
+                    <p className="font-extrabold text-slate-800 text-sm mb-1">Buraco na via</p>
+                    <p className="text-[11px] text-slate-500 mb-3 flex items-center gap-1"><MapPin className="w-3 h-3"/> Avenida Principal, Centro</p>
+                    <div className="flex justify-between items-center pt-3 border-t border-slate-100 mb-3 gap-2">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600 bg-slate-50 px-2 py-1 rounded">Sec. Infraestrutura</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-red-600 bg-red-50 px-2 py-1 rounded">Prioridade: Alta</span>
                     </div>
-                    <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-100 p-2 rounded flex items-start gap-2">
-                      <Sparkles className="w-3 h-3 text-purple-500 shrink-0 mt-0.5" />
-                      <p className="text-[9px] text-purple-800 font-medium leading-tight">IA: Encaminhamento sugerido.</p>
+                    <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-100 p-2.5 rounded flex items-start gap-2">
+                      <Sparkles className="w-4 h-4 text-purple-500 shrink-0 mt-0.5" />
+                      <p className="text-[10px] text-purple-800 font-medium leading-tight">IA: Encaminhamento sugerido.</p>
                     </div>
                   </div>
                 </div>
@@ -160,33 +166,33 @@ export function LandingPage() {
           </div>
           
           <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white p-8 rounded-xl border border-slate-200 flex flex-col gap-3 items-center text-center">
+            <div className="bg-white p-8 rounded-xl border border-slate-200 flex flex-col gap-3 items-center text-center shadow-sm">
               <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mb-2">
-                <MapPin className="w-6 h-6 text-red-500" />
+                <Smartphone className="w-6 h-6 text-red-500" />
               </div>
               <h4 className="font-bold text-lg text-slate-800">1. Reclamações espalhadas</h4>
-              <p className="text-sm text-slate-500 leading-relaxed">Informações chegam por lugares diferentes sem padrão.</p>
+              <p className="text-sm text-slate-500 leading-relaxed font-medium">Demandas chegam por canais diferentes e podem se perder.</p>
             </div>
-            <div className="bg-white p-8 rounded-xl border border-slate-200 flex flex-col gap-3 items-center text-center">
+            <div className="bg-white p-8 rounded-xl border border-slate-200 flex flex-col gap-3 items-center text-center shadow-sm">
               <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mb-2">
                 <MapPin className="w-6 h-6 text-red-500" />
               </div>
               <h4 className="font-bold text-lg text-slate-800">2. Falta de localização exata</h4>
-              <p className="text-sm text-slate-500 leading-relaxed">Equipes não acham o endereço correto do problema.</p>
+              <p className="text-sm text-slate-500 leading-relaxed font-medium">Equipes perdem tempo tentando encontrar o problema.</p>
             </div>
-            <div className="bg-white p-8 rounded-xl border border-slate-200 flex flex-col gap-3 items-center text-center">
+            <div className="bg-white p-8 rounded-xl border border-slate-200 flex flex-col gap-3 items-center text-center shadow-sm">
               <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mb-2">
                 <ClipboardCheck className="w-6 h-6 text-red-500" />
               </div>
               <h4 className="font-bold text-lg text-slate-800">3. Ausência de protocolo</h4>
-              <p className="text-sm text-slate-500 leading-relaxed">O cidadão não sabe como acompanhar sua demanda.</p>
+              <p className="text-sm text-slate-500 leading-relaxed font-medium">O cidadão não sabe como acompanhar sua solicitação.</p>
             </div>
-            <div className="bg-white p-8 rounded-xl border border-slate-200 flex flex-col gap-3 items-center text-center">
+            <div className="bg-white p-8 rounded-xl border border-slate-200 flex flex-col gap-3 items-center text-center shadow-sm">
               <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mb-2">
                 <BarChart3 className="w-6 h-6 text-red-500" />
               </div>
               <h4 className="font-bold text-lg text-slate-800">4. Pouca visão por bairro</h4>
-              <p className="text-sm text-slate-500 leading-relaxed">A prefeitura não tem indicadores para decidir melhor.</p>
+              <p className="text-sm text-slate-500 leading-relaxed font-medium">A gestão não enxerga com clareza onde estão os maiores problemas.</p>
             </div>
           </div>
         </section>
@@ -205,20 +211,22 @@ export function LandingPage() {
           <div className="max-w-6xl mx-auto w-full relative">
             <div className="hidden md:block absolute top-[45%] left-[5%] right-[5%] h-0.5 bg-slate-200 z-0"></div>
             
-            <div className="grid grid-cols-2 md:grid-cols-6 gap-6 relative z-10">
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-6 relative z-10 w-full px-4">
               {[
-                { icon: Camera, title: "Foto" },
-                { icon: MapPin, title: "Localização" },
-                { icon: ClipboardCheck, title: "Protocolo" },
-                { icon: Navigation, title: "Secretaria" },
-                { icon: BarChart3, title: "Acompanhamento" },
-                { icon: CheckCircle2, title: "Resolução" }
+                { icon: Camera, title: "Foto", desc: "Evidência" },
+                { icon: MapPin, title: "Localização", desc: "GPS Exato" },
+                { icon: ClipboardCheck, title: "Protocolo", desc: "Transparência" },
+                { icon: Navigation, title: "Secretaria", desc: "Encaminhamento" },
+                { icon: BarChart3, title: "Acompanhamento", desc: "Gestão" },
+                { icon: CheckCircle2, title: "Resolução", desc: "Fim do chamado" }
               ].map((step, idx) => (
-                 <div key={idx} className="flex flex-col items-center bg-white px-2 py-4">
-                    <div className="w-16 h-16 rounded-full bg-blue-50 border-2 border-[#1E3A8A] flex items-center justify-center text-[#1E3A8A] mb-4 shadow-sm group-hover:scale-105 transition-transform">
-                      <step.icon className="w-7 h-7" />
+                 <div key={idx} className="flex flex-col items-center bg-white px-2 py-6 rounded-2xl md:border-none border border-slate-100 shadow-sm md:shadow-none hover:bg-slate-50 transition-colors">
+                    <div className="w-20 h-20 rounded-full bg-blue-50 border-2 border-[#1E3A8A] flex items-center justify-center text-[#1E3A8A] mb-4 shadow-md group-hover:scale-105 transition-transform relative">
+                      <step.icon className="w-8 h-8" />
+                      {idx < 5 && <div className="hidden md:block absolute -right-10 top-1/2 -translate-y-1/2"><ArrowRight className="text-slate-300 w-6 h-6"/></div>}
                     </div>
-                    <span className="text-sm font-bold text-slate-800">{step.title}</span>
+                    <span className="text-base font-bold text-slate-800">{step.title}</span>
+                    <span className="text-xs text-slate-500 mt-1 font-medium bg-slate-100 px-3 py-1 rounded-full">{step.desc}</span>
                  </div>
               ))}
             </div>
@@ -234,12 +242,12 @@ export function LandingPage() {
           </div>
           
           <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12">
-            <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-sm relative overflow-hidden">
-               <h3 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-3">
-                 <div className="w-10 h-10 rounded bg-blue-100 text-blue-600 flex items-center justify-center"><Smartphone className="w-5 h-5"/></div>
+            <div className="bg-white rounded-2xl p-10 border border-slate-200 shadow-sm relative overflow-hidden h-full">
+               <h3 className="text-2xl font-bold text-slate-900 mb-8 flex items-center gap-4">
+                 <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center shadow-inner"><Smartphone className="w-6 h-6"/></div>
                  Para o cidadão
                </h3>
-               <ul className="space-y-5">
+               <ul className="space-y-6">
                  {[
                    "Registra pelo celular.",
                    "Envia foto e localização.",
@@ -247,20 +255,20 @@ export function LandingPage() {
                    "Acompanha o andamento.",
                    "Usa um canal oficial com a prefeitura."
                  ].map((item, idx) => (
-                   <li key={idx} className="flex items-center gap-4 text-slate-700 font-medium">
-                     <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0"></div> 
+                   <li key={idx} className="flex items-center gap-4 text-slate-700 font-medium text-lg">
+                     <div className="w-2 h-2 rounded-full bg-blue-500 shrink-0"></div> 
                      <span>{item}</span>
                    </li>
                  ))}
                </ul>
             </div>
 
-            <div className="bg-[#1E3A8A] text-white rounded-2xl p-8 border border-[#152c6e] shadow-md relative overflow-hidden">
-               <h3 className="text-2xl font-bold mb-6 flex items-center gap-3">
-                 <div className="w-10 h-10 rounded bg-blue-800 flex items-center justify-center"><ShieldCheck className="w-5 h-5 text-blue-200"/></div>
+            <div className="bg-[#1E3A8A] text-white rounded-2xl p-10 border border-[#152c6e] shadow-xl relative overflow-hidden h-full">
+               <h3 className="text-2xl font-bold mb-8 flex items-center gap-4">
+                 <div className="w-12 h-12 rounded-xl bg-blue-800 flex items-center justify-center shadow-inner"><ShieldCheck className="w-6 h-6 text-blue-200"/></div>
                  Para a prefeitura
                </h3>
-               <ul className="space-y-5">
+               <ul className="space-y-6">
                  {[
                    "Recebe demandas organizadas.",
                    "Encaminha por secretaria.",
@@ -268,12 +276,81 @@ export function LandingPage() {
                    "Controla prazos e status.",
                    "Gera relatórios e indicadores."
                  ].map((item, idx) => (
-                   <li key={idx} className="flex items-center gap-4 text-blue-50 font-medium">
-                     <div className="w-1.5 h-1.5 rounded-full bg-blue-300 shrink-0"></div>
+                   <li key={idx} className="flex items-center gap-4 text-blue-50 font-medium text-lg">
+                     <div className="w-2 h-2 rounded-full bg-blue-300 shrink-0"></div>
                      <span>{item}</span>
                    </li>
                  ))}
                </ul>
+            </div>
+          </div>
+        </section>
+
+        {/* NOVA SEÇÃO: POR QUE CONTRATAR */}
+        <section className="py-20 bg-white px-6">
+          <div className="max-w-7xl mx-auto text-center mb-12">
+            <h2 className="text-3xl lg:text-4xl font-extrabold text-slate-900 tracking-tight mb-4">
+              Por que sua prefeitura precisa do reportaAI?
+            </h2>
+            <p className="text-lg text-slate-600 leading-relaxed max-w-3xl mx-auto">
+              Porque a cidade já recebe demandas todos os dias. A diferença é transformar essas reclamações em dados organizados, protocolos rastreáveis e decisões mais eficientes.
+            </p>
+          </div>
+          <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+             <div className="p-8 rounded-2xl bg-slate-50 border border-slate-200 hover:border-blue-300 transition-colors">
+                <div className="w-14 h-14 rounded-full bg-white shadow-sm flex items-center justify-center mb-6 text-blue-600"><Smartphone className="w-7 h-7"/></div>
+                <h4 className="text-lg font-bold text-slate-800 mb-3">Menos reclamações perdidas.</h4>
+                <p className="text-sm text-slate-600 leading-relaxed">Centralize demandas que hoje chegam por WhatsApp, redes sociais e ligações.</p>
+             </div>
+             <div className="p-8 rounded-2xl bg-slate-50 border border-slate-200 hover:border-blue-300 transition-colors">
+                <div className="w-14 h-14 rounded-full bg-white shadow-sm flex items-center justify-center mb-6 text-blue-600"><Navigation className="w-7 h-7"/></div>
+                <h4 className="text-lg font-bold text-slate-800 mb-3">Mais controle por secretaria.</h4>
+                <p className="text-sm text-slate-600 leading-relaxed">Cada chamado é encaminhado para o setor responsável, com status e histórico.</p>
+             </div>
+             <div className="p-8 rounded-2xl bg-slate-50 border border-slate-200 hover:border-blue-300 transition-colors">
+                <div className="w-14 h-14 rounded-full bg-white shadow-sm flex items-center justify-center mb-6 text-blue-600"><ClipboardCheck className="w-7 h-7"/></div>
+                <h4 className="text-lg font-bold text-slate-800 mb-3">Mais transparência ao cidadão.</h4>
+                <p className="text-sm text-slate-600 leading-relaxed">Toda solicitação recebe protocolo e pode ser acompanhada.</p>
+             </div>
+             <div className="p-8 rounded-2xl bg-slate-50 border border-slate-200 hover:border-blue-300 transition-colors">
+                <div className="w-14 h-14 rounded-full bg-white shadow-sm flex items-center justify-center mb-6 text-blue-600"><BarChart3 className="w-7 h-7"/></div>
+                <h4 className="text-lg font-bold text-slate-800 mb-3">Mais dados para decidir.</h4>
+                <p className="text-sm text-slate-600 leading-relaxed">Gestores visualizam bairros críticos, prazos, categorias e produtividade.</p>
+             </div>
+          </div>
+        </section>
+
+        {/* NOVA SEÇÃO: USO REAL */}
+        <section className="py-24 bg-slate-900 text-white px-6">
+          <div className="max-w-7xl mx-auto text-center mb-16">
+            <h2 className="text-3xl lg:text-4xl font-extrabold tracking-tight mb-4">
+              Do registro à solução, tudo acompanhado.
+            </h2>
+          </div>
+          <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-full aspect-[4/3] bg-slate-800 rounded-2xl mb-6 flex flex-col items-center justify-center border border-slate-700 shadow-inner px-6">
+                <Smartphone className="w-12 h-12 text-blue-400 mb-4 opacity-70" />
+                <span className="text-sm text-slate-400 font-medium">Cidadão registrando ocorrência pelo celular.</span>
+              </div>
+              <h4 className="text-xl font-bold mb-3 text-white">1. O cidadão registra</h4>
+              <p className="text-slate-400 font-medium leading-relaxed">Foto, localização e descrição pelo celular.</p>
+            </div>
+            <div className="flex flex-col items-center text-center">
+              <div className="w-full aspect-[4/3] bg-slate-800 rounded-2xl mb-6 flex flex-col items-center justify-center border border-slate-700 shadow-inner px-6">
+                <BarChart3 className="w-12 h-12 text-blue-400 mb-4 opacity-70" />
+                <span className="text-sm text-slate-400 font-medium">Gestores acompanhando painel de demandas.</span>
+              </div>
+              <h4 className="text-xl font-bold mb-3 text-white">2. A prefeitura acompanha</h4>
+              <p className="text-slate-400 font-medium leading-relaxed">Triagem, secretaria responsável e status em tempo real.</p>
+            </div>
+            <div className="flex flex-col items-center text-center">
+              <div className="w-full aspect-[4/3] bg-slate-800 rounded-2xl mb-6 flex flex-col items-center justify-center border border-slate-700 shadow-inner px-6">
+                <HardHat className="w-12 h-12 text-blue-400 mb-4 opacity-70" />
+                <span className="text-sm text-slate-400 font-medium">Equipe de campo atualizando chamado.</span>
+              </div>
+              <h4 className="text-xl font-bold mb-3 text-white">3. A equipe resolve</h4>
+              <p className="text-slate-400 font-medium leading-relaxed">Atualização do chamado, histórico e comprovação do atendimento.</p>
             </div>
           </div>
         </section>
@@ -298,19 +375,27 @@ export function LandingPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-4 mt-6">
-                <div className="border border-slate-200 rounded-lg p-4">
+                <div className="border border-slate-200 rounded-lg p-5">
                    <p className="text-[10px] text-slate-500 font-bold uppercase mb-1">Chamados Abertos</p>
-                   <p className="text-2xl font-black text-[#1E3A8A]">842</p>
+                   <p className="text-3xl font-black text-[#1E3A8A]">842</p>
                 </div>
-                <div className="border border-slate-200 rounded-lg p-4">
+                <div className="border border-slate-200 rounded-lg p-5">
                    <p className="text-[10px] text-slate-500 font-bold uppercase mb-1">Tempo Médio</p>
-                   <p className="text-2xl font-black text-green-600">3,2 <span className="text-xs">dias</span></p>
+                   <p className="text-3xl font-black text-green-600">3,2 <span className="text-sm font-bold opacity-70">dias</span></p>
+                </div>
+                <div className="border border-slate-200 rounded-lg p-5">
+                   <p className="text-[10px] text-slate-500 font-bold uppercase mb-1">Chamados Resolvidos</p>
+                   <p className="text-3xl font-black text-slate-800">4.105</p>
+                </div>
+                <div className="border border-slate-200 rounded-lg p-5">
+                   <p className="text-[10px] text-slate-500 font-bold uppercase mb-1">Demandas Atrasadas</p>
+                   <p className="text-3xl font-black text-red-600">12%</p>
                 </div>
               </div>
             </div>
 
             <div className="flex-1 w-full">
-              <div className="w-full aspect-square md:aspect-[4/3] bg-slate-100 rounded-2xl relative overflow-hidden border border-slate-200 shadow-lg">
+              <div className="w-full aspect-square md:aspect-[4/3] bg-slate-100 rounded-2xl relative overflow-hidden border border-slate-300 shadow-xl">
                  <div className="absolute inset-0 bg-[#f8fafc] z-0 overflow-hidden">
                     <svg className="absolute inset-0 w-full h-full opacity-30" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
                       <path d="M-100,200 Q150,300 300,450 T800,550" fill="none" stroke="#94a3b8" strokeWidth="8" />
@@ -321,23 +406,36 @@ export function LandingPage() {
                  </div>
 
                  {/* Simulated Map Pins */}
-                 <div className="absolute top-[35%] left-[45%] z-10 w-6 h-6 -translate-x-1/2 -translate-y-full bg-red-600 rounded-t-full rounded-bl-full border-2 border-white shadow-md transform -rotate-45"></div>
-                 <div className="absolute top-[45%] left-[25%] z-10 w-5 h-5 -translate-x-1/2 -translate-y-full bg-amber-500 rounded-t-full rounded-bl-full border-2 border-white shadow-md transform -rotate-45"></div>
-                 <div className="absolute top-[60%] left-[55%] z-10 w-6 h-6 -translate-x-1/2 -translate-y-full bg-green-500 rounded-t-full rounded-bl-full border-2 border-white shadow-md transform -rotate-45"></div>
-                 <div className="absolute top-[25%] left-[75%] z-10 w-5 h-5 -translate-x-1/2 -translate-y-full bg-blue-500 rounded-t-full rounded-bl-full border-2 border-white shadow-md transform -rotate-45"></div>
-                 <div className="absolute top-[75%] left-[30%] z-10 w-6 h-6 -translate-x-1/2 -translate-y-full bg-purple-500 rounded-t-full rounded-bl-full border-2 border-white shadow-md transform -rotate-45"></div>
+                 <div className="absolute top-[35%] left-[45%] z-10 w-7 h-7 -translate-x-1/2 -translate-y-full bg-red-600 rounded-t-full rounded-bl-full border-2 border-white shadow-md transform -rotate-45"></div>
+                 <div className="absolute top-[45%] left-[25%] z-10 w-6 h-6 -translate-x-1/2 -translate-y-full bg-amber-500 rounded-t-full rounded-bl-full border-2 border-white shadow-md transform -rotate-45"></div>
+                 <div className="absolute top-[60%] left-[55%] z-10 w-8 h-8 -translate-x-1/2 -translate-y-full bg-green-500 rounded-t-full rounded-bl-full border-2 border-white shadow-xl transform -rotate-45 flex items-center justify-center"><div className="w-2 h-2 bg-white rounded-full"></div></div>
+                 <div className="absolute top-[25%] left-[75%] z-10 w-6 h-6 -translate-x-1/2 -translate-y-full bg-blue-500 rounded-t-full rounded-bl-full border-2 border-white shadow-md transform -rotate-45"></div>
+                 <div className="absolute top-[75%] left-[30%] z-10 w-7 h-7 -translate-x-1/2 -translate-y-full bg-purple-500 rounded-t-full rounded-bl-full border-2 border-white shadow-md transform -rotate-45"></div>
+
+                 {/* Simulated Top Bairros Ranking Card */}
+                 <div className="absolute top-4 right-4 bg-white/95 backdrop-blur rounded-lg shadow-lg border border-slate-200 p-3 z-10 w-48">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase mb-2">Top Bairros</p>
+                    <div className="space-y-2">
+                       <div className="flex justify-between items-center"><span className="text-[11px] font-medium text-slate-700">Centro</span><span className="text-[11px] font-bold text-slate-900">145</span></div>
+                       <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden"><div className="bg-blue-600 w-[80%] h-full"></div></div>
+                       <div className="flex justify-between items-center"><span className="text-[11px] font-medium text-slate-700">Vila Aurora</span><span className="text-[11px] font-bold text-slate-900">98</span></div>
+                       <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden"><div className="bg-blue-500 w-[60%] h-full"></div></div>
+                       <div className="flex justify-between items-center"><span className="text-[11px] font-medium text-slate-700">Sagrada Fam.</span><span className="text-[11px] font-bold text-slate-900">42</span></div>
+                       <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden"><div className="bg-blue-400 w-[30%] h-full"></div></div>
+                    </div>
+                 </div>
 
                  {/* Legend */}
-                 <div className="absolute bottom-4 left-4 right-4 bg-white/95 backdrop-blur rounded-lg shadow-md border border-slate-200 p-4 z-10 pointer-events-none">
+                 <div className="absolute bottom-4 left-4 right-4 bg-white/95 backdrop-blur rounded-lg shadow-lg border border-slate-200 p-4 z-10 pointer-events-none">
                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                     <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-500"></div><span className="text-[10px] font-bold text-slate-600 truncate">Infraestrutura</span></div>
-                     <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-amber-500"></div><span className="text-[10px] font-bold text-slate-600 truncate">Iluminação</span></div>
-                     <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-orange-500"></div><span className="text-[10px] font-bold text-slate-600 truncate">Limpeza</span></div>
-                     <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-green-500"></div><span className="text-[10px] font-bold text-slate-600 truncate">Meio ambiente</span></div>
-                     <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-purple-500"></div><span className="text-[10px] font-bold text-slate-600 truncate">Trânsito</span></div>
-                     <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-blue-500"></div><span className="text-[10px] font-bold text-slate-600 truncate">Saúde</span></div>
-                     <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-cyan-500"></div><span className="text-[10px] font-bold text-slate-600 truncate">Educação</span></div>
-                     <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-slate-500"></div><span className="text-[10px] font-bold text-slate-600 truncate">Outros</span></div>
+                     <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-500 shadow-sm border border-red-600/20"></div><span className="text-[11px] font-bold text-slate-700 truncate">Infraestrutura</span></div>
+                     <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-amber-500 shadow-sm border border-amber-600/20"></div><span className="text-[11px] font-bold text-slate-700 truncate">Iluminação</span></div>
+                     <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-orange-500 shadow-sm border border-orange-600/20"></div><span className="text-[11px] font-bold text-slate-700 truncate">Limpeza</span></div>
+                     <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-green-500 shadow-sm border border-green-600/20"></div><span className="text-[11px] font-bold text-slate-700 truncate">Meio ambiente</span></div>
+                     <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-purple-500 shadow-sm border border-purple-600/20"></div><span className="text-[11px] font-bold text-slate-700 truncate">Trânsito</span></div>
+                     <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-blue-500 shadow-sm border border-blue-600/20"></div><span className="text-[11px] font-bold text-slate-700 truncate">Saúde</span></div>
+                     <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-cyan-500 shadow-sm border border-cyan-600/20"></div><span className="text-[11px] font-bold text-slate-700 truncate">Educação</span></div>
+                     <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-slate-500 shadow-sm border border-slate-600/20"></div><span className="text-[11px] font-bold text-slate-700 truncate">Outros</span></div>
                    </div>
                  </div>
               </div>
@@ -385,10 +483,10 @@ export function LandingPage() {
         <section id="gestao-publica" className="py-24 bg-white px-6">
           <div className="max-w-5xl mx-auto text-center space-y-6">
             <h2 className="text-3xl lg:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">
-              Uma solução para prefeituras de todos os tamanhos.
+              Adaptável à realidade de cada município.
             </h2>
             <p className="text-lg text-slate-600 leading-relaxed max-w-3xl mx-auto mb-12">
-              O reportaAI pode ser configurado para a realidade de cada município, com seus próprios bairros, secretarias, categorias, usuários, prazos e regras de encaminhamento.
+              Cada prefeitura pode configurar sua própria operação: bairros, secretarias, categorias, prazos, usuários e regras de encaminhamento. O reportaAI se adapta ao município, sem engessar a gestão.
             </p>
             
             <div className="flex flex-wrap justify-center gap-4 mb-12">
@@ -401,8 +499,50 @@ export function LandingPage() {
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               {["Bairros", "Secretarias", "Categorias", "Prazos", "Usuários internos", "Fluxos de atendimento"].map((item, idx) => (
-                 <div key={idx} className="border border-slate-100 bg-slate-50 rounded-lg p-3 text-xs font-bold text-slate-700">{item}</div>
+                 <div key={idx} className="border border-slate-200 bg-white rounded-lg p-3 text-sm font-bold text-slate-700 shadow-sm">{item}</div>
               ))}
+            </div>
+          </div>
+        </section>
+
+        {/* NOVA SEÇÃO: IMPLANTAÇÃO */}
+        <section className="py-24 bg-slate-50 px-6 border-t border-slate-200">
+          <div className="max-w-7xl mx-auto text-center mb-16">
+            <h2 className="text-3xl lg:text-4xl font-extrabold text-[#1E3A8A] tracking-tight mb-4">
+              Implantação rápida, com operação personalizada.
+            </h2>
+            <p className="text-lg text-slate-600 leading-relaxed max-w-3xl mx-auto">
+              O reportaAI pode ser configurado conforme a estrutura da prefeitura, respeitando os setores, bairros, prazos e fluxos internos de atendimento.
+            </p>
+          </div>
+          <div className="max-w-5xl mx-auto w-full relative">
+            <div className="hidden md:block absolute top-[28px] left-[10%] right-[10%] h-0.5 bg-blue-200 z-0"></div>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-8 relative z-10">
+               <div className="flex flex-col items-center text-center bg-transparent group">
+                  <div className="w-14 h-14 rounded-full bg-[#1E3A8A] text-white flex items-center justify-center font-bold text-xl mb-4 shadow-lg group-hover:scale-110 transition-transform z-10 border-4 border-slate-50">1</div>
+                  <h4 className="font-bold text-slate-900 mb-2">Diagnóstico</h4>
+                  <p className="text-xs text-slate-600 font-medium leading-relaxed">Entendimento da operação e dos setores da prefeitura.</p>
+               </div>
+               <div className="flex flex-col items-center text-center bg-transparent group">
+                  <div className="w-14 h-14 rounded-full bg-[#1E3A8A] text-white flex items-center justify-center font-bold text-xl mb-4 shadow-lg group-hover:scale-110 transition-transform z-10 border-4 border-slate-50">2</div>
+                  <h4 className="font-bold text-slate-900 mb-2">Configuração</h4>
+                  <p className="text-xs text-slate-600 font-medium leading-relaxed">Cadastro de bairros, secretarias, categorias e usuários.</p>
+               </div>
+               <div className="flex flex-col items-center text-center bg-transparent group">
+                  <div className="w-14 h-14 rounded-full bg-[#1E3A8A] text-white flex items-center justify-center font-bold text-xl mb-4 shadow-lg group-hover:scale-110 transition-transform z-10 border-4 border-slate-50">3</div>
+                  <h4 className="font-bold text-slate-900 mb-2">Treinamento</h4>
+                  <p className="text-xs text-slate-600 font-medium leading-relaxed">Orientação para equipes de triagem, secretarias e gestores.</p>
+               </div>
+               <div className="flex flex-col items-center text-center bg-transparent group">
+                  <div className="w-14 h-14 rounded-full bg-[#1E3A8A] text-white flex items-center justify-center font-bold text-xl mb-4 shadow-lg group-hover:scale-110 transition-transform z-10 border-4 border-slate-50">4</div>
+                  <h4 className="font-bold text-slate-900 mb-2">Publicação</h4>
+                  <p className="text-xs text-slate-600 font-medium leading-relaxed">Liberação da plataforma para a população.</p>
+               </div>
+               <div className="flex flex-col items-center text-center bg-transparent group">
+                  <div className="w-14 h-14 rounded-full bg-[#1E3A8A] text-white flex items-center justify-center font-bold text-xl mb-4 shadow-lg group-hover:scale-110 transition-transform z-10 border-4 border-slate-50">5</div>
+                  <h4 className="font-bold text-slate-900 mb-2">Acompanhamento</h4>
+                  <p className="text-xs text-slate-600 font-medium leading-relaxed">Suporte e ajustes para melhorar a operação.</p>
+               </div>
             </div>
           </div>
         </section>
