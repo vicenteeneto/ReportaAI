@@ -21,8 +21,7 @@ import { AdminSettings } from './pages/admin/AdminSettings';
 import { SystemSettings } from './pages/admin/SystemSettings';
 import { AdminSetup } from './pages/AdminSetup';
 
-// Placeholder for reports
-const AdminReports = () => <div className="p-8">Relatórios em desenvolvimento</div>;
+import { AdminReports } from './pages/admin/AdminReports';
 
 const AppRoutes = () => {
   const { currentUser, loading } = useAppContext();
@@ -32,7 +31,7 @@ const AppRoutes = () => {
     return (
       <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-50 gap-4">
         <div className="w-12 h-12 border-4 border-[#1E3A8A] border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Carregando Cidade Conecta...</p>
+        <p className="text-slate-500 font-bold tracking-widest text-xs">Carregando reportaAI...</p>
       </div>
     );
   }

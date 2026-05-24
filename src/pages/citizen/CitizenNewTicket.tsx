@@ -203,7 +203,7 @@ export function CitizenNewTicket() {
   }, []);
 
   // City helper
-  const CITY_STATE: Record<string, string> = { 'Rondonópolis': 'MT', 'Itajaí': 'SC', 'Cuiabá': 'MT' };
+  const CITY_STATE: Record<string, string> = { 'Prefeitura Demo': 'SP', 'Itajaí': 'SC', 'Cuiabá': 'MT' };
   const filteredCities = cities.filter(c =>
     c.name.toLowerCase().includes(citySearch.toLowerCase()) ||
     (c.state || '').toLowerCase().includes(citySearch.toLowerCase())

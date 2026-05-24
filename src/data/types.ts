@@ -54,7 +54,8 @@ export type TicketStatus =
   | 'closed' 
   | 'duplicated' 
   | 'rejected' 
-  | 'waiting_info';
+  | 'waiting_info'
+  | 'canceled';
 
 export interface Ticket {
   id: string;

@@ -331,7 +331,14 @@ export function PlatformManagement() {
                                 user.role === 'mayor' ? 'bg-amber-100 text-amber-700' :
                                 'bg-blue-100 text-blue-700'
                               }`}>
-                                {user.role}
+                                {user.role === 'superadmin' ? 'Super Admin' :
+                                 user.role === 'admin' ? 'Administrador' :
+                                 user.role === 'mayor' ? 'Prefeito' :
+                                 user.role === 'secretary' ? 'Secretário' :
+                                 user.role === 'coordinator' ? 'Coordenador' :
+                                 user.role === 'triage' ? 'Triagem' :
+                                 user.role === 'field' ? 'Campo' :
+                                 user.role === 'citizen' ? 'Cidadão' : user.role}
                               </span>
                             </td>
                             <td className="px-4 py-3">

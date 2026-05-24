@@ -21,10 +21,10 @@ export const mockCategories: Category[] = [
 ];
 
 export const mockUsers: User[] = [
-  { id: 'usr-1', name: 'João Silva', email: 'joao@example.com', role: 'citizen', neighborhood: 'Vila Aurora' },
-  { id: 'usr-admin', name: 'Admin Pref', email: 'admin@rondonopolis.mt.gov.br', role: 'admin' },
-  { id: 'usr-prefeito', name: 'Prefeito Municipal', email: 'prefeito@rondonopolis.mt.gov.br', role: 'mayor' },
-  { id: 'usr-sec-infra', name: 'Secretário Infra', email: 'infra@rondonopolis.mt.gov.br', role: 'secretary', departmentId: 'dep-infra' },
+  { id: 'usr-1', name: 'João Silva', email: 'joao@example.com', role: 'citizen', neighborhood: 'Jardim Primavera' },
+  { id: 'usr-admin', name: 'Admin Pref', email: 'admin@prefeiturademo.gov.br', role: 'admin' },
+  { id: 'usr-prefeito', name: 'Prefeito Municipal', email: 'prefeito@prefeiturademo.gov.br', role: 'mayor' },
+  { id: 'usr-sec-infra', name: 'Secretário Infra', email: 'infra@prefeiturademo.gov.br', role: 'secretary', departmentId: 'dep-infra' },
 ];
 
 const today = new Date();
@@ -32,55 +32,55 @@ const d = (daysAgo: number) => new Date(today.getTime() - daysAgo * 24 * 60 * 60
 
 export const mockTickets: Ticket[] = [
   {
-    id: 'tkt-1', protocol: 'RD-2026-000101', userId: 'usr-1',
+    id: 'tkt-1', protocol: 'REPT-2026-000101', userId: 'usr-1',
     categoryId: 'cat-buraco', departmentId: 'dep-infra',
-    title: 'Buraco gigante e perigoso', description: 'Buraco na Avenida Lions Internacional sentido centro, danificando carros.',
+    title: 'Buraco gigante e perigoso', description: 'Buraco na Avenida Principal sentido centro, danificando carros.',
     status: 'in_progress', priority: 'high',
-    latitude: -16.4716, longitude: -54.6369, address: 'Av. Lions Internacional, 1000', neighborhood: 'Vila Aurora',
+    latitude: -16.4716, longitude: -54.6369, address: 'Av. Principal, 1000', neighborhood: 'Centro',
     createdAt: d(3),
     photoUrl: 'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?auto=format&fit=crop&q=80&w=400',
   },
   {
-    id: 'tkt-2', protocol: 'RD-2026-000102', userId: 'usr-1',
+    id: 'tkt-2', protocol: 'REPT-2026-000102', userId: 'usr-1',
     categoryId: 'cat-iluminacao', departmentId: 'dep-infra',
     title: 'Lâmpada queimada há 1 semana', description: 'Poste escuro na praça, perigoso à noite.',
     status: 'resolved', priority: 'medium',
-    latitude: -16.4789, longitude: -54.6402, address: 'Rua A, 45', neighborhood: 'Jardim Atlântico',
+    latitude: -16.4789, longitude: -54.6402, address: 'Rua das Palmeiras, 45', neighborhood: 'Jardim das Flores',
     createdAt: d(10), resolvedAt: d(1),
     photoUrl: 'https://images.unsplash.com/photo-1616422340576-90f719601aeb?auto=format&fit=crop&q=80&w=400',
   },
   {
-    id: 'tkt-3', protocol: 'RD-2026-000103', userId: 'usr-1',
+    id: 'tkt-3', protocol: 'REPT-2026-000103', userId: 'usr-1',
     categoryId: 'cat-lixo', departmentId: 'dep-infra',
     title: 'Entulho na calçada', description: 'Jogaram resto de obra na calçada, impedindo passagem.',
     status: 'triage', priority: 'medium',
-    latitude: -16.4855, longitude: -54.6310, address: 'Rua das Flores, 120', neighborhood: 'Sagrada Família',
+    latitude: -16.4855, longitude: -54.6310, address: 'Rua das Flores, 120', neighborhood: 'Jardim das Flores',
     createdAt: d(0),
     photoUrl: 'https://images.unsplash.com/photo-1540954930353-875fdf8e63e1?auto=format&fit=crop&q=80&w=400',
   },
   {
-    id: 'tkt-4', protocol: 'RD-2026-000104', userId: 'usr-1',
+    id: 'tkt-4', protocol: 'REPT-2026-000104', userId: 'usr-1',
     categoryId: 'cat-mato', departmentId: 'dep-meio-ambiente',
-    title: 'Mato muito alto no terreno', description: 'Terreno baldio cheio de mato e insetos no Parque Universitário.',
+    title: 'Mato muito alto no terreno', description: 'Terreno baldio cheio de mato e insetos.',
     status: 'scheduled', priority: 'low',
-    latitude: -16.4912, longitude: -54.6290, address: 'Rua C, S/N', neighborhood: 'Parque Universitário',
+    latitude: -16.4912, longitude: -54.6290, address: 'Rua C, S/N', neighborhood: 'Parque Municipal',
     createdAt: d(5),
     photoUrl: 'https://images.unsplash.com/photo-1595159491873-1f1afaf8c3ca?auto=format&fit=crop&q=80&w=400',
   },
   {
-    id: 'tkt-5', protocol: 'RD-2026-000105', userId: 'usr-1',
+    id: 'tkt-5', protocol: 'REPT-2026-000105', userId: 'usr-1',
     categoryId: 'cat-transito', departmentId: 'dep-mobilidade',
     title: 'Semáforo intermitente', description: 'Semáforo cruzamento centro piscando amarelo há horas.',
     status: 'in_progress', priority: 'urgent',
-    latitude: -16.4678, longitude: -54.6385, address: 'Av. Marechal Rondon, 500', neighborhood: 'Centro',
+    latitude: -16.4678, longitude: -54.6385, address: 'Av. Brasil, 500', neighborhood: 'Centro',
     createdAt: d(0),
   },
   {
-    id: 'tkt-6', protocol: 'RD-2026-000106', userId: 'usr-1',
+    id: 'tkt-6', protocol: 'REPT-2026-000106', userId: 'usr-1',
     categoryId: 'cat-esgoto', departmentId: 'dep-infra',
-    title: 'Bueiro entupido alagando rua', description: 'Sempre que chove alaga tudo aqui na Vila Aurora.',
+    title: 'Bueiro entupido alagando rua', description: 'Sempre que chove alaga tudo aqui no bairro.',
     status: 'forwarded', priority: 'high',
-    latitude: -16.4740, longitude: -54.6320, address: 'Rua B, 300', neighborhood: 'Vila Aurora',
+    latitude: -16.4740, longitude: -54.6320, address: 'Rua B, 300', neighborhood: 'Vila Esperança',
     createdAt: d(1),
   },
 ];

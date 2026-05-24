@@ -36,7 +36,7 @@ export function CitizenNews() {
         setNews([
           {
             id: '1',
-            title: 'Mutirão de Limpeza no Bairro Vila Aurora',
+            title: 'Mutirão de Limpeza no Centro',
             content: 'Neste sábado, a secretaria de infraestrutura realizará um grande mutirão de limpeza. Colabore colocando seu entulho na calçada.',
             type: 'info',
             publishedAt: new Date().toISOString(),

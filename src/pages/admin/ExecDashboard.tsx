@@ -43,7 +43,7 @@ export function ExecDashboard() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-slate-200 pb-4">
         <div>
            <p className="text-blue-600 font-bold tracking-widest text-sm uppercase mb-1">Visão Executiva</p>
-           <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Rondonópolis</h2>
+           <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Prefeitura Demo</h2>
         </div>
         <div className="text-right">
           <p className="text-sm text-slate-500 font-medium">Atualizado hoje</p>

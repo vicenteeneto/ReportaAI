@@ -130,7 +130,7 @@ export function CitizenMap() {
           <div className="mt-2 hidden md:block w-80 pointer-events-auto">
             <div className="bg-white border border-slate-200 rounded p-4 shadow-lg flex flex-col max-h-[70vh]">
               <h2 className="font-bold text-slate-900 text-sm uppercase tracking-tight">Mapa de Ocorrências</h2>
-              <p className="text-[10px] text-slate-500 mt-0.5 font-medium leading-tight mb-4">Visão georreferenciada de chamados por região em Rondonópolis.</p>
+              <p className="text-[10px] text-slate-500 mt-0.5 font-medium leading-tight mb-4">Visão georreferenciada de chamados por região.</p>
               
               <div className="flex-1 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
                 <button

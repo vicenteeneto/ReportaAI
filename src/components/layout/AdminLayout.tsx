@@ -15,7 +15,7 @@ export function AdminLayout() {
   ];
 
   const manageItems = [
-    { label: 'KNG Flow (Super)', path: '/admin/system', showFor: ['superadmin'] },
+    { label: 'KNG Flow', path: '/admin/system', showFor: ['superadmin'] },
     { label: 'Secretarias', path: '/admin/settings', showFor: ['admin', 'superadmin'] },
     { label: 'Relatórios PDF', path: '/admin/reports', showFor: ['admin', 'mayor', 'secretary', 'coordinator', 'superadmin'] },
     { label: 'Usuários', path: '#', showFor: ['admin'] },
@@ -30,7 +30,7 @@ export function AdminLayout() {
             <div className="w-6 h-6 border-4 border-[#1E3A8A] rounded-full"></div>
           </div>
           <div>
-            <h1 className="font-bold text-lg leading-tight uppercase tracking-tight">Cidade Conecta Rondonópolis</h1>
+            <h1 className="font-bold text-lg leading-tight tracking-tight">reporta<span className="text-blue-500">AI</span></h1>
             <p className="text-[10px] opacity-80 uppercase tracking-widest">Gestão Urbana Inteligente</p>
           </div>
         </div>
@@ -42,7 +42,16 @@ export function AdminLayout() {
           <div className="flex items-center gap-3 pl-6 border-l border-white/20">
             <div className="text-right hidden sm:block">
               <p className="text-xs font-semibold">{currentUser?.name}</p>
-              <p className="text-[10px] opacity-70 italic">Logado como {currentUser?.role}</p>
+              <p className="text-[10px] opacity-70 italic">Logado como {
+                currentUser?.role === 'superadmin' ? 'Super Admin' :
+                currentUser?.role === 'admin' ? 'Administrador' :
+                currentUser?.role === 'mayor' ? 'Prefeito' :
+                currentUser?.role === 'secretary' ? 'Secretário' :
+                currentUser?.role === 'coordinator' ? 'Coordenador' :
+                currentUser?.role === 'triage' ? 'Triagem' :
+                currentUser?.role === 'field' ? 'Campo' :
+                currentUser?.role === 'citizen' ? 'Cidadão' : currentUser?.role
+              }</p>
             </div>
             <button onClick={logout} className="w-8 h-8 rounded-full bg-slate-300 flex items-center justify-center text-[#1E3A8A] hover:bg-white transition-colors" title="Sair">
               <LogOut className="w-4 h-4" />

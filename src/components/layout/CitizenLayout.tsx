@@ -23,7 +23,7 @@ export function CitizenLayout() {
             <div className="w-4 h-4 border-[3px] border-[#1E3A8A] rounded-full"></div>
           </div>
           <div>
-            <h1 className="font-bold text-sm leading-tight uppercase tracking-tight">Cidade Conecta</h1>
+            <h1 className="font-bold text-sm leading-tight tracking-tight">reporta<span className="text-blue-500">AI</span></h1>
             <p className="text-[9px] opacity-80 uppercase tracking-widest leading-none">Cidadão</p>
           </div>
         </div>

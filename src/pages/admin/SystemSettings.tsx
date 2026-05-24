@@ -141,7 +141,7 @@ export function SystemSettings() {
                   <thead className="bg-slate-50 text-slate-500 rounded-lg">
                     <tr>
                       <th className="px-4 py-3 font-semibold uppercase tracking-wider text-xs">Nome / E-mail</th>
-                      <th className="px-4 py-3 font-semibold uppercase tracking-wider text-xs">Função (Role)</th>
+                      <th className="px-4 py-3 font-semibold uppercase tracking-wider text-xs">Função</th>
                       <th className="px-4 py-3 font-semibold uppercase tracking-wider text-xs">Secretaria</th>
                       <th className="px-4 py-3 font-semibold uppercase tracking-wider text-xs">Cidade</th>
                       <th className="px-4 py-3 font-semibold uppercase tracking-wider text-xs text-right">Ações</th>

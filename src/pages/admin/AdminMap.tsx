@@ -22,22 +22,27 @@ function MapController({ tickets }: { tickets: any[] }) {
 }
 
 export function AdminMap() {
-  const { tickets, categories } = useAppContext();
+  const { tickets, categories, cities } = useAppContext();
+  const [selectedCity, setSelectedCity] = useState<string>('');
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [selectedNeighborhood, setSelectedNeighborhood] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showFullDetails, setShowFullDetails] = useState(false);
 
+  const cityFilteredTickets = useMemo(() => {
+    return selectedCity ? tickets.filter(t => t.cityId === selectedCity) : tickets;
+  }, [tickets, selectedCity]);
+
   const neighborhoods = useMemo(() => {
     const counts: Record<string, number> = {};
-    tickets.forEach(t => {
+    cityFilteredTickets.forEach(t => {
       counts[t.neighborhood] = (counts[t.neighborhood] || 0) + 1;
     });
     return Object.entries(counts).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
-  }, [tickets]);
+  }, [cityFilteredTickets]);
 
   const filteredTickets = useMemo(() => {
-    let filtered = tickets;
+    let filtered = cityFilteredTickets;
     if (selectedNeighborhood) {
       filtered = filtered.filter(t => t.neighborhood === selectedNeighborhood);
     }
@@ -45,7 +50,7 @@ export function AdminMap() {
       filtered = filtered.filter(t => t.categoryId === selectedCategory);
     }
     return filtered;
-  }, [tickets, selectedNeighborhood, selectedCategory]);
+  }, [cityFilteredTickets, selectedNeighborhood, selectedCategory]);
 
   // Helper to map color string to hex for inline styles
   const getPinColor = (categoryColor: string) => {
@@ -73,7 +78,23 @@ export function AdminMap() {
     <div className="flex flex-col h-full space-y-4">
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Mapa de Ocorrências</h2>
-        <Button variant="outline" icon={Filter} className="shrink-0">Filtros Avançados</Button>
+        <div className="flex items-center gap-2">
+          <select
+            className="border border-slate-300 rounded p-2 text-sm bg-white hover:border-slate-400 focus:outline-none focus:ring-1 focus:ring-[#1E3A8A]"
+            value={selectedCity}
+            onChange={(e) => {
+              setSelectedCity(e.target.value);
+              setSelectedNeighborhood(null);
+              setSelectedTicket(null);
+            }}
+          >
+            <option value="">Todas as Cidades</option>
+            {cities.map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+          <Button variant="outline" icon={Filter} className="shrink-0">Filtros Avançados</Button>
+        </div>
       </div>
 
       {/* Neighborhood Cards */}
@@ -86,7 +107,7 @@ export function AdminMap() {
           className={`snap-start shrink-0 min-w-[140px] p-3 rounded-lg border shadow-sm text-left transition-all flex flex-col justify-center
             ${selectedNeighborhood === null ? 'bg-slate-800 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
         >
-          <span className={`text-2xl font-bold ${selectedNeighborhood === null ? 'text-white' : 'text-slate-900'}`}>{tickets.length}</span>
+          <span className={`text-2xl font-bold ${selectedNeighborhood === null ? 'text-white' : 'text-slate-900'}`}>{cityFilteredTickets.length}</span>
           <span className={`text-xs mt-0.5 font-bold uppercase tracking-wider truncate w-full ${selectedNeighborhood === null ? 'text-slate-300' : 'text-slate-500'}`}>Toda Cidade</span>
         </button>
         {neighborhoods.map(n => (
@@ -124,7 +145,7 @@ export function AdminMap() {
               Todos os Problemas
             </button>
             {categories.map(cat => {
-              const count = tickets.filter(t => t.categoryId === cat.id && (!selectedNeighborhood || t.neighborhood === selectedNeighborhood)).length;
+              const count = cityFilteredTickets.filter(t => t.categoryId === cat.id && (!selectedNeighborhood || t.neighborhood === selectedNeighborhood)).length;
               return (
                 <button
                   key={cat.id}

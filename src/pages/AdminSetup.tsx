@@ -10,8 +10,8 @@ export function AdminSetup() {
     setStatus('Iniciando criação...');
     
     // allow bypass rate limit by appending a number if requested
-    const customEmail1 = `superuser${emailPrefix}@rondonopolis.mt.gov.br`;
-    const customEmail2 = `prefeituraroo${emailPrefix}@rondonopolis.mt.gov.br`;
+    const customEmail1 = `superuser${emailPrefix}@prefeiturademo.gov.br`;
+    const customEmail2 = `prefeito${emailPrefix}@prefeiturademo.gov.br`;
 
     try {
       // Create Superuser
@@ -71,7 +71,7 @@ export function AdminSetup() {
         </p>
         
         <ol className="list-decimal text-sm mb-6 pl-4 space-y-2">
-          <li>Se você rodou os SQLs antigos de admin, apague eles no SQL Editor: <br/> <code>DELETE FROM auth.users WHERE email LIKE '%rondonopolis%';</code></li>
+          <li>Se você rodou os SQLs antigos de admin, apague eles no SQL Editor: <br/> <code>DELETE FROM auth.users WHERE email LIKE '%prefeiturademo%';</code></li>
           <li>Clique no botão abaixo para usar a API nativa de SignIn.</li>
           <li>Depois, é só voltar para a tela de login normalmente.</li>
         </ol>

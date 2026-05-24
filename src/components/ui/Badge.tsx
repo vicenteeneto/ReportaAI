@@ -31,35 +31,36 @@ export function Badge({ className, variant = 'gray', ...props }: BadgeProps) {
   );
 }
 
-export const StatusBadge = ({ status }: { status: TicketStatus }) => {
-  const map: Record<TicketStatus, { label: string; variant: BadgeProps['variant'] }> = {
-    received: { label: 'Recebido', variant: 'gray' },
-    triage: { label: 'Em Triagem', variant: 'orange' },
-    forwarded: { label: 'Encaminhado', variant: 'purple' },
-    analyzing: { label: 'Em Análise', variant: 'yellow' },
-    scheduled: { label: 'Programado', variant: 'blue' },
-    in_progress: { label: 'Em Execução', variant: 'yellow' },
-    resolved: { label: 'Resolvido', variant: 'green' },
-    closed: { label: 'Finalizado', variant: 'green' },
-    duplicated: { label: 'Duplicado', variant: 'gray' },
-    rejected: { label: 'Indeferido', variant: 'red' },
-    waiting_info: { label: 'Aguardando Info', variant: 'orange' },
-  };
+export const STATUS_MAP: Record<TicketStatus, { label: string; variant: BadgeProps['variant'] }> = {
+  received: { label: 'Recebido', variant: 'gray' },
+  triage: { label: 'Em Triagem', variant: 'orange' },
+  forwarded: { label: 'Encaminhado', variant: 'purple' },
+  analyzing: { label: 'Em Análise', variant: 'yellow' },
+  scheduled: { label: 'Programado', variant: 'blue' },
+  in_progress: { label: 'Em Execução', variant: 'yellow' },
+  resolved: { label: 'Resolvido', variant: 'green' },
+  closed: { label: 'Finalizado', variant: 'green' },
+  duplicated: { label: 'Duplicado', variant: 'gray' },
+  rejected: { label: 'Indeferido', variant: 'red' },
+  waiting_info: { label: 'Aguardando Info', variant: 'orange' },
+  canceled: { label: 'Cancelado', variant: 'gray' },
+};
 
-  const config = map[status] || { label: status, variant: 'gray' };
+export const StatusBadge = ({ status }: { status: TicketStatus }) => {
+  const config = STATUS_MAP[status] || { label: status, variant: 'gray' };
 
   return <Badge variant={config.variant}>{config.label}</Badge>;
 };
 
-export const PriorityBadge = ({ priority }: { priority: Priority }) => {
-  const map: Record<Priority, { label: string; variant: BadgeProps['variant'] }> = {
-    low: { label: 'Baixa', variant: 'gray' },
-    medium: { label: 'Média', variant: 'yellow' },
-    high: { label: 'Alta', variant: 'orange' },
-    urgent: { label: 'Urgente', variant: 'red' },
-  };
+export const PRIORITY_MAP: Record<Priority, { label: string; variant: BadgeProps['variant'] }> = {
+  low: { label: 'Baixa', variant: 'gray' },
+  medium: { label: 'Média', variant: 'yellow' },
+  high: { label: 'Alta', variant: 'orange' },
+  urgent: { label: 'Urgente', variant: 'red' },
+};
 
-  const config = map[priority] || { label: priority, variant: 'gray' };
+export const PriorityBadge = ({ priority }: { priority: Priority }) => {
+  const config = PRIORITY_MAP[priority] || { label: priority, variant: 'gray' };
 
   return <Badge variant={config.variant}>{config.label}</Badge>;
 }

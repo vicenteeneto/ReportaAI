@@ -385,13 +385,19 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updateTicketStatus = async (id: string, status: TicketStatus) => {
+    const statusLabels: Record<string, string> = {
+      received: 'Recebido', triage: 'Em Triagem', forwarded: 'Encaminhado', analyzing: 'Em Análise',
+      scheduled: 'Programado', in_progress: 'Em Execução', resolved: 'Resolvido', closed: 'Finalizado',
+      duplicated: 'Duplicado', rejected: 'Indeferido', waiting_info: 'Aguardando Info'
+    };
+    const translatedStatus = statusLabels[status] || status;
     const { error } = await supabase.from('tickets').update({ status }).eq('id', id);
     if (!error) {
        setTickets(prev => prev.map(t => t.id === id ? { ...t, status } : t));
        await supabase.from('ticket_history').insert({
           ticketId: id,
           userId: currentUser?.id,
-          action: `Status alterado para ${status}`,
+          action: `Status alterado para ${translatedStatus}`,
           newStatus: status
        });
     } else {

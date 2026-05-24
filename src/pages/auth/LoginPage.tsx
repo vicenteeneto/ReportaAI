@@ -52,7 +52,7 @@ export function LoginPage() {
       <Card className="w-full max-w-[400px] shadow-2xl shadow-slate-200/50 border border-slate-200 bg-white">
         <CardHeader className="text-center pb-4 pt-6">
            <div className="mx-auto w-12 h-12 rounded bg-[#1E3A8A] flex items-center justify-center mb-5">
-            <div className="w-5 h-5 border-[3px] border-[#1E3A8A] bg-white rounded-full flex items-center justify-center"></div>
+            <span className="text-white font-bold text-xl">AI</span>
           </div>
           <CardTitle className="text-xl tracking-tight uppercase">{asAdmin ? 'Acesso Gestão' : 'Acessar Conta'}</CardTitle>
           <CardDescription className="text-xs max-w-[240px] mx-auto mt-1">
