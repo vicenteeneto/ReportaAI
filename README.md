@@ -6,7 +6,7 @@
 
 This contains everything you need to run your app locally.
 
-View your app in AI Studio: https://ai.studio/apps/0e2f0449-6fa2-4a35-9579-ddffed7b4dff
+Production URL: https://reportaai.kngflow.com
 
 ## Run Locally
 

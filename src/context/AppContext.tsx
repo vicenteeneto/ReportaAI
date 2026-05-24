@@ -252,10 +252,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const loginWithGoogle = async () => {
     try {
+      const redirectUrl = import.meta.env.VITE_APP_URL || 'https://reportaai.kngflow.com';
       await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin,
+          redirectTo: redirectUrl,
         }
       });
     } catch (err) {
