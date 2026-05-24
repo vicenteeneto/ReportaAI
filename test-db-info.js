@@ -13,8 +13,12 @@ if (!supabaseUrl) {
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 async function run() {
-  const { data, error } = await supabase.from('tickets').select().limit(1);
-  console.log('Error:', error);
-  console.log('Data:', data);
+  const { data: users, error: errU } = await supabase.from('users').select('id, name, "departmentid", "departmentId", "department_id"').limit(3);
+  console.log('Users error:', errU);
+  console.log('Users data:', users);
+
+  const { data: cities, error: errC } = await supabase.from('cities').select('*').limit(3);
+  console.log('Cities error:', errC);
+  console.log('Cities data:', cities);
 }
 run();

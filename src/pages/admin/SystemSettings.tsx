@@ -47,16 +47,20 @@ export function SystemSettings() {
   };
 
   const handleUpdateDepartment = async (userId: string, departmentId: string) => {
-    const { error } = await supabase.from('users').update({ department_id: departmentId }).eq('id', userId);
+    const val = departmentId === '' ? null : departmentId;
+    const { error } = await supabase.from('users').update({ departmentId: val } as any).eq('id', userId);
     if (!error) {
-       setUsers(users.map(u => u.id === userId ? { ...u, departmentId } : u));
+       setUsers(users.map(u => u.id === userId ? { ...u, departmentId: val } as any : u));
+    } else {
+       alert('Erro ao atualizar departamento: ' + error.message);
     }
   };
 
   const handleUpdateCity = async (userId: string, cityId: string) => {
-    const { error } = await supabase.from('users').update({ city_id: cityId }).eq('id', userId);
+    const val = cityId === '' ? null : cityId;
+    const { error } = await supabase.from('users').update({ cityId: val } as any).eq('id', userId);
     if (!error) {
-       setUsers(users.map(u => u.id === userId ? { ...u, cityId, city_id: cityId } as any : u));
+       setUsers(users.map(u => u.id === userId ? { ...u, cityId: val } as any : u));
     } else {
       alert('Erro ao atualizar cidade: ' + error.message);
     }
@@ -91,8 +95,8 @@ export function SystemSettings() {
           name: newEmail.split('@')[0],
           email: newEmail,
           role: newRole,
-          department_id: newDepartment || null,
-          city_id: newCity || null
+          departmentId: newDepartment || null,
+          cityId: newCity || null
         });
       }
 
@@ -165,7 +169,7 @@ export function SystemSettings() {
                         <td className="px-4 py-4">
                           <select 
                             className="border border-slate-200 rounded p-1 text-sm bg-white max-w-[150px] hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-[#1E3A8A]"
-                            value={user.departmentId || (user as any).department_id || ''}
+                            value={user.departmentId || ''}
                             onChange={(e) => handleUpdateDepartment(user.id, e.target.value)}
                           >
                             <option value="">-- Nenhuma --</option>
@@ -177,10 +181,10 @@ export function SystemSettings() {
                         <td className="px-4 py-4">
                           <select 
                             className="border border-slate-200 rounded p-1 text-sm bg-white max-w-[150px] hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-[#1E3A8A]"
-                            value={user.cityId || (user as any).city_id || ''}
+                            value={user.cityId || ''}
                             onChange={(e) => handleUpdateCity(user.id, e.target.value)}
                           >
-                            <option value="">-- Nenhuma --</option>
+                            <option value="">-- Todas --</option>
                             {cities.map(c => (
                               <option key={c.id} value={c.id}>{c.name}</option>
                             ))}
@@ -272,7 +276,7 @@ export function SystemSettings() {
                     value={newCity}
                     onChange={(e) => setNewCity(e.target.value)}
                   >
-                    <option value="">-- Selecione (Opcional) --</option>
+                    <option value="">-- Todas --</option>
                     {cities.map(c => (
                       <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
