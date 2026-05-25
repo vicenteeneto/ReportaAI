@@ -1,20 +1,25 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Input';
 import { StatusBadge, PriorityBadge } from '../../components/ui/Badge';
 import { useAppContext } from '../../context/AppContext';
-import { Search, Filter, Eye } from 'lucide-react';
+import { ArrowLeft, Search, Filter, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { AdminTicketDetailsModal } from '../../components/admin/AdminTicketDetailsModal';
 import { Ticket } from '../../data/types';
 
 export function AdminTickets() {
   const { tickets, categories, departments, currentUser } = useAppContext();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { id: routeTicketId } = useParams();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('');
+  const [quickFilter, setQuickFilter] = useState<string>((location.state as any)?.filter || '');
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
 
   const filteredTickets = tickets.filter(t => {
@@ -25,9 +30,28 @@ export function AdminTickets() {
     const matchesSearch = t.protocol.includes(searchTerm) || t.title.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter ? t.status === statusFilter : true;
     const matchesDept = departmentFilter ? t.departmentId === departmentFilter : true;
+    const matchesQuickFilter =
+      quickFilter === 'resolved'
+        ? ['resolved', 'closed'].includes(t.status)
+        : quickFilter === 'pending'
+        ? !['resolved', 'closed', 'rejected', 'duplicated'].includes(t.status)
+        : quickFilter === 'urgent'
+        ? ['urgent', 'high'].includes(t.priority) && !['resolved', 'closed', 'rejected', 'duplicated'].includes(t.status)
+        : true;
     
-    return belongsToDept && matchesSearch && matchesStatus && matchesDept;
+    return belongsToDept && matchesSearch && matchesStatus && matchesDept && matchesQuickFilter;
   });
+
+  useEffect(() => {
+    const filter = (location.state as any)?.filter;
+    if (filter) setQuickFilter(filter);
+  }, [location.state]);
+
+  useEffect(() => {
+    if (!routeTicketId || tickets.length === 0) return;
+    const ticket = tickets.find(t => t.id === routeTicketId);
+    if (ticket) setSelectedTicket(ticket);
+  }, [routeTicketId, tickets]);
 
   const handleExport = () => {
     alert('Relatório gerado com sucesso! Iniciando download...');
@@ -40,7 +64,18 @@ export function AdminTickets() {
           <h2 className="text-xl font-bold text-slate-800 tracking-tight">Gestão de Chamados</h2>
           <p className="text-[10px] text-slate-500 uppercase tracking-widest">{filteredTickets.length} registros filtrados</p>
         </div>
-        <Button size="sm" onClick={handleExport}>Exportar Relatório</Button>
+        <div className="flex items-center gap-2">
+          {quickFilter && (
+            <Button variant="outline" size="sm" onClick={() => {
+              setQuickFilter('');
+              navigate('/admin/tickets', { replace: true });
+            }}>
+              Limpar filtro
+            </Button>
+          )}
+          <Button variant="outline" size="sm" icon={ArrowLeft} onClick={() => navigate(-1)}>Voltar</Button>
+          <Button size="sm" onClick={handleExport}>Exportar Relatório</Button>
+        </div>
       </div>
 
       <Card className="flex flex-col flex-1 min-h-0">
@@ -55,7 +90,10 @@ export function AdminTickets() {
             />
           </div>
           <div className="flex gap-2 flex-wrap">
-             <Select className="w-36 h-9 text-xs" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+             <Select className="w-36 h-9 text-xs" value={statusFilter} onChange={(e) => {
+               setStatusFilter(e.target.value);
+               setQuickFilter('');
+             }}>
               <option value="">Status (Todos)</option>
               <option value="received">Recebido</option>
               <option value="triage">Triagem</option>
@@ -126,7 +164,10 @@ export function AdminTickets() {
       {selectedTicket && (
         <AdminTicketDetailsModal 
           ticket={selectedTicket} 
-          onClose={() => setSelectedTicket(null)} 
+          onClose={() => {
+            setSelectedTicket(null);
+            if (routeTicketId) navigate('/admin/tickets', { replace: true });
+          }} 
         />
       )}
     </div>

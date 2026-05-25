@@ -38,6 +38,17 @@ export function ExecDashboard() {
     value: tickets.filter(t => t.categoryId === cat.id).length
   })).sort((a,b) => b.value - a.value).slice(0, 5);
 
+  const neighborhoodData = Object.entries(
+    tickets.reduce<Record<string, number>>((acc, ticket) => {
+      const name = ticket.neighborhood || 'Sem bairro';
+      acc[name] = (acc[name] || 0) + 1;
+      return acc;
+    }, {})
+  )
+    .map(([name, value]) => ({ name, value: Number(value) }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 8);
+
   return (
     <div className="space-y-8 pb-8">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-slate-200 pb-4">
@@ -138,6 +149,23 @@ export function ExecDashboard() {
            </CardContent>
         </Card>
       </div>
+
+      <Card className="shadow-sm border-slate-200">
+        <div className="p-6 border-b border-slate-100">
+          <h3 className="font-bold text-lg text-slate-800">Demandas por Bairro</h3>
+        </div>
+        <CardContent className="p-6 h-[320px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={neighborhoodData} layout="vertical" margin={{ top: 0, right: 30, left: 60, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+              <XAxis type="number" axisLine={false} tickLine={false} tick={{fill: '#64748b'}} />
+              <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#334155', fontWeight: 500, fontSize: 12}} />
+              <Tooltip cursor={{fill: '#f1f5f9'}} contentStyle={{borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
+              <Bar dataKey="value" fill="#1E3A8A" radius={[0, 4, 4, 0]} barSize={22} />
+            </BarChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
     </div>
   );
 }

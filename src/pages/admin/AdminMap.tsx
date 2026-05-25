@@ -28,6 +28,9 @@ export function AdminMap() {
   const [selectedNeighborhood, setSelectedNeighborhood] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showFullDetails, setShowFullDetails] = useState(false);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState('');
 
   const cityFilteredTickets = useMemo(() => {
     return selectedCity ? tickets.filter(t => t.cityId === selectedCity) : tickets;
@@ -49,8 +52,14 @@ export function AdminMap() {
     if (selectedCategory) {
       filtered = filtered.filter(t => t.categoryId === selectedCategory);
     }
+    if (statusFilter) {
+      filtered = filtered.filter(t => t.status === statusFilter);
+    }
+    if (priorityFilter) {
+      filtered = filtered.filter(t => t.priority === priorityFilter);
+    }
     return filtered;
-  }, [cityFilteredTickets, selectedNeighborhood, selectedCategory]);
+  }, [cityFilteredTickets, selectedNeighborhood, selectedCategory, statusFilter, priorityFilter]);
 
   // Helper to map color string to hex for inline styles
   const getPinColor = (categoryColor: string) => {
@@ -93,9 +102,56 @@ export function AdminMap() {
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
-          <Button variant="outline" icon={Filter} className="shrink-0">Filtros Avançados</Button>
+          <Button variant="outline" icon={Filter} className="shrink-0" onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}>
+            Filtros Avançados
+          </Button>
         </div>
       </div>
+
+      {showAdvancedFilters && (
+        <Card className="p-4 border-slate-200 shadow-sm">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+            <label className="space-y-1 text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Status
+              <select className="w-full border border-slate-300 rounded-lg p-2 text-sm bg-white font-normal normal-case tracking-normal" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                <option value="">Todos os status</option>
+                <option value="received">Recebido</option>
+                <option value="triage">Triagem</option>
+                <option value="forwarded">Encaminhado</option>
+                <option value="analyzing">Em Análise</option>
+                <option value="scheduled">Agendado</option>
+                <option value="in_progress">Em Execução</option>
+                <option value="resolved">Resolvido</option>
+                <option value="closed">Finalizado</option>
+                <option value="rejected">Indeferido</option>
+              </select>
+            </label>
+            <label className="space-y-1 text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Prioridade
+              <select className="w-full border border-slate-300 rounded-lg p-2 text-sm bg-white font-normal normal-case tracking-normal" value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)}>
+                <option value="">Todas as prioridades</option>
+                <option value="urgent">Urgente</option>
+                <option value="high">Alta</option>
+                <option value="medium">Média</option>
+                <option value="low">Baixa</option>
+              </select>
+            </label>
+            <div className="flex gap-2">
+              <Button variant="outline" className="w-full" onClick={() => {
+                setStatusFilter('');
+                setPriorityFilter('');
+                setSelectedCategory(null);
+                setSelectedNeighborhood(null);
+              }}>
+                Limpar filtros
+              </Button>
+              <Button className="w-full" onClick={() => setShowAdvancedFilters(false)}>
+                Aplicar
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Neighborhood Cards */}
       <div className="w-full overflow-x-auto pb-2 flex gap-3 snap-x no-scrollbar">

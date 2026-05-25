@@ -70,7 +70,7 @@ export function AdminDashboard() {
         </div>
 
         <div 
-          onClick={() => openTickets('in_progress')}
+          onClick={() => openTickets('pending')}
           className={`bg-white p-4 rounded-xl border border-slate-200 shadow-sm transition-all relative overflow-hidden group ${canOpenTickets ? 'cursor-pointer hover:shadow-md hover:border-amber-400' : ''}`}
         >
           <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Fila de Trabalho</p>

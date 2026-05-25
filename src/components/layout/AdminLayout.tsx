@@ -69,7 +69,7 @@ export function AdminLayout() {
             <div className="px-4 mb-6">
               <button
                 type="button"
-                onClick={() => navigate('/admin/tickets')}
+                onClick={() => navigate('/citizen/new')}
                 className="w-full bg-[#1E3A8A] text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-800 transition-colors shadow-sm flex items-center justify-center gap-2"
               >
                 <span className="text-lg leading-none">+</span> Novo Chamado

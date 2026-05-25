@@ -4,7 +4,7 @@ import { useAppContext } from '../../context/AppContext';
 import { Button } from '../ui/Button';
 import { StatusBadge, PriorityBadge } from '../ui/Badge';
 import { format } from 'date-fns';
-import { X, MapPin, Clock, MessageSquare, AlertCircle, Upload } from 'lucide-react';
+import { X, Clock, MessageSquare, Upload, ExternalLink } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 interface Props {
@@ -13,9 +13,10 @@ interface Props {
 }
 
 export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
-  const { tickets, categories, departments, updateTicketStatus } = useAppContext();
+  const { categories, departments } = useAppContext();
   const category = categories.find(c => c.id === ticket.categoryId);
   const department = departments.find(d => d.id === ticket.departmentId);
+  const citizenPhotos = (ticket.photoUrl || '').split(',').map(url => url.trim()).filter(Boolean);
 
   const [isUpdating, setIsUpdating] = useState(false);
   const [newStatus, setNewStatus] = useState<TicketStatus>(ticket.status as TicketStatus);
@@ -23,6 +24,8 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
   const [resolutionFile, setResolutionFile] = useState<File | null>(null);
   const [ticketHistory, setTicketHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [error, setError] = useState('');
 
   React.useEffect(() => {
     const fetchHistory = async () => {
@@ -36,40 +39,59 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
 
   const handleUpdate = async () => {
     setIsUpdating(true);
+    setError('');
     try {
       let resolvedPhotoUrl = ticket.resolvedPhotoUrl;
 
       if (newStatus === 'resolved' && resolutionFile) {
         const fileExt = resolutionFile.name.split('.').pop();
-        const fileName = `resolution-${ticket.id}-${Date.now()}.${fileExt}`;
-        const { error: uploadError } = await supabase.storage.from('tickets').upload(fileName, resolutionFile);
-        if (!uploadError) {
-          const { data: { publicUrl } } = supabase.storage.from('tickets').getPublicUrl(fileName);
-          resolvedPhotoUrl = publicUrl;
-        }
+        const fileName = `resolutions/${ticket.id}-${Date.now()}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage.from('tickets').upload(fileName, resolutionFile, {
+          contentType: resolutionFile.type || 'image/jpeg',
+          upsert: false,
+        });
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage.from('tickets').getPublicUrl(fileName);
+        resolvedPhotoUrl = publicUrl;
       }
 
-      await supabase.from('tickets').update({ 
+      const { error: updateError } = await supabase.from('tickets').update({ 
         status: newStatus,
         resolvedPhotoUrl: resolvedPhotoUrl,
         updatedAt: Date.now()
       }).eq('id', ticket.id);
+      if (updateError) throw updateError;
 
-      await supabase.from('ticket_history').insert({
+      const statusLabels: Record<string, string> = {
+        received: 'Recebido',
+        triage: 'Triagem',
+        forwarded: 'Encaminhado',
+        analyzing: 'Em Analise',
+        scheduled: 'Agendado',
+        in_progress: 'Em Execucao',
+        resolved: 'Resolvido',
+        closed: 'Finalizado',
+        rejected: 'Indeferido',
+        waiting_info: 'Pendencia Cidadao',
+      };
+
+      const { error: historyError } = await supabase.from('ticket_history').insert({
         ticketId: ticket.id,
         userId: (await supabase.auth.getUser()).data.user?.id,
-        action: `Status alterado para ${newStatus}`,
+        action: `Status alterado para ${statusLabels[newStatus] || newStatus}`,
         newStatus: newStatus,
         comment: resolutionComment,
         createdAt: Date.now()
       });
+      if (historyError) throw historyError;
 
       // Update global context if needed - simplified reload for now or just close
       onClose();
       window.location.reload(); 
     } catch (e) {
       console.error(e);
-      alert('Erro ao atualizar chamado');
+      setError('Nao foi possivel atualizar o chamado. Verifique o anexo e tente novamente.');
     } finally {
       setIsUpdating(false);
     }
@@ -93,13 +115,37 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Evidência do Cidadão</p>
-                {ticket.photoUrl ? (
-                  <div className="w-full aspect-video rounded-xl overflow-hidden bg-slate-100 border border-slate-200 relative">
-                    <img 
-                      src={ticket.photoUrl.split(',')[0]} 
-                      alt="Problema" 
-                      className="w-full h-full object-cover" 
-                    />
+                {citizenPhotos.length > 0 ? (
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedImage(citizenPhotos[0])}
+                      className="w-full aspect-video rounded-xl overflow-hidden bg-slate-100 border border-slate-200 relative group"
+                    >
+                      <img
+                        src={citizenPhotos[0]}
+                        alt="Problema"
+                        className="w-full h-full object-cover"
+                      />
+                      <span className="absolute right-2 top-2 bg-white/90 text-slate-700 rounded-full p-1 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                        <ExternalLink className="w-4 h-4" />
+                      </span>
+                    </button>
+                    {citizenPhotos.length > 1 && (
+                      <div className="flex gap-2 overflow-x-auto pb-1">
+                        {citizenPhotos.map((url, index) => (
+                          <button
+                            key={url}
+                            type="button"
+                            onClick={() => setSelectedImage(url)}
+                            className="shrink-0 w-16 h-12 rounded-lg overflow-hidden border border-slate-200 bg-slate-100"
+                            title={`Abrir foto ${index + 1}`}
+                          >
+                            <img src={url} alt={`Anexo ${index + 1}`} className="w-full h-full object-cover" />
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="w-full aspect-video rounded-xl bg-slate-50 border border-dashed border-slate-200 flex items-center justify-center text-slate-400 text-xs font-medium">
@@ -111,13 +157,17 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
               <div className="space-y-2">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Evidência de Resolução</p>
                 {ticket.resolvedPhotoUrl ? (
-                  <div className="w-full aspect-video rounded-xl overflow-hidden bg-emerald-50 border border-emerald-100 relative">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedImage(ticket.resolvedPhotoUrl || null)}
+                    className="w-full aspect-video rounded-xl overflow-hidden bg-emerald-50 border border-emerald-100 relative"
+                  >
                     <img 
                       src={ticket.resolvedPhotoUrl} 
                       alt="Resolução" 
                       className="w-full h-full object-cover" 
                     />
-                  </div>
+                  </button>
                 ) : (
                   <div className="w-full aspect-video rounded-xl bg-white border border-dashed border-slate-200 flex items-center justify-center text-slate-400 text-xs font-medium">
                     Aguardando resolução
@@ -249,6 +299,10 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
                   </div>
                 )}
 
+                {error && (
+                  <p className="text-xs border border-red-200 bg-red-50 text-red-700 rounded-lg p-2 font-medium">{error}</p>
+                )}
+
                 <Button 
                   className="w-full font-bold uppercase tracking-widest text-xs h-11 shadow-md bg-[#1E3A8A]" 
                   disabled={newStatus === ticket.status && !resolutionComment && !resolutionFile || isUpdating}
@@ -262,6 +316,14 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
           </div>
         </div>
       </div>
+      {selectedImage && (
+        <div className="fixed inset-0 z-[60] bg-slate-950/85 flex items-center justify-center p-4" onClick={() => setSelectedImage(null)}>
+          <button className="absolute right-4 top-4 text-white/80 hover:text-white" onClick={() => setSelectedImage(null)}>
+            <X className="w-6 h-6" />
+          </button>
+          <img src={selectedImage} alt="Imagem do chamado" className="max-h-[90vh] max-w-[92vw] rounded-xl object-contain shadow-2xl" />
+        </div>
+      )}
     </div>
   );
 }
