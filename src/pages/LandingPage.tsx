@@ -301,7 +301,6 @@ export function LandingPage() {
             <a href="#ia" className="flex items-center gap-1 text-sm font-bold text-[#1E3A8A] hover:text-blue-600">
               <Sparkles className="h-4 w-4" /> Inteligência artificial
             </a>
-            <button onClick={() => navigate('/login')} className="text-sm font-bold text-slate-600 hover:text-[#1E3A8A]">Acessar</button>
           </nav>
           <Button className="h-11 bg-[#1E3A8A] px-4 text-xs font-black uppercase tracking-wide text-white hover:bg-[#152c6e] sm:px-6" onClick={() => navigate('/login')}>
             Acessar plataforma
