@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -19,8 +19,15 @@ export function AdminTickets() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState('');
+  const [neighborhoodFilter, setNeighborhoodFilter] = useState('');
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [quickFilter, setQuickFilter] = useState<string>((location.state as any)?.filter || '');
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+
+  const neighborhoods = useMemo(() => {
+    return Array.from(new Set(tickets.map(t => t.neighborhood).filter(Boolean))).sort();
+  }, [tickets]);
 
   const filteredTickets = tickets.filter(t => {
     // Role-based security: Secretary sees only their department
@@ -30,6 +37,8 @@ export function AdminTickets() {
     const matchesSearch = t.protocol.includes(searchTerm) || t.title.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter ? t.status === statusFilter : true;
     const matchesDept = departmentFilter ? t.departmentId === departmentFilter : true;
+    const matchesPriority = priorityFilter ? t.priority === priorityFilter : true;
+    const matchesNeighborhood = neighborhoodFilter ? t.neighborhood === neighborhoodFilter : true;
     const matchesQuickFilter =
       quickFilter === 'resolved'
         ? ['resolved', 'closed'].includes(t.status)
@@ -39,7 +48,7 @@ export function AdminTickets() {
         ? ['urgent', 'high'].includes(t.priority) && !['resolved', 'closed', 'rejected', 'duplicated'].includes(t.status)
         : true;
     
-    return belongsToDept && matchesSearch && matchesStatus && matchesDept && matchesQuickFilter;
+    return belongsToDept && matchesSearch && matchesStatus && matchesDept && matchesPriority && matchesNeighborhood && matchesQuickFilter;
   });
 
   useEffect(() => {
@@ -115,8 +124,60 @@ export function AdminTickets() {
                 <option key={d.id} value={d.id}>{d.acronym} - {d.name}</option>
               ))}
             </Select>
-            <Button variant="outline" size="sm" icon={Filter} className="h-9 px-3 text-xs">Filtros</Button>
+            <Button
+              variant="outline"
+              size="sm"
+              icon={Filter}
+              className="h-9 px-3 text-xs"
+              onClick={() => setShowAdvancedFilters(prev => !prev)}
+            >
+              Filtros
+            </Button>
           </div>
+          {showAdvancedFilters && (
+            <div className="w-full flex flex-wrap gap-2 pt-1">
+              <Select
+                className="w-40 h-9 text-xs"
+                value={priorityFilter}
+                onChange={(e) => {
+                  setPriorityFilter(e.target.value);
+                  setQuickFilter('');
+                }}
+              >
+                <option value="">Prioridade (Todas)</option>
+                <option value="urgent">Urgente</option>
+                <option value="high">Alta</option>
+                <option value="medium">Media</option>
+                <option value="low">Baixa</option>
+              </Select>
+              <Select
+                className="w-56 h-9 text-xs"
+                value={neighborhoodFilter}
+                onChange={(e) => {
+                  setNeighborhoodFilter(e.target.value);
+                  setQuickFilter('');
+                }}
+              >
+                <option value="">Bairro (Todos)</option>
+                {neighborhoods.map(name => (
+                  <option key={name} value={name}>{name}</option>
+                ))}
+              </Select>
+              {(priorityFilter || neighborhoodFilter) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-9 px-3 text-xs"
+                  onClick={() => {
+                    setPriorityFilter('');
+                    setNeighborhoodFilter('');
+                  }}
+                >
+                  Limpar avancados
+                </Button>
+              )}
+            </div>
+          )}
         </CardHeader>
         <div className="flex-1 overflow-auto">
           <table className="w-full text-xs text-left text-slate-600">

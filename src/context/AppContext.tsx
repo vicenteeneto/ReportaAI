@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { User, Ticket, Category, Department, TicketStatus, City } from '../data/types';
 import { supabase } from '../lib/supabase';
 
@@ -34,6 +34,21 @@ const mapDbUser = (data: any): User => ({
   cityId: data.city_id || data.cityid || data.cityId || null,
 });
 
+const rejectAfter = async <T,>(promise: PromiseLike<T>, label: string, timeoutMs = 15000): Promise<T> => {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(`${label}: tempo de resposta excedido. Tente novamente.`));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+};
+
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -41,20 +56,46 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [cities, setCities] = useState<City[]>([]);
   const [loading, setLoading] = useState(true);
+  const authLoadSeq = useRef(0);
 
   useEffect(() => {
     let authListener: any;
+
+    const withTimeout = async <T,>(promise: PromiseLike<T>, fallback: T, label: string, timeoutMs = 15000): Promise<T> => {
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
+      const timeoutPromise = new Promise<T>((resolve) => {
+        timeoutId = setTimeout(() => {
+          console.warn(`${label} timed out`);
+          resolve(fallback);
+        }, timeoutMs);
+      });
+
+      try {
+        return await Promise.race([promise, timeoutPromise]);
+      } finally {
+        if (timeoutId) clearTimeout(timeoutId);
+      }
+    };
     
     // Subscribe to database changes (optional depending on needs, but let's implement basic fetch for now)
-    const loadData = async (userProfile?: User) => {
+    const loadData = async (userProfile?: User, seq?: number) => {
       setLoading(true);
       try {
-        const [depsRes, catsRes, ticketsRes, citiesRes] = await Promise.all([
-          supabase.from('departments').select('*').order('name'),
-          supabase.from('categories').select('*').order('name'),
-          supabase.from('tickets').select('*'),
-          supabase.from('cities').select('*').order('name')
-        ]);
+        const [depsRes, catsRes, ticketsRes, citiesRes] = await withTimeout(
+          Promise.all([
+            supabase.from('departments').select('*').order('name'),
+            supabase.from('categories').select('*').order('name'),
+            supabase.from('tickets').select('*'),
+            supabase.from('cities').select('*').order('name')
+          ]),
+          [
+            { data: [], error: null },
+            { data: [], error: null },
+            { data: [], error: null },
+            { data: [], error: null }
+          ] as any,
+          'loadData'
+        );
         
         const allTickets = ticketsRes.data || [];
         const parseSafeDate = (val: any) => {
@@ -130,19 +171,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         });
 
         const activeUser = userProfile || currentUser;
+        if (seq && seq !== authLoadSeq.current) return;
 
         let finalTickets = fetchedTickets;
         if (activeUser && activeUser.role !== 'superadmin' && activeUser.cityId) {
            finalTickets = fetchedTickets.filter(t => t.cityId === activeUser.cityId);
-        }
-
-        console.log("Fetched and mapped tickets:", finalTickets.length);
-        if (finalTickets.length > 0) {
-          console.log("First ticket sample:", { 
-            id: finalTickets[0].id, 
-            userId: finalTickets[0].userId,
-            protocol: finalTickets[0].protocol
-          });
         }
 
         setDepartments(activeUser && activeUser.role !== 'superadmin' && activeUser.cityId 
@@ -171,22 +204,39 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       } catch (err) {
         console.error("Error in loadData:", err);
       } finally {
-        setLoading(false);
+        if (!seq || seq === authLoadSeq.current) {
+          setLoading(false);
+        }
       }
     };
 
     const subscribeAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session } } = await withTimeout(
+          supabase.auth.getSession(),
+          { data: { session: null }, error: null } as any,
+          'getSession',
+          10000
+        );
         
         const fetchUserProfile = async (userId: string) => {
           try {
-            const { data } = await supabase.from('users').select('*').eq('id', userId).single();
+            const { data } = await withTimeout(
+              supabase.from('users').select('*').eq('id', userId).single(),
+              { data: null, error: null } as any,
+              'fetchUserProfile',
+              10000
+            );
             if (data) {
               return mapDbUser(data);
             } else {
               // In case user hasn't synced to users table, fetch profile email
-               const { data: authData } = await supabase.auth.getUser();
+               const { data: authData } = await withTimeout(
+                 supabase.auth.getUser(),
+                 { data: { user: null }, error: null } as any,
+                 'getUser',
+                 10000
+               );
                if (authData?.user) {
                  const metadata = authData.user.user_metadata || {};
                  const name = metadata.full_name || metadata.name || authData.user.email?.split('@')[0] || 'Usuário';
@@ -218,26 +268,42 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         };
 
         if (session) {
+          const seq = ++authLoadSeq.current;
           const profile = await fetchUserProfile(session.user.id);
+          if (seq !== authLoadSeq.current) return;
           if (profile) {
-            await loadData(profile);
+            await loadData(profile, seq);
+          } else if (seq === authLoadSeq.current) {
+            setLoading(false);
           }
+        } else {
+          authLoadSeq.current++;
+          setLoading(false);
         }
       } catch (err) {
         console.error("Error during auth init:", err);
-      } finally {
         setLoading(false);
       }
 
       const { data: authSubscription } = supabase.auth.onAuthStateChange(async (event, session) => {
+        const seq = ++authLoadSeq.current;
         if (session) {
           try {
-            const { data } = await supabase.from('users').select('*').eq('id', session.user.id).single();
+            const { data } = await withTimeout(
+              supabase.from('users').select('*').eq('id', session.user.id).single(),
+              { data: null, error: null } as any,
+              'authStateUserProfile',
+              10000
+            );
+            if (seq !== authLoadSeq.current) return;
             if (data) {
-              await loadData(mapDbUser(data));
+              await loadData(mapDbUser(data), seq);
+            } else if (seq === authLoadSeq.current) {
+              setLoading(false);
             }
           } catch(e) {
             console.error(e);
+            if (seq === authLoadSeq.current) setLoading(false);
           }
         } else {
           setCurrentUser(null);
@@ -245,6 +311,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           setDepartments([]);
           setCategories([]);
           setCities([]);
+          setLoading(false);
         }
       });
       authListener = authSubscription;
@@ -260,28 +327,34 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const loginWithGoogle = async () => {
     try {
       const redirectUrl = import.meta.env.VITE_APP_URL || 'https://reportaai.kngflow.com';
-      await supabase.auth.signInWithOAuth({
+      await rejectAfter(supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: redirectUrl,
         }
-      });
+      }), 'Login com Google');
     } catch (err) {
       console.error('Google login error:', err);
     }
   };
 
   const loginWithEmail = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
+    const { error } = await rejectAfter(
+      supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password }),
+      'Login'
+    );
     if (error) throw error;
   };
 
   const registerWithEmail = async (email: string, password: string, role: string) => {
     const normalizedEmail = email.trim().toLowerCase();
-    const { data: authData, error: authError } = await supabase.auth.signUp({ 
-      email: normalizedEmail, 
-      password 
-    });
+    const { data: authData, error: authError } = await rejectAfter(
+      supabase.auth.signUp({ 
+        email: normalizedEmail, 
+        password 
+      }),
+      'Criacao de conta'
+    );
     
     if (authError) throw authError;
     if (!authData.user) throw new Error('Não foi possível criar a conta. Tente novamente.');
@@ -293,12 +366,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       return 'confirmation_required';
     }
 
-    const { error: profileError } = await supabase.from('users').upsert({
-      id: authData.user.id,
-      name: normalizedEmail.split('@')[0],
-      email: authData.user.email || normalizedEmail,
-      role: role,
-    });
+    const { error: profileError } = await rejectAfter(
+      supabase.from('users').upsert({
+        id: authData.user.id,
+        name: normalizedEmail.split('@')[0],
+        email: authData.user.email || normalizedEmail,
+        role: role,
+      }),
+      'Criacao de perfil'
+    );
     if (profileError) throw profileError;
 
     return 'signed_in';
@@ -309,14 +385,17 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       ? window.location.origin
       : (import.meta.env.VITE_APP_URL || window.location.origin);
     const redirectTo = `${appUrl}/login?mode=recovery`;
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
-      redirectTo,
-    });
+    const { error } = await rejectAfter(
+      supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+        redirectTo,
+      }),
+      'Recuperacao de senha'
+    );
     if (error) throw error;
   };
 
   const updatePassword = async (password: string) => {
-    const { error } = await supabase.auth.updateUser({ password });
+    const { error } = await rejectAfter(supabase.auth.updateUser({ password }), 'Atualizacao de senha');
     if (error) throw error;
   };
 

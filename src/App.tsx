@@ -66,7 +66,7 @@ const AppRoutes = () => {
       <Route path="*" element={<Navigate to="/" replace />} />
 
       {/* Citizen Area */}
-      <Route path="/citizen" element={currentUser ? <CitizenLayout /> : <Navigate to="/login" />}>
+      <Route path="/citizen" element={requireRole(['citizen'], <CitizenLayout />)}>
         <Route index element={<CitizenHome />} />
         <Route path="new" element={<CitizenNewTicket />} />
         <Route path="tickets" element={<CitizenTickets />} />
@@ -82,6 +82,7 @@ const AppRoutes = () => {
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={requireRole(['admin', 'mayor', 'secretary', 'coordinator', 'superadmin'], <AdminDashboard />)} />
         <Route path="executive" element={requireRole(['mayor', 'admin', 'superadmin'], <ExecDashboard />)} />
+        <Route path="new" element={requireRole(['admin', 'secretary', 'coordinator', 'triage', 'field', 'superadmin'], <CitizenNewTicket />)} />
         <Route path="tickets" element={requireRole(['admin', 'mayor', 'secretary', 'coordinator', 'triage', 'field', 'superadmin'], <AdminTickets />)} />
         <Route path="tickets/:id" element={requireRole(['admin', 'mayor', 'secretary', 'coordinator', 'triage', 'field', 'superadmin'], <AdminTickets />)} />
         <Route path="triage" element={requireRole(['admin', 'triage', 'superadmin'], <AdminTriage />)} />

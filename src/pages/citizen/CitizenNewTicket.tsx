@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
 import { Input, Textarea, Select } from '../../components/ui/Input';
 import { useAppContext } from '../../context/AppContext';
@@ -146,6 +146,8 @@ function getStoredAuthToken(supabaseUrl: string, fallback: string): string {
 
 export function CitizenNewTicket() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isAdminFlow = location.pathname.startsWith('/admin');
   const { categories, currentUser, addTicket, cities } = useAppContext();
   
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -651,10 +653,10 @@ export function CitizenNewTicket() {
           Sua solicitação foi registrada e encaminhada para a secretaria correspondente. Acompanhe a resolução.
         </p>
         <div className="w-full space-y-2 pt-2">
-          <Button className="w-full font-bold uppercase tracking-wide text-xs h-12" onClick={() => navigate('/citizen/tickets')}>
+          <Button className="w-full font-bold uppercase tracking-wide text-xs h-12" onClick={() => navigate(isAdminFlow ? '/admin/tickets' : '/citizen/tickets')}>
             Acompanhar Solicitação
           </Button>
-          <Button variant="outline" className="w-full font-bold uppercase tracking-wide text-xs h-12 border-slate-300" onClick={() => navigate('/citizen')}>
+          <Button variant="outline" className="w-full font-bold uppercase tracking-wide text-xs h-12 border-slate-300" onClick={() => navigate(isAdminFlow ? '/admin/dashboard' : '/citizen')}>
             Retornar
           </Button>
         </div>

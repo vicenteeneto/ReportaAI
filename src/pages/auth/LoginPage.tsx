@@ -42,7 +42,7 @@ export function LoginPage() {
   };
 
   if (currentUser && !isRecovery) {
-    navigate(asAdmin || currentUser.role !== 'citizen' ? '/admin/dashboard' : '/citizen/home');
+    navigate(asAdmin || currentUser.role !== 'citizen' ? '/admin/dashboard' : '/citizen');
     return null;
   }
 

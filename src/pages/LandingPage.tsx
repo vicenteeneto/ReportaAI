@@ -14,7 +14,6 @@ import {
   MapPin,
   Megaphone,
   Navigation,
-  PlaySquare,
   Route,
   ShieldCheck,
   Smartphone,
@@ -23,7 +22,7 @@ import {
 import { Button } from '../components/ui/Button';
 import heroCitizenReporting from '../assets/images/hero-citizen-reporting.png';
 import citizenReportingImage from '../assets/images/citizen-reporting.png';
-import cityDashboardImage from '../assets/images/city-dashboard.png';
+import cityDashboardImage from '../assets/images/city-dashboard-operations.png';
 import fieldTeamImage from '../assets/images/field-team.png';
 
 const imageScenes = {
@@ -316,9 +315,6 @@ export function LandingPage() {
           <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-slate-50 to-transparent" />
           <div className="relative mx-auto grid max-w-7xl items-center gap-14 lg:grid-cols-[0.95fr_1.05fr]">
             <div className="text-center lg:text-left">
-              <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-blue-300/30 bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-blue-100">
-                <Sparkles className="h-4 w-4" /> Plataforma govtech para atendimento urbano
-              </p>
               <h1 className="text-4xl font-black leading-tight tracking-tight md:text-6xl">
                 Viu um problema na cidade? reportaAI.
               </h1>
@@ -336,12 +332,9 @@ export function LandingPage() {
                 <Button size="lg" className="h-14 border border-blue-400 bg-blue-600 px-7 text-sm font-black uppercase tracking-wide text-white hover:bg-blue-700" onClick={() => navigate('/login?role=admin')}>
                   Acessar gestão
                 </Button>
-                <Button variant="outline" size="lg" className="h-14 border-blue-300/60 px-7 text-sm font-black uppercase tracking-wide text-white hover:bg-white/10" onClick={() => navigate('/login?role=admin')}>
-                  <PlaySquare className="mr-2 h-4 w-4" /> Ver demonstração
-                </Button>
               </div>
 
-              <div className="mt-8 flex flex-wrap justify-center gap-3 lg:justify-start">
+              <div className="mt-8 flex flex-wrap justify-center gap-2 lg:justify-start">
                 {[
                   [Camera, 'Foto do local'],
                   [MapPin, 'Localização por GPS'],
@@ -349,8 +342,8 @@ export function LandingPage() {
                   [BarChart3, 'Dashboard para gestores'],
                   [Sparkles, 'Triagem com IA'],
                 ].map(([Icon, label]) => (
-                  <span key={label as string} className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 text-xs font-bold text-blue-50">
-                    <Icon className="h-4 w-4 text-cyan-200" /> {label as string}
+                  <span key={label as string} className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-white/15 bg-white/10 px-2.5 py-1.5 text-[10px] font-bold leading-none text-blue-50">
+                    <Icon className="h-3.5 w-3.5 shrink-0 text-cyan-200" /> {label as string}
                   </span>
                 ))}
               </div>
