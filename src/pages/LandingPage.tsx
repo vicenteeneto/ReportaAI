@@ -566,38 +566,20 @@ export function LandingPage() {
               Com o reportaAI, municípios transformam reclamações espalhadas em chamados organizados, geolocalizados e acompanhados em tempo real.
             </p>
             <p className="mt-8 text-2xl font-black italic text-white">"Viu um problema na cidade? reportaAI."</p>
-            <div className="mt-10 flex flex-col justify-center gap-3 sm:flex-row">
-              <Button size="lg" className="h-14 bg-white px-7 text-sm font-black uppercase tracking-wide text-[#1E3A8A] hover:bg-slate-100" onClick={() => navigate('/login?flow=register')}>
-                Registrar problema
-              </Button>
-              <Button size="lg" className="h-14 border border-blue-400 bg-blue-600 px-7 text-sm font-black uppercase tracking-wide text-white hover:bg-blue-700" onClick={() => navigate('/login?role=admin')}>
-                Acessar gestão
-              </Button>
-              <Button variant="outline" size="lg" className="h-14 border-blue-300/60 px-7 text-sm font-black uppercase tracking-wide text-white hover:bg-white/10" onClick={() => navigate('/login?role=admin')}>
-                Conhecer painel
-              </Button>
-            </div>
           </div>
         </section>
       </main>
 
       <footer className="bg-slate-950 px-4 py-12 text-slate-400 md:px-8">
-        <div className="mx-auto flex max-w-7xl flex-col gap-8 md:flex-row md:items-center md:justify-between">
+        <div className="mx-auto max-w-7xl">
           <div>
             <p className="text-2xl font-black text-white">reporta<span className="text-blue-500">AI</span></p>
             <p className="mt-2 text-sm">Plataforma inteligente de gestão urbana para prefeituras.</p>
           </div>
-          <nav className="flex flex-wrap gap-x-6 gap-y-3 text-sm font-bold">
-            <a href="#topo" className="hover:text-white">Início</a>
-            <a href="#como-funciona" className="hover:text-white">Como funciona</a>
-            <a href="#gestao-publica" className="hover:text-white">Para prefeituras</a>
-            <a href="#mapa" className="hover:text-white">Mapa e dashboard</a>
-            <a href="#ia" className="hover:text-white">Inteligência artificial</a>
-            <button onClick={() => navigate('/login')} className="font-bold hover:text-white">Acessar plataforma</button>
-          </nav>
         </div>
-        <div className="mx-auto mt-10 max-w-7xl border-t border-slate-800 pt-8 text-center text-sm">
-          Tecnologia para aproximar cidadãos, prefeituras e soluções.
+        <div className="mx-auto mt-10 flex max-w-7xl flex-col gap-3 border-t border-slate-800 pt-8 text-sm md:flex-row md:items-center md:justify-between">
+          <p>© 2026 KNGindica. Todos os direitos reservados.</p>
+          <p>Desenvolvido por KNGflow.</p>
         </div>
       </footer>
     </div>

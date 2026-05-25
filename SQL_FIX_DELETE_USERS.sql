@@ -1,2 +1,0 @@
-DELETE FROM public.users WHERE email IN ('superuser@rondonopolis.mt.gov.br', 'prefeituraroo@rondonopolis.mt.gov.br');
-DELETE FROM auth.users WHERE email IN ('superuser@rondonopolis.mt.gov.br', 'prefeituraroo@rondonopolis.mt.gov.br');
