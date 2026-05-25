@@ -9,7 +9,7 @@ import { format } from 'date-fns';
 export function AdminDashboard() {
   const { tickets, categories, departments, currentUser } = useAppContext();
   const navigate = useNavigate();
-  const canOpenTickets = ['admin', 'secretary', 'coordinator', 'triage', 'field', 'superadmin'].includes(currentUser?.role || '');
+  const canOpenTickets = ['admin', 'mayor', 'secretary', 'coordinator', 'triage', 'field', 'superadmin'].includes(currentUser?.role || '');
   const openTickets = (filter: string) => {
     if (canOpenTickets) navigate('/admin/tickets', { state: { filter } });
   };

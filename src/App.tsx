@@ -82,8 +82,8 @@ const AppRoutes = () => {
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={requireRole(['admin', 'mayor', 'secretary', 'coordinator', 'superadmin'], <AdminDashboard />)} />
         <Route path="executive" element={requireRole(['mayor', 'admin', 'superadmin'], <ExecDashboard />)} />
-        <Route path="tickets" element={requireRole(['admin', 'secretary', 'coordinator', 'triage', 'field', 'superadmin'], <AdminTickets />)} />
-        <Route path="tickets/:id" element={requireRole(['admin', 'secretary', 'coordinator', 'triage', 'field', 'superadmin'], <AdminTickets />)} />
+        <Route path="tickets" element={requireRole(['admin', 'mayor', 'secretary', 'coordinator', 'triage', 'field', 'superadmin'], <AdminTickets />)} />
+        <Route path="tickets/:id" element={requireRole(['admin', 'mayor', 'secretary', 'coordinator', 'triage', 'field', 'superadmin'], <AdminTickets />)} />
         <Route path="triage" element={requireRole(['admin', 'triage', 'superadmin'], <AdminTriage />)} />
         <Route path="map" element={requireRole(['admin', 'mayor', 'secretary', 'coordinator', 'triage', 'superadmin'], <AdminMap />)} />
         <Route path="reports" element={requireRole(['admin', 'mayor', 'secretary', 'coordinator', 'superadmin'], <AdminReports />)} />
