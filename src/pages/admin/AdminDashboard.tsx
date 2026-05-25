@@ -7,8 +7,12 @@ import { AlertTriangle, TrendingUp, Clock, MapPin, ChevronRight, Activity, Check
 import { format } from 'date-fns';
 
 export function AdminDashboard() {
-  const { tickets, categories, departments } = useAppContext();
+  const { tickets, categories, departments, currentUser } = useAppContext();
   const navigate = useNavigate();
+  const canOpenTickets = ['admin', 'secretary', 'coordinator', 'triage', 'field', 'superadmin'].includes(currentUser?.role || '');
+  const openTickets = (filter: string) => {
+    if (canOpenTickets) navigate('/admin/tickets', { state: { filter } });
+  };
 
   const total = tickets.length;
   const resolved = tickets.filter(t => t.status === 'resolved' || t.status === 'closed').length;
@@ -54,8 +58,8 @@ export function AdminDashboard() {
       {/* Top Stats */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 shrink-0">
         <div 
-          onClick={() => navigate('/admin/tickets', { state: { filter: 'all' } })}
-          className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:shadow-md hover:border-[#1E3A8A] transition-all relative overflow-hidden group"
+          onClick={() => openTickets('all')}
+          className={`bg-white p-4 rounded-xl border border-slate-200 shadow-sm transition-all relative overflow-hidden group ${canOpenTickets ? 'cursor-pointer hover:shadow-md hover:border-[#1E3A8A]' : ''}`}
         >
           <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Volume Total</p>
           <div className="flex items-baseline gap-2 mt-1">
@@ -66,8 +70,8 @@ export function AdminDashboard() {
         </div>
 
         <div 
-          onClick={() => navigate('/admin/tickets', { state: { filter: 'in_progress' } })}
-          className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:shadow-md hover:border-amber-400 transition-all relative overflow-hidden group"
+          onClick={() => openTickets('in_progress')}
+          className={`bg-white p-4 rounded-xl border border-slate-200 shadow-sm transition-all relative overflow-hidden group ${canOpenTickets ? 'cursor-pointer hover:shadow-md hover:border-amber-400' : ''}`}
         >
           <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Fila de Trabalho</p>
           <div className="flex items-baseline gap-2 mt-1">
@@ -78,8 +82,8 @@ export function AdminDashboard() {
         </div>
 
         <div 
-          onClick={() => navigate('/admin/tickets', { state: { filter: 'resolved' } })}
-          className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:shadow-md hover:border-emerald-400 transition-all relative overflow-hidden group"
+          onClick={() => openTickets('resolved')}
+          className={`bg-white p-4 rounded-xl border border-slate-200 shadow-sm transition-all relative overflow-hidden group ${canOpenTickets ? 'cursor-pointer hover:shadow-md hover:border-emerald-400' : ''}`}
         >
           <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Taxa de Resolução</p>
           <div className="flex items-baseline gap-2 mt-1">
@@ -90,8 +94,8 @@ export function AdminDashboard() {
         </div>
 
         <div 
-          onClick={() => navigate('/admin/tickets', { state: { filter: 'urgent' } })}
-          className="bg-white p-4 rounded-xl border border-red-200 shadow-sm cursor-pointer hover:shadow-md hover:border-red-400 transition-all relative overflow-hidden group"
+          onClick={() => openTickets('urgent')}
+          className={`bg-white p-4 rounded-xl border border-red-200 shadow-sm transition-all relative overflow-hidden group ${canOpenTickets ? 'cursor-pointer hover:shadow-md hover:border-red-400' : ''}`}
         >
           <p className="text-[10px] font-bold text-red-500 uppercase tracking-wide flex items-center gap-1">
             <AlertTriangle className="w-3 h-3" /> Atenção Imediata
@@ -108,9 +112,9 @@ export function AdminDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 flex-1 min-h-0">
         
         {/* Left Column: Charts */}
-        <div className="lg:col-span-2 flex flex-col gap-4 md:gap-6 h-full min-h-[400px]">
+        <div className="lg:col-span-2 flex flex-col gap-4 md:gap-6 h-full min-h-[560px]">
           {/* Bar Chart: Dept Performance */}
-          <Card className="flex flex-col overflow-hidden h-[50%] border-slate-200 shadow-sm">
+          <Card className="flex flex-col overflow-hidden min-h-[260px] flex-1 border-slate-200 shadow-sm">
             <CardHeader className="py-3 px-4 border-b border-slate-100 bg-white">
               <CardTitle className="text-xs uppercase tracking-wide text-slate-600 font-bold flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-[#1E3A8A]" />
@@ -133,7 +137,7 @@ export function AdminDashboard() {
           </Card>
 
           {/* Pie Chart: Categories */}
-          <Card className="flex flex-col overflow-hidden h-[50%] border-slate-200 shadow-sm">
+          <Card className="flex flex-col overflow-hidden min-h-[260px] flex-1 border-slate-200 shadow-sm">
             <CardHeader className="py-3 px-4 border-b border-slate-100 bg-white">
               <CardTitle className="text-xs uppercase tracking-wide text-slate-600 font-bold">Principais Demandas (Top 5)</CardTitle>
             </CardHeader>
@@ -183,8 +187,8 @@ export function AdminDashboard() {
                   {criticalTickets.map(ticket => (
                     <div 
                       key={ticket.id} 
-                      className="p-4 hover:bg-slate-50 cursor-pointer transition-colors group flex flex-col gap-2"
-                      onClick={() => navigate(`/admin/tickets/${ticket.id}`)}
+                      className={`p-4 transition-colors group flex flex-col gap-2 ${canOpenTickets ? 'hover:bg-slate-50 cursor-pointer' : ''}`}
+                      onClick={() => canOpenTickets && navigate(`/admin/tickets/${ticket.id}`)}
                     >
                       <div className="flex justify-between items-start gap-2">
                         <h4 className="text-xs font-bold text-slate-800 line-clamp-2 group-hover:text-[#1E3A8A] transition-colors leading-tight">
@@ -221,7 +225,7 @@ export function AdminDashboard() {
             {urgent.length > 4 && (
               <div 
                 className="p-3 border-t border-slate-100 bg-slate-50 text-center text-[10px] font-bold text-[#1E3A8A] uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors"
-                onClick={() => navigate('/admin/tickets', { state: { filter: 'urgent' } })}
+                onClick={() => openTickets('urgent')}
               >
                 Ver todas ({urgent.length})
               </div>

@@ -2,46 +2,82 @@ import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '../../components/ui/Card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card';
 import { useAppContext } from '../../context/AppContext';
 
 export function LoginPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { loginWithGoogle, loginWithEmail, registerWithEmail, currentUser } = useAppContext();
-  
+  const { loginWithGoogle, loginWithEmail, registerWithEmail, resetPassword, updatePassword, currentUser } = useAppContext();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const asAdmin = searchParams.get('role') === 'admin';
+  const isRecovery = searchParams.get('mode') === 'recovery' || window.location.hash.includes('type=recovery');
   const [isRegistering, setIsRegistering] = useState(asAdmin ? false : searchParams.get('flow') === 'register');
+  const [isResetting, setIsResetting] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
-  if (currentUser) {
+  const getFriendlyAuthError = (err: any) => {
+    const rawMessage = String(err?.message || '');
+    const message = rawMessage.toLowerCase();
+
+    if (message.includes('invalid login credentials')) {
+      return 'Credenciais invalidas. Confira a senha ou use "Esqueci minha senha".';
+    }
+
+    if (message.includes('rate limit') || message.includes('too many requests')) {
+      return isRegistering
+        ? 'O envio de e-mails para criacao de conta atingiu um limite temporario. Aguarde alguns minutos e tente novamente.'
+        : 'Muitas tentativas de envio em pouco tempo. Aguarde alguns minutos antes de solicitar outro link.';
+    }
+
+    if (message.includes('user already registered') || message.includes('already registered') || message.includes('ja esta cadastrado')) {
+      return 'Este e-mail ja esta em uso. Use "Faca login" para entrar.';
+    }
+
+    return rawMessage || 'Ocorreu um erro ao tentar fazer login.';
+  };
+
+  if (currentUser && !isRecovery) {
     navigate(asAdmin || currentUser.role !== 'citizen' ? '/admin/dashboard' : '/citizen/home');
     return null;
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setError('');
+    setSuccess('');
     setLoading(true);
-    
+
     try {
-      if (isRegistering) {
-        await registerWithEmail(email, password, asAdmin ? 'admin' : 'citizen');
+      if (isRecovery) {
+        await updatePassword(password);
+        setSuccess('Senha atualizada com sucesso. Você já pode entrar com a nova senha.');
+        setPassword('');
+        navigate('/login', { replace: true });
+      } else if (isResetting) {
+        await resetPassword(email);
+        setSuccess('Enviamos um link de redefinição para o seu e-mail.');
+        setIsResetting(false);
+      } else if (isRegistering) {
+        const result = await registerWithEmail(email, password, asAdmin ? 'admin' : 'citizen');
+        if (result === 'confirmation_required') {
+          setSuccess('Conta criada. Verifique seu e-mail para confirmar o cadastro antes de entrar.');
+          setIsRegistering(false);
+          setPassword('');
+        } else {
+          setSuccess('Conta criada com sucesso. Redirecionando...');
+        }
       } else {
         await loginWithEmail(email, password);
       }
     } catch (err: any) {
       console.error(err);
-      if (err.message && err.message.includes('Invalid login credentials')) {
-        setError('Credenciais inválidas.');
-      } else if (err.message && err.message.includes('User already registered')) {
-        setError('Este e-mail já está em uso.');
-      } else {
-        setError(err.message || 'Ocorreu um erro ao tentar fazer login.');
-      }
+      setError(getFriendlyAuthError(err));
     } finally {
       setLoading(false);
     }
@@ -51,61 +87,92 @@ export function LoginPage() {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans">
       <Card className="w-full max-w-[400px] shadow-2xl shadow-slate-200/50 border border-slate-200 bg-white">
         <CardHeader className="text-center pb-4 pt-6">
-           <div className="mx-auto w-12 h-12 rounded bg-[#1E3A8A] flex items-center justify-center mb-5">
+          <div className="mx-auto w-12 h-12 rounded bg-[#1E3A8A] flex items-center justify-center mb-5">
             <span className="text-white font-bold text-xl">AI</span>
           </div>
-          <CardTitle className="text-xl tracking-tight uppercase">{asAdmin ? 'Acesso Gestão' : 'Acessar Conta'}</CardTitle>
+          <CardTitle className="text-xl tracking-tight uppercase">
+            {isRecovery ? 'Nova senha' : asAdmin ? 'Acesso Gestão' : isResetting ? 'Recuperar senha' : 'Acessar Conta'}
+          </CardTitle>
           <CardDescription className="text-xs max-w-[240px] mx-auto mt-1">
-            {asAdmin 
-              ? 'Área restrita para servidores da prefeitura. Faça login para continuar.' 
+            {isRecovery
+              ? 'Digite uma nova senha para sua conta.'
+              : isResetting
+              ? 'Informe seu e-mail para receber o link de redefinição.'
+              : asAdmin
+              ? 'Área restrita para servidores da prefeitura. Faça login para continuar.'
               : 'Entre para registrar e acompanhar chamados na cidade.'}
           </CardDescription>
         </CardHeader>
         <CardContent className="px-6 pb-8 text-center pt-2">
-          
           <form onSubmit={handleSubmit} className="space-y-4 mb-6">
             <div className="space-y-3">
-              <Input 
-                type="email" 
-                placeholder="Seu e-mail" 
+              <Input
+                type="email"
+                placeholder="Seu e-mail"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 className="h-11"
               />
-              <Input 
-                type="password" 
-                placeholder="Sua senha" 
+              <Input
+                type="password"
+                placeholder={isRecovery ? 'Nova senha' : 'Sua senha'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                required
-                className="h-11"
+                required={!isResetting}
+                minLength={6}
+                className={`h-11 ${isResetting ? 'hidden' : ''}`}
               />
             </div>
-            
+
             {error && <p className="text-sm border border-red-500 bg-red-50 rounded-lg p-2 text-red-600 font-medium">{error}</p>}
+            {success && <p className="text-sm border border-emerald-500 bg-emerald-50 rounded-lg p-2 text-emerald-700 font-medium">{success}</p>}
 
             <Button type="submit" className="w-full font-bold uppercase tracking-wide text-sm h-11" isLoading={loading}>
-              {isRegistering ? 'Criar Conta' : 'Entrar'}
+              {isRecovery ? 'Salvar nova senha' : isResetting ? 'Enviar link' : isRegistering ? 'Criar Conta' : 'Entrar'}
             </Button>
-            
-            {!asAdmin && (
+
+            {!asAdmin && !isRecovery && (
               <p className="text-sm text-slate-500 mt-4">
-                {isRegistering ? 'Já tem uma conta?' : 'Não tem conta?'}
-                <button 
-                  type="button" 
-                  onClick={() => setIsRegistering(!isRegistering)} 
+                {isResetting ? 'Lembrou a senha?' : isRegistering ? 'Já tem uma conta?' : 'Não tem conta?'}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setError('');
+                    setSuccess('');
+                    if (isResetting) {
+                      setIsResetting(false);
+                      setIsRegistering(false);
+                    } else {
+                      setIsRegistering(!isRegistering);
+                    }
+                  }}
                   className="text-[#1E3A8A] font-bold ml-1 hover:underline"
                 >
-                  {isRegistering ? 'Faça login' : 'Registre-se'}
+                  {isResetting ? 'Entrar' : isRegistering ? 'Faça login' : 'Registre-se'}
                 </button>
               </p>
             )}
-            
+
+            {!asAdmin && !isRegistering && !isResetting && !isRecovery && (
+              <button
+                type="button"
+                onClick={() => {
+                  setError('');
+                  setSuccess('');
+                  setIsResetting(true);
+                  setPassword('');
+                }}
+                className="text-xs font-bold text-[#1E3A8A] hover:underline"
+              >
+                Esqueci minha senha
+              </button>
+            )}
+
             {asAdmin && (
               <p className="text-sm text-slate-500 mt-4">
                 Precisa criar os usuários iniciais?
-                <button 
+                <button
                   type="button"
                   onClick={() => navigate('/admin-setup')}
                   className="text-[#1E3A8A] font-bold ml-1 hover:underline"
@@ -124,9 +191,9 @@ export function LoginPage() {
                 <div className="flex-grow border-t border-slate-200"></div>
               </div>
 
-              <Button 
-                type="button" 
-                variant="outline" 
+              <Button
+                type="button"
+                variant="outline"
                 className="w-full gap-2 border-slate-300 font-bold text-slate-700 h-11 text-sm shadow-sm"
                 onClick={() => loginWithGoogle()}
               >
@@ -140,7 +207,6 @@ export function LoginPage() {
               </Button>
             </>
           )}
-            
         </CardContent>
       </Card>
     </div>

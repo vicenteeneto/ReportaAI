@@ -5,8 +5,10 @@ import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Ca
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { useNavigate } from 'react-router-dom';
+import { useAppContext } from '../../context/AppContext';
 
 export function SystemSettings() {
+  const { currentUser } = useAppContext();
   const [users, setUsers] = useState<User[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [cities, setCities] = useState<any[]>([]);
@@ -82,34 +84,63 @@ export function SystemSettings() {
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!confirm('Ao criar um novo usuário por esta tela, a sua sessão atual será encerrada por segurança (limitação técnica do backend free). Deseja prosseguir?')) return;
+    const normalizedEmail = newEmail.trim().toLowerCase();
+    if (!normalizedEmail || !newPassword) return;
     
     setIsCreating(true);
     try {
+      const existingUser = users.find(u => u.email?.toLowerCase() === normalizedEmail);
+      if (existingUser) {
+        throw new Error('Este e-mail já existe na lista de usuários do sistema.');
+      }
+
+      const { data: sessionBefore } = await supabase.auth.getSession();
       const res = await supabase.auth.signUp({
-        email: newEmail,
+        email: normalizedEmail,
         password: newPassword,
       });
 
-      if (res.error && !res.error.message.includes('already registered')) throw res.error;
+      if (res.error) throw res.error;
+      if (!res.data.user) {
+        throw new Error('O Supabase não retornou o usuário criado.');
+      }
+      if (res.data.user.identities && res.data.user.identities.length === 0) {
+        throw new Error('Este e-mail já está cadastrado na autenticação do Supabase.');
+      }
       
-      if (res.data.user) {
-        await supabase.from('users').upsert({
-          id: res.data.user.id,
-          name: newEmail.split('@')[0],
-          email: newEmail,
-          role: newRole,
-          departmentId: newDepartment || null,
-          cityId: newCity || null
-        });
+      const newUserPayload = {
+        id: res.data.user.id,
+        name: normalizedEmail.split('@')[0],
+        email: normalizedEmail,
+        role: newRole,
+        departmentId: newDepartment || null,
+        cityId: newCity || null
+      };
+
+      const { error: profileError } = await supabase.from('users').upsert(newUserPayload);
+      if (profileError) throw profileError;
+
+      const { data: sessionAfter } = await supabase.auth.getSession();
+      const sessionChanged = !!sessionAfter.session?.user?.id && sessionAfter.session.user.id !== sessionBefore.session?.user?.id;
+
+      setNewEmail('');
+      setNewPassword('');
+      setNewDepartment('');
+      setNewCity('');
+      await fetchData();
+
+      if (sessionChanged && sessionAfter.session?.user?.id !== currentUser?.id) {
+        alert('Usuário criado, mas a sessão foi alternada pelo Supabase. Faça login novamente com sua conta de administrador.');
+        await supabase.auth.signOut();
+        navigate('/login', { replace: true });
+        return;
       }
 
-      alert('Usuário criado com sucesso! Faça login novamente com sua conta admin.');
-      await supabase.auth.signOut();
-      navigate('/login', { replace: true });
+      alert('Usuário criado com sucesso.');
     } catch (err: any) {
       console.error(err);
       alert('Erro ao criar usuário: ' + err.message);
+    } finally {
       setIsCreating(false);
     }
   };
@@ -291,7 +322,7 @@ export function SystemSettings() {
                   Cadastrar Usuário
                 </Button>
                 <p className="text-[10px] text-slate-500 text-center leading-tight">
-                  Ao cadastrar via painel web, você será temporariamente deslogado para efetivar o auth do novo cidadão/gestor.
+                  Se o e-mail já existir no Supabase Auth, o cadastro será bloqueado para evitar falso sucesso.
                 </p>
               </form>
             </CardContent>

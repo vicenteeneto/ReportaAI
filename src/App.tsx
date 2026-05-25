@@ -25,6 +25,9 @@ import { AdminReports } from './pages/admin/AdminReports';
 
 const AppRoutes = () => {
   const { currentUser, loading } = useAppContext();
+  const role = currentUser?.role;
+  const adminRoles = ['admin', 'mayor', 'secretary', 'coordinator', 'triage', 'field', 'superadmin'];
+  const canAccessAdmin = !!role && adminRoles.includes(role);
 
   // Se o contexto ainda estiver carregando a sessão, mostramos um loader para evitar redirecionamentos errados
   if (loading) {
@@ -48,6 +51,12 @@ const AppRoutes = () => {
     return '/citizen';
   };
 
+  const requireRole = (allowedRoles: string[], element: React.ReactNode) => {
+    if (!currentUser) return <Navigate to="/login" replace />;
+    if (!allowedRoles.includes(currentUser.role)) return <Navigate to={getDashboardRoute()} replace />;
+    return element;
+  };
+
   return (
     <Routes>
       <Route path="/" element={currentUser ? <Navigate to={getDashboardRoute()} replace /> : <LandingPage />} />
@@ -69,16 +78,17 @@ const AppRoutes = () => {
       </Route>
 
       {/* Admin Area */}
-      <Route path="/admin" element={currentUser?.role !== 'citizen' && currentUser ? <AdminLayout /> : <Navigate to="/login" />}>
+      <Route path="/admin" element={canAccessAdmin ? <AdminLayout /> : <Navigate to="/login" />}>
         <Route index element={<Navigate to="dashboard" replace />} />
-        <Route path="dashboard" element={<AdminDashboard />} />
-        <Route path="executive" element={<ExecDashboard />} />
-        <Route path="tickets" element={<AdminTickets />} />
-        <Route path="triage" element={<AdminTriage />} />
-        <Route path="map" element={<AdminMap />} />
-        <Route path="reports" element={<AdminReports />} />
-        <Route path="settings" element={<AdminSettings />} />
-        <Route path="system" element={<SystemSettings />} />
+        <Route path="dashboard" element={requireRole(['admin', 'mayor', 'secretary', 'coordinator', 'superadmin'], <AdminDashboard />)} />
+        <Route path="executive" element={requireRole(['mayor', 'admin', 'superadmin'], <ExecDashboard />)} />
+        <Route path="tickets" element={requireRole(['admin', 'secretary', 'coordinator', 'triage', 'field', 'superadmin'], <AdminTickets />)} />
+        <Route path="tickets/:id" element={requireRole(['admin', 'secretary', 'coordinator', 'triage', 'field', 'superadmin'], <AdminTickets />)} />
+        <Route path="triage" element={requireRole(['admin', 'triage', 'superadmin'], <AdminTriage />)} />
+        <Route path="map" element={requireRole(['admin', 'mayor', 'secretary', 'coordinator', 'triage', 'superadmin'], <AdminMap />)} />
+        <Route path="reports" element={requireRole(['admin', 'mayor', 'secretary', 'coordinator', 'superadmin'], <AdminReports />)} />
+        <Route path="settings" element={requireRole(['admin', 'superadmin'], <AdminSettings />)} />
+        <Route path="system" element={requireRole(['superadmin'], <SystemSettings />)} />
       </Route>
     </Routes>
   );

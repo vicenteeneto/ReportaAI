@@ -1,10 +1,12 @@
 import React from 'react';
-import { Outlet, NavLink } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, MapPinned, ListTodo, Filter, Briefcase, FileBarChart, Users, LogOut } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
 
 export function AdminLayout() {
   const { currentUser, logout } = useAppContext();
+  const navigate = useNavigate();
+  const canManageTickets = ['admin', 'secretary', 'coordinator', 'triage', 'field', 'superadmin'].includes(currentUser?.role || '');
 
   const navItems = [
     { label: 'Dashboard', icon: LayoutDashboard, path: '/admin/dashboard', showFor: ['admin', 'mayor', 'secretary', 'coordinator', 'superadmin'] },
@@ -63,11 +65,17 @@ export function AdminLayout() {
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar Desktop */}
         <aside className="w-56 bg-white border-r border-slate-200 flex flex-col py-4 shrink-0 overflow-y-auto hidden md:flex">
-          <div className="px-4 mb-6">
-            <button className="w-full bg-[#1E3A8A] text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-800 transition-colors shadow-sm flex items-center justify-center gap-2">
-              <span className="text-lg leading-none">+</span> Novo Chamado
-            </button>
-          </div>
+          {canManageTickets && (
+            <div className="px-4 mb-6">
+              <button
+                type="button"
+                onClick={() => navigate('/admin/tickets')}
+                className="w-full bg-[#1E3A8A] text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-800 transition-colors shadow-sm flex items-center justify-center gap-2"
+              >
+                <span className="text-lg leading-none">+</span> Novo Chamado
+              </button>
+            </div>
+          )}
           <nav className="flex-1">
             <div className="px-3 mb-2">
               <p className="text-[10px] font-bold text-slate-400 hover:text-slate-500 uppercase tracking-wider mb-2">Principal</p>

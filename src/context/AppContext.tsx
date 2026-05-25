@@ -6,7 +6,9 @@ interface AppContextType {
   currentUser: User | null;
   loginWithGoogle: () => Promise<void>;
   loginWithEmail: (email: string, password: string) => Promise<void>;
-  registerWithEmail: (email: string, password: string, role: string) => Promise<void>;
+  registerWithEmail: (email: string, password: string, role: string) => Promise<'signed_in' | 'confirmation_required'>;
+  resetPassword: (email: string) => Promise<void>;
+  updatePassword: (password: string) => Promise<void>;
   logout: () => Promise<void> | void;
   tickets: Ticket[];
   addTicket: (t: Ticket) => void;
@@ -18,6 +20,19 @@ interface AppContextType {
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
+
+const mapDbUser = (data: any): User => ({
+  id: data.id,
+  name: data.name,
+  email: data.email,
+  role: data.role as any,
+  phone: data.phone || null,
+  cpf: data.cpf || null,
+  neighborhood: data.neighborhood || null,
+  avatarUrl: data.avatar_url || data.avatarurl || data.avatarUrl || null,
+  departmentId: data.department_id || data.departmentid || data.departmentId || null,
+  cityId: data.city_id || data.cityid || data.cityId || null,
+});
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -85,6 +100,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           try { await supabase.from('categories').insert(defaultCatsDb); } catch(e) { console.error('Failed to seed categories', e); }
         }
 
+        const mappedDeps = deps.map(d => ({
+          ...d,
+          cityId: d.cityId || d.city_id || d.cityid
+        }));
+
         // Handle raw cases from DB due to postgres unquoted columns
         const mappedCats = cats.map(c => ({
           ...c,
@@ -102,6 +122,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             photoUrl: t.photoUrl || t.photourl || t.photo_url,
             resolvedPhotoUrl: t.resolvedPhotoUrl || t.resolvedphotourl || t.resolved_photo_url,
             userId: t.userId || t.userid || t.user_id,
+            cityId: t.cityId || t.cityid || t.city_id,
             createdAt: parseSafeDate(t.createdAt || t.created_at || t.createdat) || Date.now(),
             updatedAt: parseSafeDate(t.updatedAt || t.updated_at || t.updatedat) || Date.now(),
           };
@@ -112,7 +133,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
         let finalTickets = fetchedTickets;
         if (activeUser && activeUser.role !== 'superadmin' && activeUser.cityId) {
-           finalTickets = fetchedTickets.filter(t => !t.cityId || t.cityId === activeUser.cityId);
+           finalTickets = fetchedTickets.filter(t => t.cityId === activeUser.cityId);
         }
 
         console.log("Fetched and mapped tickets:", finalTickets.length);
@@ -125,7 +146,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         }
 
         setDepartments(activeUser && activeUser.role !== 'superadmin' && activeUser.cityId 
-          ? deps.filter(d => !d.cityId || d.cityId === activeUser.cityId) : deps);
+          ? mappedDeps.filter(d => !d.cityId || d.cityId === activeUser.cityId) : mappedDeps);
         
         setCategories(activeUser && activeUser.role !== 'superadmin' && activeUser.cityId 
           ? mappedCats.filter(c => !c.cityId || c.cityId === activeUser.cityId) : mappedCats);
@@ -162,15 +183,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           try {
             const { data } = await supabase.from('users').select('*').eq('id', userId).single();
             if (data) {
-              const mappedUser: User = {
-                id: data.id,
-                name: data.name,
-                email: data.email,
-                role: data.role as any,
-                avatarUrl: data.avatar_url || data.avatarurl || data.avatarUrl || null,
-                departmentId: data.department_id || data.departmentid || data.departmentId || null
-              };
-              return mappedUser;
+              return mapDbUser(data);
             } else {
               // In case user hasn't synced to users table, fetch profile email
                const { data: authData } = await supabase.auth.getUser();
@@ -192,6 +205,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
                  return {
                    ...newUser,
                    avatarUrl: newUser.avatar_url,
+                   cityId: null,
+                   departmentId: null,
                    role: newUser.role as any
                  } as User;
                }
@@ -219,15 +234,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           try {
             const { data } = await supabase.from('users').select('*').eq('id', session.user.id).single();
             if (data) {
-              const mappedUser: User = {
-                id: data.id,
-                name: data.name,
-                email: data.email,
-                role: data.role as any,
-                avatarUrl: data.avatar_url || data.avatarurl || data.avatarUrl || null,
-                departmentId: data.department_id || data.departmentid || data.departmentId || null
-              };
-              await loadData(mappedUser);
+              await loadData(mapDbUser(data));
             }
           } catch(e) {
             console.error(e);
@@ -265,41 +272,69 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const loginWithEmail = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
     if (error) throw error;
   };
 
   const registerWithEmail = async (email: string, password: string, role: string) => {
+    const normalizedEmail = email.trim().toLowerCase();
     const { data: authData, error: authError } = await supabase.auth.signUp({ 
-      email, 
+      email: normalizedEmail, 
       password 
     });
     
     if (authError) throw authError;
-
-    if (authData.user) {
-      await supabase.from('users').upsert({
-        id: authData.user.id,
-        name: email.split('@')[0], 
-        email: authData.user.email,
-        role: role,
-      });
+    if (!authData.user) throw new Error('Não foi possível criar a conta. Tente novamente.');
+    if (authData.user.identities && authData.user.identities.length === 0) {
+      throw new Error('Este e-mail já está cadastrado. Use "Faça login" para entrar.');
     }
+
+    if (!authData.session) {
+      return 'confirmation_required';
+    }
+
+    const { error: profileError } = await supabase.from('users').upsert({
+      id: authData.user.id,
+      name: normalizedEmail.split('@')[0],
+      email: authData.user.email || normalizedEmail,
+      role: role,
+    });
+    if (profileError) throw profileError;
+
+    return 'signed_in';
+  };
+
+  const resetPassword = async (email: string) => {
+    const appUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? window.location.origin
+      : (import.meta.env.VITE_APP_URL || window.location.origin);
+    const redirectTo = `${appUrl}/login?mode=recovery`;
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+      redirectTo,
+    });
+    if (error) throw error;
+  };
+
+  const updatePassword = async (password: string) => {
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) throw error;
   };
 
   const logout = async () => {
-    try {
-      await supabase.auth.signOut();
-    } catch (e) {
-      console.error('Logout error:', e);
-    }
-    // Força limpeza de estado imediata:
     setCurrentUser(null);
     setTickets([]);
     setDepartments([]);
     setCategories([]);
     setCities([]);
-    window.location.href = '/';
+    try {
+      await Promise.race([
+        supabase.auth.signOut(),
+        new Promise((resolve) => setTimeout(resolve, 2500))
+      ]);
+    } catch (e) {
+      console.error('Logout error:', e);
+    }
+    window.location.replace('/login');
   };
 
   const addTicket = async (t: Ticket) => {
@@ -408,7 +443,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AppContext.Provider value={{ currentUser, loginWithEmail, registerWithEmail, loginWithGoogle, logout, tickets, addTicket, updateTicketStatus, categories, departments, cities, loading }}>
+    <AppContext.Provider value={{ currentUser, loginWithEmail, registerWithEmail, resetPassword, updatePassword, loginWithGoogle, logout, tickets, addTicket, updateTicketStatus, categories, departments, cities, loading }}>
       {children}
     </AppContext.Provider>
   );
