@@ -578,7 +578,7 @@ export function LandingPage() {
           </div>
         </div>
         <div className="mx-auto mt-10 flex max-w-7xl flex-col gap-3 border-t border-slate-800 pt-8 text-sm md:flex-row md:items-center md:justify-between">
-          <p>© 2026 KNGindica. Todos os direitos reservados.</p>
+          <p>© 2026 reportaAI. Todos os direitos reservados.</p>
           <p>Desenvolvido por KNGflow.</p>
         </div>
       </footer>
