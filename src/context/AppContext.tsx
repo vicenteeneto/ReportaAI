@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { User, Ticket, Category, Department, TicketStatus, City } from '../data/types';
 import { supabase } from '../lib/supabase';
+import { CATEGORY_OPTIONS, sortCategoriesByRequestedOrder } from '../data/categoryOptions';
 
 interface AppContextType {
   currentUser: User | null;
@@ -76,6 +77,55 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         if (timeoutId) clearTimeout(timeoutId);
       }
     };
+
+    const fetchUserProfile = async (userId: string) => {
+      try {
+        const { data } = await withTimeout(
+          supabase.from('users').select('*').eq('id', userId).single(),
+          { data: null, error: null } as any,
+          'fetchUserProfile',
+          10000
+        );
+
+        if (data) {
+          return mapDbUser(data);
+        }
+
+        const { data: authData } = await withTimeout(
+          supabase.auth.getUser(),
+          { data: { user: null }, error: null } as any,
+          'getUser',
+          10000
+        );
+
+        if (authData?.user) {
+          const metadata = authData.user.user_metadata || {};
+          const name = metadata.full_name || metadata.name || authData.user.email?.split('@')[0] || 'Usuario';
+          const avatarUrl = metadata.avatar_url || metadata.picture || null;
+          const newUser = {
+            id: userId,
+            name,
+            email: authData.user.email || '',
+            role: 'citizen',
+            avatar_url: avatarUrl
+          };
+
+          const { error: insErr } = await supabase.from('users').upsert(newUser);
+          if (insErr) console.error("Error creating user", insErr);
+
+          return {
+            ...newUser,
+            avatarUrl: newUser.avatar_url,
+            cityId: null,
+            departmentId: null,
+            role: newUser.role as any
+          } as User;
+        }
+      } catch (err) {
+        console.error("Error in fetchUserProfile:", err);
+      }
+      return null;
+    };
     
     // Subscribe to database changes (optional depending on needs, but let's implement basic fetch for now)
     const loadData = async (userProfile?: User, seq?: number) => {
@@ -130,13 +180,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         }
 
         if (cats.length === 0 && !catsRes.error) {
-          const defaultCatsDb = [
-            { id: 'cat-buraco', name: 'Buraco na rua', icon_name: 'AlertTriangle', color: 'bg-orange-500', default_department_id: 'dep-infra', default_priority: 'high' },
-            { id: 'cat-iluminacao', name: 'Iluminação pública', icon_name: 'Lightbulb', color: 'bg-yellow-500', default_department_id: 'dep-infra', default_priority: 'medium' },
-            { id: 'cat-lixo', name: 'Lixo ou entulho', icon_name: 'Trash2', color: 'bg-amber-700', default_department_id: 'dep-infra', default_priority: 'medium' },
-            { id: 'cat-mato', name: 'Mato alto', icon_name: 'Leaf', color: 'bg-green-500', default_department_id: 'dep-meio', default_priority: 'low' },
-            { id: 'cat-arvore', name: 'Risco Ambiental / Árvore', icon_name: 'TreePine', color: 'bg-emerald-700', default_department_id: 'dep-meio', default_priority: 'high' }
-          ];
+          const defaultCatsDb = CATEGORY_OPTIONS.map(category => ({
+            id: category.id,
+            name: category.name,
+            icon_name: category.iconName,
+            color: category.color,
+            default_department_id: category.defaultDepartmentId,
+            default_priority: category.defaultPriority
+          }));
           cats = defaultCatsDb;
           try { await supabase.from('categories').insert(defaultCatsDb); } catch(e) { console.error('Failed to seed categories', e); }
         }
@@ -147,13 +198,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         }));
 
         // Handle raw cases from DB due to postgres unquoted columns
-        const mappedCats = cats.map(c => ({
+        const mappedCats = sortCategoriesByRequestedOrder(cats.map(c => ({
           ...c,
           iconName: c.iconName || c.icon_name || c.iconname || 'HelpCircle',
           defaultDepartmentId: c.defaultDepartmentId || c.default_department_id || c.defaultdepartmentid,
           defaultPriority: c.defaultPriority || c.default_priority || c.defaultpriority || 'low',
           cityId: c.cityId || c.city_id || c.cityid
-        }));
+        }))) as Category[];
 
         const fetchedTickets = sortedTickets.map(t => {
           const mappedTicket = {
@@ -288,16 +339,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       const { data: authSubscription } = supabase.auth.onAuthStateChange(async (event, session) => {
         const seq = ++authLoadSeq.current;
         if (session) {
+          setLoading(true);
           try {
-            const { data } = await withTimeout(
-              supabase.from('users').select('*').eq('id', session.user.id).single(),
-              { data: null, error: null } as any,
-              'authStateUserProfile',
-              10000
-            );
+            const profile = await fetchUserProfile(session.user.id);
             if (seq !== authLoadSeq.current) return;
-            if (data) {
-              await loadData(mapDbUser(data), seq);
+            if (profile) {
+              await loadData(profile, seq);
             } else if (seq === authLoadSeq.current) {
               setLoading(false);
             }

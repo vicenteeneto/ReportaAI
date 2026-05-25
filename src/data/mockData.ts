@@ -1,30 +1,21 @@
 import { Category, Department, Ticket, User, TicketHistory } from './types';
+import { CATEGORY_OPTIONS } from './categoryOptions';
 
 export const mockDepartments: Department[] = [
   { id: 'dep-infra', name: 'Secretaria de Infraestrutura', acronym: 'SINFRA', active: true, color: 'bg-orange-500' },
   { id: 'dep-meio-ambiente', name: 'Secretaria de Meio Ambiente', acronym: 'SEMMA', active: true, color: 'bg-green-600' },
   { id: 'dep-mobilidade', name: 'Mobilidade Urbana', acronym: 'SETRAM', active: true, color: 'bg-purple-600' },
-  { id: 'dep-saude', name: 'Secretaria de Saúde', acronym: 'SMS', active: true, color: 'bg-blue-500' },
-  { id: 'dep-educacao', name: 'Secretaria de Educação', acronym: 'SME', active: true, color: 'bg-cyan-500' },
+  { id: 'dep-saude', name: 'Secretaria de Saude', acronym: 'SMS', active: true, color: 'bg-blue-500' },
+  { id: 'dep-educacao', name: 'Secretaria de Educacao', acronym: 'SME', active: true, color: 'bg-cyan-500' },
 ];
 
-export const mockCategories: Category[] = [
-  { id: 'cat-buraco', name: 'Buraco na rua', iconName: 'AlertTriangle', color: 'bg-orange-500', defaultDepartmentId: 'dep-infra', defaultPriority: 'high' },
-  { id: 'cat-iluminacao', name: 'Iluminação pública', iconName: 'Lightbulb', color: 'bg-yellow-500', defaultDepartmentId: 'dep-infra', defaultPriority: 'medium' },
-  { id: 'cat-lixo', name: 'Lixo ou entulho', iconName: 'Trash2', color: 'bg-amber-700', defaultDepartmentId: 'dep-infra', defaultPriority: 'medium' },
-  { id: 'cat-mato', name: 'Mato alto', iconName: 'Leaf', color: 'bg-green-500', defaultDepartmentId: 'dep-meio-ambiente', defaultPriority: 'low' },
-  { id: 'cat-arvore', name: 'Risco Ambiental / Árvore', iconName: 'TreePine', color: 'bg-emerald-700', defaultDepartmentId: 'dep-meio-ambiente', defaultPriority: 'high' },
-  { id: 'cat-esgoto', name: 'Bueiro ou Drenagem', iconName: 'Waves', color: 'bg-blue-600', defaultDepartmentId: 'dep-infra', defaultPriority: 'high' },
-  { id: 'cat-transito', name: 'Trânsito e Sinalização', iconName: 'TrafficCone', color: 'bg-purple-500', defaultDepartmentId: 'dep-mobilidade', defaultPriority: 'medium' },
-  { id: 'cat-saude', name: 'Saúde Pública', iconName: 'Stethoscope', color: 'bg-red-500', defaultDepartmentId: 'dep-saude', defaultPriority: 'high' },
-  { id: 'cat-outros', name: 'Outros', iconName: 'MoreHorizontal', color: 'bg-slate-500', defaultDepartmentId: 'dep-infra', defaultPriority: 'low' },
-];
+export const mockCategories: Category[] = CATEGORY_OPTIONS;
 
 export const mockUsers: User[] = [
-  { id: 'usr-1', name: 'João Silva', email: 'joao@example.com', role: 'citizen', neighborhood: 'Jardim Primavera' },
+  { id: 'usr-1', name: 'Joao Silva', email: 'joao@example.com', role: 'citizen', neighborhood: 'Jardim Primavera' },
   { id: 'usr-admin', name: 'Admin Pref', email: 'admin@prefeiturademo.gov.br', role: 'admin' },
   { id: 'usr-prefeito', name: 'Prefeito Municipal', email: 'prefeito@prefeiturademo.gov.br', role: 'mayor' },
-  { id: 'usr-sec-infra', name: 'Secretário Infra', email: 'infra@prefeiturademo.gov.br', role: 'secretary', departmentId: 'dep-infra' },
+  { id: 'usr-sec-infra', name: 'Secretario Infra', email: 'infra@prefeiturademo.gov.br', role: 'secretary', departmentId: 'dep-infra' },
 ];
 
 const today = new Date();
@@ -43,7 +34,7 @@ export const mockTickets: Ticket[] = [
   {
     id: 'tkt-2', protocol: 'REPT-2026-000102', userId: 'usr-1',
     categoryId: 'cat-iluminacao', departmentId: 'dep-infra',
-    title: 'Lâmpada queimada há 1 semana', description: 'Poste escuro na praça, perigoso à noite.',
+    title: 'Lampada queimada ha 1 semana', description: 'Poste escuro na praca, perigoso a noite.',
     status: 'resolved', priority: 'medium',
     latitude: -16.4789, longitude: -54.6402, address: 'Rua das Palmeiras, 45', neighborhood: 'Jardim das Flores',
     createdAt: d(10), resolvedAt: d(1),
@@ -52,7 +43,7 @@ export const mockTickets: Ticket[] = [
   {
     id: 'tkt-3', protocol: 'REPT-2026-000103', userId: 'usr-1',
     categoryId: 'cat-lixo', departmentId: 'dep-infra',
-    title: 'Entulho na calçada', description: 'Jogaram resto de obra na calçada, impedindo passagem.',
+    title: 'Entulho na calcada', description: 'Jogaram resto de obra na calcada, impedindo passagem.',
     status: 'triage', priority: 'medium',
     latitude: -16.4855, longitude: -54.6310, address: 'Rua das Flores, 120', neighborhood: 'Jardim das Flores',
     createdAt: d(0),
@@ -70,17 +61,17 @@ export const mockTickets: Ticket[] = [
   {
     id: 'tkt-5', protocol: 'REPT-2026-000105', userId: 'usr-1',
     categoryId: 'cat-transito', departmentId: 'dep-mobilidade',
-    title: 'Semáforo intermitente', description: 'Semáforo cruzamento centro piscando amarelo há horas.',
+    title: 'Semaforo intermitente', description: 'Semaforo cruzamento centro piscando amarelo ha horas.',
     status: 'in_progress', priority: 'urgent',
     latitude: -16.4678, longitude: -54.6385, address: 'Av. Brasil, 500', neighborhood: 'Centro',
     createdAt: d(0),
   },
   {
     id: 'tkt-6', protocol: 'REPT-2026-000106', userId: 'usr-1',
-    categoryId: 'cat-esgoto', departmentId: 'dep-infra',
+    categoryId: 'cat-bueiro-esgoto', departmentId: 'dep-infra',
     title: 'Bueiro entupido alagando rua', description: 'Sempre que chove alaga tudo aqui no bairro.',
     status: 'forwarded', priority: 'high',
-    latitude: -16.4740, longitude: -54.6320, address: 'Rua B, 300', neighborhood: 'Vila Esperança',
+    latitude: -16.4740, longitude: -54.6320, address: 'Rua B, 300', neighborhood: 'Vila Esperanca',
     createdAt: d(1),
   },
 ];

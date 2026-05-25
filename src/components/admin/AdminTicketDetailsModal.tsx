@@ -19,6 +19,7 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
   const citizenPhotos = (ticket.photoUrl || '').split(',').map(url => url.trim()).filter(Boolean);
 
   const [isUpdating, setIsUpdating] = useState(false);
+  const [currentStatus, setCurrentStatus] = useState<TicketStatus>(ticket.status as TicketStatus);
   const [newStatus, setNewStatus] = useState<TicketStatus>(ticket.status as TicketStatus);
   const [resolutionComment, setResolutionComment] = useState('');
   const [resolutionFile, setResolutionFile] = useState<File | null>(null);
@@ -26,6 +27,7 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   const statusLabels: Record<string, string> = {
     received: 'Recebido',
@@ -41,8 +43,20 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
     waiting_info: 'Pendencia Cidadao',
   };
 
+  const initialHistoryEntry = {
+    id: `${ticket.id}-initial`,
+    ticketId: ticket.id,
+    userId: ticket.userId,
+    userName: 'Cidadao',
+    action: 'Registro inicial do chamado',
+    oldStatus: null,
+    newStatus: 'received',
+    comment: ticket.description,
+    createdAt: ticket.createdAt || Date.now(),
+  };
+
   const normalizeHistory = (items: any[] = []) => {
-    return items
+    const normalized = items
       .map((item) => ({
         id: item.id || `${item.ticketId || item.ticket_id}-${item.createdAt || item.created_at || item.createdat}`,
         ticketId: item.ticketId || item.ticket_id || item.ticketid,
@@ -54,7 +68,23 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
         comment: item.comment || item.comments || item.observation || item.observations || '',
         createdAt: item.createdAt || item.created_at || item.createdat || Date.now(),
       }))
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      .filter((item) => item.id !== initialHistoryEntry.id);
+
+    return [initialHistoryEntry, ...normalized]
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  };
+
+  const enrichHistoryWithUsers = async (items: any[]) => {
+    const userIds = Array.from(new Set(items.map((item) => item.userId).filter(Boolean)));
+    if (userIds.length === 0) return items;
+
+    const { data } = await supabase.from('users').select('id,name,email').in('id', userIds);
+    const usersById = new Map((data || []).map((user: any) => [user.id, user.name || user.email]));
+
+    return items.map((item) => ({
+      ...item,
+      userName: item.userName || usersById.get(item.userId) || (item.userId === currentUser?.id ? currentUser?.name || currentUser?.email : ''),
+    }));
   };
 
   React.useEffect(() => {
@@ -62,10 +92,10 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
       setLoadingHistory(true);
       const primary = await supabase.from('ticket_history').select('*').eq('ticketId', ticket.id).order('createdAt', { ascending: false });
       if (primary.data && !primary.error) {
-        setTicketHistory(normalizeHistory(primary.data));
+        setTicketHistory(await enrichHistoryWithUsers(normalizeHistory(primary.data)));
       } else {
         const fallback = await supabase.from('ticket_history').select('*').eq('ticket_id', ticket.id).order('created_at', { ascending: false });
-        setTicketHistory(normalizeHistory(fallback.data || []));
+        setTicketHistory(await enrichHistoryWithUsers(normalizeHistory(fallback.data || [])));
       }
       setLoadingHistory(false);
     };
@@ -73,7 +103,8 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
   }, [ticket.id]);
 
   const saveHistory = async (status: TicketStatus, comment: string) => {
-    const action = `Status alterado para ${statusLabels[status] || status}`;
+    const previousStatus = currentStatus;
+    const action = `Status alterado de ${statusLabels[previousStatus] || previousStatus} para ${statusLabels[status] || status}`;
     const userId = currentUser?.id || (await supabase.auth.getUser()).data.user?.id || null;
     const userName = currentUser?.name || currentUser?.email || 'Usuario do sistema';
     const now = Date.now();
@@ -82,9 +113,7 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
       {
         ticketId: ticket.id,
         userId,
-        userName,
         action,
-        oldStatus: ticket.status,
         newStatus: status,
         comment,
         createdAt: now,
@@ -92,9 +121,7 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
       {
         ticket_id: ticket.id,
         user_id: userId,
-        user_name: userName,
         action,
-        old_status: ticket.status,
         new_status: status,
         comment,
         created_at: now,
@@ -103,7 +130,13 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
 
     for (const payload of attempts) {
       const { error: historyError } = await supabase.from('ticket_history').insert(payload);
-      if (!historyError) return normalizeHistory([payload])[0];
+      if (!historyError) {
+        return {
+          ...normalizeHistory([{ ...payload, userName, oldStatus: previousStatus }])[1],
+          userName,
+          oldStatus: previousStatus,
+        };
+      }
       console.warn('Ticket history insert failed, trying fallback shape:', historyError);
     }
 
@@ -113,6 +146,7 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
   const handleUpdate = async () => {
     setIsUpdating(true);
     setError('');
+    setSuccess('');
     try {
       let resolvedPhotoUrl = ticket.resolvedPhotoUrl;
 
@@ -148,11 +182,14 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
       const savedHistory = await saveHistory(newStatus, resolutionComment.trim());
       if (savedHistory) {
         setTicketHistory(prev => normalizeHistory([savedHistory, ...prev]));
+      } else {
+        setError('Status atualizado, mas o historico nao foi gravado no banco. Verifique a tabela ticket_history.');
       }
 
-      // Update global context if needed - simplified reload for now or just close
-      onClose();
-      window.location.reload(); 
+      setCurrentStatus(newStatus);
+      setResolutionComment('');
+      setResolutionFile(null);
+      setSuccess('Atualizacao registrada no historico do chamado.');
     } catch (e) {
       console.error(e);
       setError('Nao foi possivel atualizar o chamado. Verifique o anexo e tente novamente.');
@@ -312,7 +349,7 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
                 <div className="space-y-4">
                   <div>
                     <p className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1.5">Status do Atendimento</p>
-                    <StatusBadge status={ticket.status} />
+                    <StatusBadge status={currentStatus} />
                   </div>
                   <div>
                     <p className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1.5">Prioridade</p>
@@ -384,10 +421,13 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
                 {error && (
                   <p className="text-xs border border-red-200 bg-red-50 text-red-700 rounded-lg p-2 font-medium">{error}</p>
                 )}
+                {success && (
+                  <p className="text-xs border border-emerald-200 bg-emerald-50 text-emerald-700 rounded-lg p-2 font-medium">{success}</p>
+                )}
 
                 <Button 
                   className="w-full font-bold uppercase tracking-widest text-xs h-11 shadow-md bg-[#1E3A8A]" 
-                  disabled={newStatus === ticket.status && !resolutionComment && !resolutionFile || isUpdating}
+                  disabled={newStatus === currentStatus && !resolutionComment && !resolutionFile || isUpdating}
                   onClick={handleUpdate}
                   isLoading={isUpdating}
                 >

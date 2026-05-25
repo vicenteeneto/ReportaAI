@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -41,10 +41,13 @@ export function LoginPage() {
     return rawMessage || 'Ocorreu um erro ao tentar fazer login.';
   };
 
-  if (currentUser && !isRecovery) {
-    navigate(asAdmin || currentUser.role !== 'citizen' ? '/admin/dashboard' : '/citizen');
-    return null;
-  }
+  useEffect(() => {
+    if (currentUser && !isRecovery) {
+      navigate(asAdmin || currentUser.role !== 'citizen' ? '/admin/dashboard' : '/citizen', { replace: true });
+    }
+  }, [asAdmin, currentUser, isRecovery, navigate]);
+
+  if (currentUser && !isRecovery) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
