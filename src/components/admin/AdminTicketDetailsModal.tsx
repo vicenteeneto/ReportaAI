@@ -27,15 +27,45 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [error, setError] = useState('');
 
+  const statusLabels: Record<string, string> = {
+    received: 'Recebido',
+    triage: 'Triagem',
+    forwarded: 'Encaminhado',
+    analyzing: 'Em Analise',
+    scheduled: 'Agendado',
+    in_progress: 'Em Execucao',
+    resolved: 'Resolvido',
+    closed: 'Finalizado',
+    rejected: 'Indeferido',
+    duplicated: 'Duplicado',
+    waiting_info: 'Pendencia Cidadao',
+  };
+
+  const normalizeHistory = (items: any[] = []) => {
+    return items
+      .map((item) => ({
+        id: item.id || `${item.ticketId || item.ticket_id}-${item.createdAt || item.created_at || item.createdat}`,
+        ticketId: item.ticketId || item.ticket_id || item.ticketid,
+        userId: item.userId || item.user_id || item.userid,
+        userName: item.userName || item.user_name || item.username || item.authorName || item.author_name,
+        action: item.action || 'Atualizacao do chamado',
+        oldStatus: item.oldStatus || item.old_status || item.oldstatus,
+        newStatus: item.newStatus || item.new_status || item.newstatus,
+        comment: item.comment || item.comments || item.observation || item.observations || '',
+        createdAt: item.createdAt || item.created_at || item.createdat || Date.now(),
+      }))
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  };
+
   React.useEffect(() => {
     const fetchHistory = async () => {
       setLoadingHistory(true);
       const primary = await supabase.from('ticket_history').select('*').eq('ticketId', ticket.id).order('createdAt', { ascending: false });
       if (primary.data && !primary.error) {
-        setTicketHistory(primary.data);
+        setTicketHistory(normalizeHistory(primary.data));
       } else {
         const fallback = await supabase.from('ticket_history').select('*').eq('ticket_id', ticket.id).order('created_at', { ascending: false });
-        setTicketHistory(fallback.data || []);
+        setTicketHistory(normalizeHistory(fallback.data || []));
       }
       setLoadingHistory(false);
     };
@@ -43,29 +73,18 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
   }, [ticket.id]);
 
   const saveHistory = async (status: TicketStatus, comment: string) => {
-    const statusLabels: Record<string, string> = {
-      received: 'Recebido',
-      triage: 'Triagem',
-      forwarded: 'Encaminhado',
-      analyzing: 'Em Analise',
-      scheduled: 'Agendado',
-      in_progress: 'Em Execucao',
-      resolved: 'Resolvido',
-      closed: 'Finalizado',
-      rejected: 'Indeferido',
-      duplicated: 'Duplicado',
-      waiting_info: 'Pendencia Cidadao',
-    };
-
     const action = `Status alterado para ${statusLabels[status] || status}`;
     const userId = currentUser?.id || (await supabase.auth.getUser()).data.user?.id || null;
+    const userName = currentUser?.name || currentUser?.email || 'Usuario do sistema';
     const now = Date.now();
 
     const attempts: Record<string, any>[] = [
       {
         ticketId: ticket.id,
         userId,
+        userName,
         action,
+        oldStatus: ticket.status,
         newStatus: status,
         comment,
         createdAt: now,
@@ -73,7 +92,9 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
       {
         ticket_id: ticket.id,
         user_id: userId,
+        user_name: userName,
         action,
+        old_status: ticket.status,
         new_status: status,
         comment,
         created_at: now,
@@ -82,11 +103,11 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
 
     for (const payload of attempts) {
       const { error: historyError } = await supabase.from('ticket_history').insert(payload);
-      if (!historyError) return true;
+      if (!historyError) return normalizeHistory([payload])[0];
       console.warn('Ticket history insert failed, trying fallback shape:', historyError);
     }
 
-    return false;
+    return null;
   };
 
   const handleUpdate = async () => {
@@ -124,7 +145,10 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
         if (fallbackUpdateError) throw fallbackUpdateError;
       }
 
-      await saveHistory(newStatus, resolutionComment.trim());
+      const savedHistory = await saveHistory(newStatus, resolutionComment.trim());
+      if (savedHistory) {
+        setTicketHistory(prev => normalizeHistory([savedHistory, ...prev]));
+      }
 
       // Update global context if needed - simplified reload for now or just close
       onClose();
@@ -245,14 +269,32 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
                   {loadingHistory ? (
                     <p className="text-xs text-center text-slate-400 py-4">Carregando...</p>
                   ) : ticketHistory.length > 0 ? (
-                    ticketHistory.map((h, i) => (
-                      <div key={h.id} className="relative pl-4 pb-2 border-l border-slate-200 last:pb-0">
-                        <div className="absolute left-[-5px] top-1 w-2 h-2 rounded-full bg-slate-300"></div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                          {format(new Date(h.createdAt || h.createdat), 'dd/MM/yy HH:mm')}
+                    ticketHistory.map((h) => (
+                      <div key={h.id} className="relative pl-4 pb-3 border-l border-slate-200 last:pb-0">
+                        <div className="absolute left-[-5px] top-1 w-2 h-2 rounded-full bg-[#1E3A8A]"></div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                            {format(new Date(h.createdAt), 'dd/MM/yy HH:mm')}
+                          </p>
+                          {h.userName && (
+                            <span className="rounded-full bg-white px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-500 border border-slate-200">
+                              {h.userName}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs font-bold text-slate-800 mt-1">
+                          {h.action}
                         </p>
-                        <p className="text-xs font-bold text-slate-700">{h.action}</p>
-                        {h.comment && <p className="text-xs text-slate-500 italic mt-0.5">"{h.comment}"</p>}
+                        {h.oldStatus && h.newStatus && (
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            De {statusLabels[h.oldStatus] || h.oldStatus} para {statusLabels[h.newStatus] || h.newStatus}
+                          </p>
+                        )}
+                        {h.comment && (
+                          <div className="mt-2 rounded-lg bg-white border border-slate-200 px-3 py-2">
+                            <p className="text-xs text-slate-600 whitespace-pre-wrap">{h.comment}</p>
+                          </div>
+                        )}
                       </div>
                     ))
                   ) : (
