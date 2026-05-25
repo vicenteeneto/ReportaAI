@@ -337,6 +337,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       }
 
       const { data: authSubscription } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'TOKEN_REFRESHED') {
+          return;
+        }
+
         const seq = ++authLoadSeq.current;
         if (session) {
           setLoading(true);
