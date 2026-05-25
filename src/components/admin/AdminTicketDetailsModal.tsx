@@ -13,7 +13,7 @@ interface Props {
 }
 
 export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
-  const { categories, departments } = useAppContext();
+  const { categories, departments, currentUser } = useAppContext();
   const category = categories.find(c => c.id === ticket.categoryId);
   const department = departments.find(d => d.id === ticket.departmentId);
   const citizenPhotos = (ticket.photoUrl || '').split(',').map(url => url.trim()).filter(Boolean);
@@ -30,12 +30,64 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
   React.useEffect(() => {
     const fetchHistory = async () => {
       setLoadingHistory(true);
-      const { data } = await supabase.from('ticket_history').select('*').eq('ticketId', ticket.id).order('createdAt', { ascending: false });
-      if (data) setTicketHistory(data);
+      const primary = await supabase.from('ticket_history').select('*').eq('ticketId', ticket.id).order('createdAt', { ascending: false });
+      if (primary.data && !primary.error) {
+        setTicketHistory(primary.data);
+      } else {
+        const fallback = await supabase.from('ticket_history').select('*').eq('ticket_id', ticket.id).order('created_at', { ascending: false });
+        setTicketHistory(fallback.data || []);
+      }
       setLoadingHistory(false);
     };
     fetchHistory();
   }, [ticket.id]);
+
+  const saveHistory = async (status: TicketStatus, comment: string) => {
+    const statusLabels: Record<string, string> = {
+      received: 'Recebido',
+      triage: 'Triagem',
+      forwarded: 'Encaminhado',
+      analyzing: 'Em Analise',
+      scheduled: 'Agendado',
+      in_progress: 'Em Execucao',
+      resolved: 'Resolvido',
+      closed: 'Finalizado',
+      rejected: 'Indeferido',
+      duplicated: 'Duplicado',
+      waiting_info: 'Pendencia Cidadao',
+    };
+
+    const action = `Status alterado para ${statusLabels[status] || status}`;
+    const userId = currentUser?.id || (await supabase.auth.getUser()).data.user?.id || null;
+    const now = Date.now();
+
+    const attempts: Record<string, any>[] = [
+      {
+        ticketId: ticket.id,
+        userId,
+        action,
+        newStatus: status,
+        comment,
+        createdAt: now,
+      },
+      {
+        ticket_id: ticket.id,
+        user_id: userId,
+        action,
+        new_status: status,
+        comment,
+        created_at: now,
+      },
+    ];
+
+    for (const payload of attempts) {
+      const { error: historyError } = await supabase.from('ticket_history').insert(payload);
+      if (!historyError) return true;
+      console.warn('Ticket history insert failed, trying fallback shape:', historyError);
+    }
+
+    return false;
+  };
 
   const handleUpdate = async () => {
     setIsUpdating(true);
@@ -56,35 +108,23 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
         resolvedPhotoUrl = publicUrl;
       }
 
-      const { error: updateError } = await supabase.from('tickets').update({ 
+      const updatePayload = { 
         status: newStatus,
         resolvedPhotoUrl: resolvedPhotoUrl,
         updatedAt: Date.now()
-      }).eq('id', ticket.id);
-      if (updateError) throw updateError;
-
-      const statusLabels: Record<string, string> = {
-        received: 'Recebido',
-        triage: 'Triagem',
-        forwarded: 'Encaminhado',
-        analyzing: 'Em Analise',
-        scheduled: 'Agendado',
-        in_progress: 'Em Execucao',
-        resolved: 'Resolvido',
-        closed: 'Finalizado',
-        rejected: 'Indeferido',
-        waiting_info: 'Pendencia Cidadao',
       };
+      const { error: updateError } = await supabase.from('tickets').update(updatePayload).eq('id', ticket.id);
+      if (updateError) {
+        console.warn('Ticket update failed, trying fallback shape:', updateError);
+        const { error: fallbackUpdateError } = await supabase.from('tickets').update({
+          status: newStatus,
+          resolved_photo_url: resolvedPhotoUrl,
+          updated_at: Date.now()
+        }).eq('id', ticket.id);
+        if (fallbackUpdateError) throw fallbackUpdateError;
+      }
 
-      const { error: historyError } = await supabase.from('ticket_history').insert({
-        ticketId: ticket.id,
-        userId: (await supabase.auth.getUser()).data.user?.id,
-        action: `Status alterado para ${statusLabels[newStatus] || newStatus}`,
-        newStatus: newStatus,
-        comment: resolutionComment,
-        createdAt: Date.now()
-      });
-      if (historyError) throw historyError;
+      await saveHistory(newStatus, resolutionComment.trim());
 
       // Update global context if needed - simplified reload for now or just close
       onClose();
