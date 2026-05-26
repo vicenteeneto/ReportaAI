@@ -189,9 +189,12 @@ export function CitizenNewTicket() {
   const [streetSugs, setStreetSugs] = useState<any[]>([]);
   const [isSearchingStreet, setIsSearchingStreet] = useState(false);
   const streetTimeoutRef = useRef<any>(null);
+  const geocodeTimeoutRef = useRef<any>(null);
   const streetRef = useRef<HTMLDivElement>(null);
 
   const [houseNumber, setHouseNumber] = useState('');
+  const [locationHint, setLocationHint] = useState('');
+  const [locationAccuracy, setLocationAccuracy] = useState<'gps' | 'address' | 'manual' | null>(null);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -212,12 +215,14 @@ export function CitizenNewTicket() {
   );
 
   const selectCity = (city: any) => {
-    setFormData(prev => ({ ...prev, cityId: city.id }));
+    setFormData(prev => ({ ...prev, cityId: city.id, latitude: undefined, longitude: undefined }));
     setCitySearch(`${city.name} — ${city.state || CITY_STATE[city.name] || ''}`);
     setShowCityDropdown(false);
     setNeighborhoodSearch(''); setNeighborhoodSugs([]);
     setStreetSearch(''); setStreetSugs([]);
     setHouseNumber('');
+    setLocationAccuracy(null);
+    setLocationHint('Informe rua e bairro. Depois confirme o ponto no mapa antes de enviar.');
   };
 
   // Photo state
@@ -254,6 +259,54 @@ export function CitizenNewTicket() {
   // Street search (ViaCEP)
   const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
 
+  const buildAddressQuery = (street: string, bairro?: string, number?: string) => {
+    const city = cities.find(c => c.id === formData.cityId);
+    if (!city || !street) return '';
+    const stateCode = city.state || CITY_STATE[city.name] || '';
+    return [
+      number ? `${street}, ${number}` : street,
+      bairro || formData.neighborhood || neighborhoodSearch,
+      city.name,
+      stateCode,
+      'Brasil'
+    ].filter(Boolean).join(', ');
+  };
+
+  const geocodeAddress = async (street: string, bairro?: string, number?: string) => {
+    const query = buildAddressQuery(street, bairro, number);
+    if (!query) return;
+
+    try {
+      setLocationHint('Localizando endereço no mapa...');
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&countrycodes=br&format=json&addressdetails=1&limit=5`;
+      const data = await fetch(url, { headers: { 'Accept-Language': 'pt-BR,pt;q=0.9' } }).then(r => r.json());
+      const result = Array.isArray(data) ? data[0] : null;
+
+      if (result?.lat && result?.lon) {
+        setFormData(prev => ({
+          ...prev,
+          latitude: parseFloat(result.lat),
+          longitude: parseFloat(result.lon),
+          address: number ? `${street}, ${number}` : street,
+          neighborhood: bairro || prev.neighborhood
+        }));
+        setLocationAccuracy('address');
+        setLocationHint(
+          number
+            ? 'Endereço localizado. Confira o pino no mapa e toque para ajustar se necessário.'
+            : 'Rua localizada, mas sem número exato. Toque no mapa para marcar o ponto correto do problema.'
+        );
+      } else {
+        setLocationAccuracy(null);
+        setLocationHint('Não foi possível marcar automaticamente. Toque no mapa para indicar o local exato do problema.');
+      }
+    } catch (e) {
+      console.warn('Address geocode failed', e);
+      setLocationAccuracy(null);
+      setLocationHint('Não foi possível marcar automaticamente. Toque no mapa para indicar o local exato do problema.');
+    }
+  };
+
   const fetchStreetSugs = async (query: string) => {
     const city = cities.find(c => c.id === formData.cityId);
     if (!query || query.length < 4 || !city) { setStreetSugs([]); return; }
@@ -272,7 +325,9 @@ export function CitizenNewTicket() {
   const handleStreetChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setStreetSearch(val);
-    setFormData(prev => ({ ...prev, address: houseNumber ? `${val}, ${houseNumber}` : val }));
+    setLocationAccuracy(null);
+    setLocationHint('Selecione uma rua sugerida ou toque no mapa para marcar o ponto exato.');
+    setFormData(prev => ({ ...prev, address: houseNumber ? `${val}, ${houseNumber}` : val, latitude: undefined, longitude: undefined }));
     if (streetTimeoutRef.current) clearTimeout(streetTimeoutRef.current);
     streetTimeoutRef.current = setTimeout(() => fetchStreetSugs(val), 600);
   };
@@ -284,16 +339,7 @@ export function CitizenNewTicket() {
     setFormData(prev => ({ ...prev, address: houseNumber ? `${street}, ${houseNumber}` : street, neighborhood: bairro || prev.neighborhood }));
     if (bairro) setNeighborhoodSearch(bairro);
     setStreetSugs([]);
-    // Geocode via CEP
-    if (s.cep) {
-      try {
-        const cep = s.cep.replace('-', '');
-        const geo = await fetch(`https://nominatim.openstreetmap.org/search?postalcode=${cep}&country=BR&format=json&limit=1`).then(r => r.json());
-        if (geo.length > 0) {
-          setFormData(prev => ({ ...prev, latitude: parseFloat(geo[0].lat), longitude: parseFloat(geo[0].lon) }));
-        }
-      } catch (e) { console.warn('CEP geocode failed', e); }
-    }
+    await geocodeAddress(street, bairro, houseNumber);
   };
 
   // Manual Map Marker Component
@@ -301,6 +347,8 @@ export function CitizenNewTicket() {
     const map = useMapEvents({
       click(e) {
         setFormData(prev => ({ ...prev, latitude: e.latlng.lat, longitude: e.latlng.lng }));
+        setLocationAccuracy('manual');
+        setLocationHint('Ponto marcado manualmente. Este será o local usado no chamado.');
         // reverse geocode upon manual click
         fetch(`https://nominatim.openstreetmap.org/reverse?lat=${e.latlng.lat}&lon=${e.latlng.lng}&format=json&addressdetails=1`)
           .then(res => res.json())
@@ -320,7 +368,7 @@ export function CitizenNewTicket() {
 
     useEffect(() => {
       if (formData.latitude && formData.longitude) {
-         map.flyTo([formData.latitude, formData.longitude], map.getZoom());
+         map.flyTo([formData.latitude, formData.longitude], locationAccuracy === 'address' && houseNumber ? 17 : map.getZoom());
       }
     }, [formData.latitude, formData.longitude, map]);
 
@@ -332,6 +380,7 @@ export function CitizenNewTicket() {
   // Cleanup object URLs on unmount
   useEffect(() => {
     return () => {
+      if (geocodeTimeoutRef.current) clearTimeout(geocodeTimeoutRef.current);
       photos.forEach(p => {
         if (p.previewUrl.startsWith('blob:')) URL.revokeObjectURL(p.previewUrl);
       });
@@ -404,6 +453,14 @@ export function CitizenNewTicket() {
     e.preventDefault();
     setErrorMsg(null);
     if (!formData.categoryId) { setErrorMsg('Por favor, selecione uma categoria.'); return; }
+    if (!formData.latitude || !formData.longitude) {
+      setErrorMsg('Confirme o local da ocorrência no mapa. Se o endereço não ficou exato, toque no mapa para posicionar o pino.');
+      return;
+    }
+    if (locationAccuracy === 'address' && !houseNumber.trim()) {
+      setErrorMsg('Como o endereço foi localizado apenas pela rua, toque no mapa para marcar o ponto exato do problema antes de enviar.');
+      return;
+    }
 
     setIsSubmitting(true);
     setSubmitProgress(10);
@@ -518,8 +575,8 @@ export function CitizenNewTicket() {
         cityId: formData.cityId || currentUser?.cityId || '11111111-1111-1111-1111-111111111111',
         priority: categories.find(c => c.id === formData.categoryId)?.defaultPriority || 'medium',
         status: 'received',
-        latitude: formData.latitude || -16.4716 + (Math.random() * 0.01 - 0.005),
-        longitude: formData.longitude || -54.6369 + (Math.random() * 0.01 - 0.005),
+        latitude: formData.latitude,
+        longitude: formData.longitude,
         photoUrl: uploadedPhotoUrl,
         createdAt: Date.now()
       };
@@ -615,6 +672,8 @@ export function CitizenNewTicket() {
             neighborhood: prev.neighborhood || neighborhoodLocal,
             cityId: foundCityId || prev.cityId
           }));
+          setLocationAccuracy('gps');
+          setLocationHint('Localização obtida pelo GPS. Confira o pino no mapa e toque para ajustar se necessário.');
         } catch (e) {
           console.error("Reverse geocoding failed", e);
           setFormData(prev => ({
@@ -623,6 +682,8 @@ export function CitizenNewTicket() {
             longitude: lng,
             address: `Coordenadas: ${lat.toFixed(4)}, ${lng.toFixed(4)}`
           }));
+          setLocationAccuracy('gps');
+          setLocationHint('Localização obtida pelo GPS. Confira o pino no mapa e toque para ajustar se necessário.');
         } finally {
           setIsLocating(false);
         }
@@ -856,8 +917,15 @@ export function CitizenNewTicket() {
                     placeholder="Nº"
                     value={houseNumber}
                     onChange={e => {
-                      setHouseNumber(e.target.value);
-                      setFormData(prev => ({ ...prev, address: streetSearch ? `${streetSearch}, ${e.target.value}` : prev.address }));
+                      const nextNumber = e.target.value;
+                      setHouseNumber(nextNumber);
+                      setFormData(prev => ({ ...prev, address: streetSearch ? `${streetSearch}, ${nextNumber}` : prev.address }));
+                      if (geocodeTimeoutRef.current) clearTimeout(geocodeTimeoutRef.current);
+                      if (streetSearch && formData.cityId) {
+                        geocodeTimeoutRef.current = setTimeout(() => {
+                          geocodeAddress(streetSearch, neighborhoodSearch || formData.neighborhood, nextNumber);
+                        }, 700);
+                      }
                     }}
                     className="w-20"
                   />
@@ -881,10 +949,21 @@ export function CitizenNewTicket() {
               {formData.cityId && (
                 <div className="space-y-1">
                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Confirmação no Mapa <span className="font-normal text-slate-400">(toque para ajustar o pino)</span></p>
+                  {locationHint && (
+                    <div className={`rounded-lg border p-2 text-[11px] font-semibold leading-relaxed ${
+                      locationAccuracy === 'manual'
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                        : locationAccuracy === 'address'
+                        ? 'border-amber-200 bg-amber-50 text-amber-700'
+                        : 'border-blue-200 bg-blue-50 text-blue-700'
+                    }`}>
+                      {locationHint}
+                    </div>
+                  )}
                   <div className="w-full h-52 rounded-lg overflow-hidden border border-slate-300 shadow-inner relative">
                     <MapContainer
                       center={formData.latitude && formData.longitude ? [formData.latitude, formData.longitude] : [-16.4672, -54.6383]}
-                      zoom={formData.latitude ? 16 : 13}
+                      zoom={formData.latitude ? (houseNumber ? 17 : 15) : 13}
                       className="w-full h-full z-0"
                     >
                       <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
