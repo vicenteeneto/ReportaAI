@@ -148,20 +148,20 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-5xl my-4 flex flex-col overflow-hidden animate-in fade-in-0 zoom-in-95">
-        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+    <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-start sm:items-center justify-center p-0 sm:p-4 overflow-y-auto">
+      <div className="bg-white rounded-none sm:rounded-2xl shadow-xl w-full max-w-5xl min-h-screen sm:min-h-0 sm:max-h-[92vh] sm:my-4 flex flex-col overflow-hidden animate-in fade-in-0 zoom-in-95">
+        <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
           <div>
             <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">{ticket.protocol}</p>
-            <h2 className="text-xl font-bold text-slate-800 tracking-tight mt-1">{ticket.title}</h2>
+            <h2 className="text-lg sm:text-xl font-bold text-slate-800 tracking-tight mt-1 leading-tight">{ticket.title}</h2>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-500 hover:text-slate-700">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 md:p-8 flex flex-col lg:flex-row gap-8">
-          <div className="flex-[3] space-y-8">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 flex flex-col lg:flex-row gap-6 lg:gap-8">
+          <div className="flex-[3] space-y-6 lg:space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Evidência do Cidadão</p>
@@ -226,7 +226,7 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
               </div>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-8">
               <div>
                 <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-3">
                   <MessageSquare className="w-4 h-4 text-slate-400" />
@@ -251,7 +251,7 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
                   <Clock className="w-4 h-4 text-slate-400" />
                   Histórico de Tramitação
                 </h3>
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 max-h-64 overflow-y-auto space-y-4">
+                <div className="bg-slate-50 p-3 sm:p-4 rounded-xl border border-slate-100 max-h-none sm:max-h-64 sm:overflow-y-auto space-y-4">
                   {loadingHistory ? (
                     <p className="text-xs text-center text-slate-400 py-4">Carregando...</p>
                   ) : ticketHistory.length > 0 ? (
@@ -269,7 +269,7 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
                           )}
                         </div>
                         <p className="text-xs font-bold text-slate-800 mt-1">
-                          {cleanHistoryText(h.action)}
+                          <span className="break-words">{cleanHistoryText(h.action)}</span>
                         </p>
                         {h.oldStatus && h.newStatus && (
                           <p className="text-[11px] text-slate-500 mt-0.5">
@@ -278,7 +278,7 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
                         )}
                         {h.comment && (
                           <div className="mt-2 rounded-lg bg-white border border-slate-200 px-3 py-2">
-                            <p className="text-xs text-slate-600 whitespace-pre-wrap">{cleanHistoryText(h.comment)}</p>
+                            <p className="text-xs text-slate-600 whitespace-pre-wrap break-words">{cleanHistoryText(h.comment)}</p>
                           </div>
                         )}
                       </div>

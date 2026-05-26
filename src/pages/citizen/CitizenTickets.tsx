@@ -8,6 +8,14 @@ import { useAppContext } from '../../context/AppContext';
 import { Ticket } from '../../data/types';
 import { fetchTicketHistory, NormalizedTicketHistory, STATUS_LABELS } from '../../lib/ticketHistory';
 
+const cleanHistoryText = (text?: string) => {
+  if (!text) return '';
+  return text
+    .replace(/Evidencia de resolucao:\s*https:\/\/[^\s]+/gi, 'Evidencia de resolucao anexada.')
+    .replace(/Coment[aá]rio:\s*Evidencia de resolucao anexada\./gi, 'Evidencia de resolucao anexada.')
+    .trim();
+};
+
 export function CitizenTickets() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -73,7 +81,7 @@ export function CitizenTickets() {
     const citizenPhotos = (selectedTicket.photoUrl || '').split(',').map(url => url.trim()).filter(Boolean);
 
     return (
-      <div className="p-4 md:p-6 lg:max-w-3xl mx-auto space-y-4 animate-in slide-in-from-bottom-4 font-sans">
+      <div className="px-3 py-4 sm:p-4 md:p-6 lg:max-w-3xl mx-auto space-y-4 animate-in slide-in-from-bottom-4 font-sans">
         <button
           type="button"
           onClick={() => {
@@ -86,12 +94,12 @@ export function CitizenTickets() {
         </button>
 
         <div className="space-y-4">
-          <div className="flex justify-between items-start pt-2 border-t border-slate-200">
-            <div className="mt-2">
+          <div className="flex justify-between items-start gap-3 pt-2 border-t border-slate-200">
+            <div className="mt-2 min-w-0">
               <p className="text-[10px] font-bold text-[#1E3A8A] uppercase tracking-widest">{selectedTicket.protocol}</p>
-              <h2 className="text-xl font-bold text-slate-900 mt-1 tracking-tight">{selectedTicket.title}</h2>
+              <h2 className="text-lg sm:text-xl font-bold text-slate-900 mt-1 tracking-tight leading-tight break-words">{selectedTicket.title}</h2>
             </div>
-            <div className="mt-2">
+            <div className="mt-2 shrink-0">
               <StatusBadge status={selectedTicket.status} />
             </div>
           </div>
@@ -166,9 +174,9 @@ export function CitizenTickets() {
             </CardContent>
           </Card>
 
-          <div className="pt-2 px-2 pb-6">
+          <div className="pt-2 px-1 sm:px-2 pb-6">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 mb-4">Historico do Chamado</h3>
-            <div className="relative border-l-2 border-slate-200 ml-[9px] space-y-6">
+            <div className="relative border-l-2 border-slate-200 ml-[9px] space-y-5">
               {loadingHistory ? (
                 <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
                   <Loader2 className="w-4 h-4 animate-spin text-[#1E3A8A]" />
@@ -176,13 +184,15 @@ export function CitizenTickets() {
                 </div>
               ) : ticketHistory.length > 0 ? (
                 ticketHistory.map((entry, index) => (
-                  <div key={entry.id} className="relative -left-[9px] flex gap-4 items-start">
+                  <div key={entry.id} className="relative -left-[9px] flex gap-3 sm:gap-4 items-start">
                     <div className={`w-4 h-4 rounded ring-[3px] ring-slate-50 mt-1 ${
                       index === 0 ? 'bg-[#1E3A8A]' : ['resolved', 'closed'].includes(entry.newStatus || '') ? 'bg-emerald-500' : 'bg-orange-500'
                     }`}></div>
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0 rounded-xl bg-white border border-slate-100 px-3 py-3 shadow-sm">
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-xs font-bold text-slate-900 uppercase tracking-tight">{entry.action}</p>
+                        <p className="text-[11px] sm:text-xs font-bold text-slate-900 uppercase tracking-tight leading-snug break-words">
+                          {cleanHistoryText(entry.action)}
+                        </p>
                         {entry.userName && (
                           <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-500">
                             {entry.userName}
@@ -197,7 +207,7 @@ export function CitizenTickets() {
                       )}
                       {entry.comment && (
                         <div className="mt-2 rounded-lg bg-white border border-slate-200 px-3 py-2">
-                          <p className="text-xs text-slate-600 whitespace-pre-wrap">{entry.comment}</p>
+                          <p className="text-xs text-slate-600 whitespace-pre-wrap break-words">{cleanHistoryText(entry.comment)}</p>
                         </div>
                       )}
                     </div>
