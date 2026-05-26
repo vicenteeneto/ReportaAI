@@ -19,6 +19,16 @@ interface Props {
   onClose: () => void;
 }
 
+const extractEvidenceUrl = (text?: string) => text?.match(/https:\/\/[^\s]+/i)?.[0];
+
+const cleanHistoryText = (text?: string) => {
+  if (!text) return '';
+  return text
+    .replace(/Evidencia de resolucao:\s*https:\/\/[^\s]+/gi, 'Evidencia de resolucao anexada.')
+    .replace(/Coment[aá]rio:\s*Evidencia de resolucao anexada\./gi, 'Evidencia de resolucao anexada.')
+    .trim();
+};
+
 export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
   const { categories, departments, currentUser } = useAppContext();
   const category = categories.find(c => c.id === ticket.categoryId);
@@ -36,7 +46,7 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const resolutionEvidenceUrl = ticket.resolvedPhotoUrl || ticketHistory
-    .map((item) => item.comment?.match(/https:\/\/[^\s]+/i)?.[0])
+    .map((item) => extractEvidenceUrl(item.comment) || extractEvidenceUrl(item.action))
     .find(Boolean);
 
   React.useEffect(() => {
@@ -259,7 +269,7 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
                           )}
                         </div>
                         <p className="text-xs font-bold text-slate-800 mt-1">
-                          {h.action}
+                          {cleanHistoryText(h.action)}
                         </p>
                         {h.oldStatus && h.newStatus && (
                           <p className="text-[11px] text-slate-500 mt-0.5">
@@ -268,7 +278,7 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
                         )}
                         {h.comment && (
                           <div className="mt-2 rounded-lg bg-white border border-slate-200 px-3 py-2">
-                            <p className="text-xs text-slate-600 whitespace-pre-wrap">{h.comment}</p>
+                            <p className="text-xs text-slate-600 whitespace-pre-wrap">{cleanHistoryText(h.comment)}</p>
                           </div>
                         )}
                       </div>
