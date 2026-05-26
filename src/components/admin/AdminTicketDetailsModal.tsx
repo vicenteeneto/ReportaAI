@@ -35,6 +35,9 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const resolutionEvidenceUrl = ticket.resolvedPhotoUrl || ticketHistory
+    .map((item) => item.comment?.match(/https:\/\/[^\s]+/i)?.[0])
+    .find(Boolean);
 
   React.useEffect(() => {
     const fetchHistory = async () => {
@@ -80,26 +83,45 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
         resolvedPhotoUrl = publicUrl;
       }
 
-      const updatePayload = { 
+      const updatePayload: any = { 
         status: newStatus,
-        resolvedPhotoUrl: resolvedPhotoUrl,
         updatedAt: Date.now()
       };
+      if (resolvedPhotoUrl) {
+        updatePayload.resolvedPhotoUrl = resolvedPhotoUrl;
+      }
       const { error: updateError } = await supabase.from('tickets').update(updatePayload).eq('id', ticket.id);
       if (updateError) {
         console.warn('Ticket update failed, trying fallback shape:', updateError);
-        const { error: fallbackUpdateError } = await supabase.from('tickets').update({
+        const fallbackPayload: any = {
           status: newStatus,
-          resolved_photo_url: resolvedPhotoUrl,
           updated_at: Date.now()
-        }).eq('id', ticket.id);
-        if (fallbackUpdateError) throw fallbackUpdateError;
+        };
+        if (resolvedPhotoUrl) {
+          fallbackPayload.resolved_photo_url = resolvedPhotoUrl;
+        }
+        const { error: fallbackUpdateError } = await supabase.from('tickets').update(fallbackPayload).eq('id', ticket.id);
+        if (fallbackUpdateError) {
+          console.warn('Ticket update with photo column failed, saving status only:', fallbackUpdateError);
+          const { error: statusOnlyError } = await supabase.from('tickets').update({
+            status: newStatus,
+            updatedAt: Date.now()
+          }).eq('id', ticket.id);
+          if (statusOnlyError) throw statusOnlyError;
+        }
       }
 
-      const savedHistory = await saveHistory(newStatus, resolutionComment.trim());
+      const historyComment = [
+        resolutionComment.trim(),
+        resolvedPhotoUrl && resolvedPhotoUrl !== ticket.resolvedPhotoUrl ? `Evidencia de resolucao: ${resolvedPhotoUrl}` : null
+      ].filter(Boolean).join('\n\n');
+      const savedHistory = await saveHistory(newStatus, historyComment);
       if (savedHistory) {
         setTicketHistory(prev => normalizeTicketHistory(ticket, [savedHistory, ...prev]));
-        setSuccess('Atualizacao registrada no historico do chamado.');
+        setSuccess(resolvedPhotoUrl
+          ? 'Atualizacao registrada. A evidencia ficou vinculada ao historico do chamado.'
+          : 'Atualizacao registrada no historico do chamado.'
+        );
       } else {
         setError('Status atualizado, mas o historico nao foi gravado no banco. Verifique a tabela ticket_history.');
       }
@@ -174,14 +196,14 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
 
               <div className="space-y-2">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Evidência de Resolução</p>
-                {ticket.resolvedPhotoUrl ? (
+                {resolutionEvidenceUrl ? (
                   <button
                     type="button"
-                    onClick={() => setSelectedImage(ticket.resolvedPhotoUrl || null)}
+                    onClick={() => setSelectedImage(resolutionEvidenceUrl)}
                     className="w-full aspect-video rounded-xl overflow-hidden bg-emerald-50 border border-emerald-100 relative"
                   >
                     <img 
-                      src={ticket.resolvedPhotoUrl} 
+                      src={resolutionEvidenceUrl} 
                       alt="Resolução" 
                       className="w-full h-full object-cover" 
                     />
