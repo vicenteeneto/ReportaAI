@@ -195,6 +195,7 @@ export function CitizenNewTicket() {
   const [houseNumber, setHouseNumber] = useState('');
   const [locationHint, setLocationHint] = useState('');
   const [locationAccuracy, setLocationAccuracy] = useState<'gps' | 'address' | 'manual' | null>(null);
+  const [mapFocus, setMapFocus] = useState<{ lat: number; lng: number; zoom: number } | null>(null);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -222,6 +223,7 @@ export function CitizenNewTicket() {
     setStreetSearch(''); setStreetSugs([]);
     setHouseNumber('');
     setLocationAccuracy(null);
+    setMapFocus(null);
     setLocationHint('Informe rua e bairro. Depois confirme o ponto no mapa antes de enviar.');
   };
 
@@ -272,38 +274,64 @@ export function CitizenNewTicket() {
     ].filter(Boolean).join(', ');
   };
 
+  const searchNominatim = async (query: string) => {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&countrycodes=br&format=json&addressdetails=1&limit=5`;
+    const data = await fetch(url, { headers: { 'Accept-Language': 'pt-BR,pt;q=0.9' } }).then(r => r.json());
+    return Array.isArray(data) ? data[0] : null;
+  };
+
   const geocodeAddress = async (street: string, bairro?: string, number?: string) => {
+    const city = cities.find(c => c.id === formData.cityId);
+    const stateCode = city ? city.state || CITY_STATE[city.name] || '' : '';
     const query = buildAddressQuery(street, bairro, number);
-    if (!query) return;
+    if (!query || !city) return;
 
     try {
-      setLocationHint('Localizando endereço no mapa...');
-      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&countrycodes=br&format=json&addressdetails=1&limit=5`;
-      const data = await fetch(url, { headers: { 'Accept-Language': 'pt-BR,pt;q=0.9' } }).then(r => r.json());
-      const result = Array.isArray(data) ? data[0] : null;
+      setLocationHint('Localizando rua e bairro no mapa...');
+      const fallbackQueries = [
+        query,
+        [street, bairro, city.name, stateCode, 'Brasil'].filter(Boolean).join(', '),
+        [bairro, city.name, stateCode, 'Brasil'].filter(Boolean).join(', '),
+      ].filter(Boolean);
+      let result: any = null;
+      for (const candidate of fallbackQueries) {
+        result = await searchNominatim(candidate);
+        if (result?.lat && result?.lon) break;
+      }
 
       if (result?.lat && result?.lon) {
-        setFormData(prev => ({
-          ...prev,
-          latitude: parseFloat(result.lat),
-          longitude: parseFloat(result.lon),
-          address: number ? `${street}, ${number}` : street,
-          neighborhood: bairro || prev.neighborhood
-        }));
-        setLocationAccuracy('address');
-        setLocationHint(
-          number
-            ? 'Endereço localizado. Confira o pino no mapa e toque para ajustar se necessário.'
-            : 'Rua localizada, mas sem número exato. Toque no mapa para marcar o ponto correto do problema.'
-        );
+        const lat = parseFloat(result.lat);
+        const lng = parseFloat(result.lon);
+        setMapFocus({ lat, lng, zoom: number ? 17 : 16 });
+        if (number) {
+          setFormData(prev => ({
+            ...prev,
+            latitude: lat,
+            longitude: lng,
+            address: `${street}, ${number}`,
+            neighborhood: bairro || prev.neighborhood
+          }));
+          setLocationAccuracy('address');
+          setLocationHint('Endereço localizado. Confira o pino no mapa e toque para ajustar se necessário.');
+        } else {
+          setFormData(prev => ({
+            ...prev,
+            latitude: undefined,
+            longitude: undefined,
+            address: street,
+            neighborhood: bairro || prev.neighborhood
+          }));
+          setLocationAccuracy(null);
+          setLocationHint('Rua e bairro localizados. O mapa foi aproximado para a região; toque no ponto exato do problema.');
+        }
       } else {
         setLocationAccuracy(null);
-        setLocationHint('Não foi possível marcar automaticamente. Toque no mapa para indicar o local exato do problema.');
+        setLocationHint('Não foi possível aproximar automaticamente. Toque no mapa para indicar o local exato do problema.');
       }
     } catch (e) {
       console.warn('Address geocode failed', e);
       setLocationAccuracy(null);
-      setLocationHint('Não foi possível marcar automaticamente. Toque no mapa para indicar o local exato do problema.');
+      setLocationHint('Não foi possível aproximar automaticamente. Toque no mapa para indicar o local exato do problema.');
     }
   };
 
@@ -347,6 +375,7 @@ export function CitizenNewTicket() {
     const map = useMapEvents({
       click(e) {
         setFormData(prev => ({ ...prev, latitude: e.latlng.lat, longitude: e.latlng.lng }));
+        setMapFocus({ lat: e.latlng.lat, lng: e.latlng.lng, zoom: 17 });
         setLocationAccuracy('manual');
         setLocationHint('Ponto marcado manualmente. Buscando rua, número e bairro...');
         // reverse geocode upon manual click
@@ -390,8 +419,10 @@ export function CitizenNewTicket() {
     useEffect(() => {
       if (formData.latitude && formData.longitude) {
          map.flyTo([formData.latitude, formData.longitude], locationAccuracy === 'address' && houseNumber ? 17 : map.getZoom());
+      } else if (mapFocus) {
+         map.flyTo([mapFocus.lat, mapFocus.lng], mapFocus.zoom);
       }
-    }, [formData.latitude, formData.longitude, map]);
+    }, [formData.latitude, formData.longitude, mapFocus, map]);
 
     return formData.latitude && formData.longitude ? (
       <Marker position={[formData.latitude, formData.longitude]} />
@@ -983,8 +1014,8 @@ export function CitizenNewTicket() {
                   )}
                   <div className="w-full h-52 rounded-lg overflow-hidden border border-slate-300 shadow-inner relative">
                     <MapContainer
-                      center={formData.latitude && formData.longitude ? [formData.latitude, formData.longitude] : [-16.4672, -54.6383]}
-                      zoom={formData.latitude ? (houseNumber ? 17 : 15) : 13}
+                      center={formData.latitude && formData.longitude ? [formData.latitude, formData.longitude] : mapFocus ? [mapFocus.lat, mapFocus.lng] : [-16.4672, -54.6383]}
+                      zoom={formData.latitude ? (houseNumber ? 17 : 15) : mapFocus?.zoom || 13}
                       className="w-full h-full z-0"
                     >
                       <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
