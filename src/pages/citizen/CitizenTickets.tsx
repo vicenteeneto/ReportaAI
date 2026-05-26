@@ -16,6 +16,8 @@ const cleanHistoryText = (text?: string) => {
     .trim();
 };
 
+const extractEvidenceUrl = (text?: string) => text?.match(/https:\/\/[^\s]+/i)?.[0];
+
 export function CitizenTickets() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -79,6 +81,9 @@ export function CitizenTickets() {
     const cat = categories.find(c => c.id === selectedTicket.categoryId);
     const dep = departments.find(d => d.id === selectedTicket.departmentId);
     const citizenPhotos = (selectedTicket.photoUrl || '').split(',').map(url => url.trim()).filter(Boolean);
+    const resolutionEvidenceUrl = selectedTicket.resolvedPhotoUrl || ticketHistory
+      .map((entry) => extractEvidenceUrl(entry.comment) || extractEvidenceUrl(entry.action))
+      .find(Boolean);
 
     return (
       <div className="px-3 py-4 sm:p-4 md:p-6 lg:max-w-3xl mx-auto space-y-4 animate-in slide-in-from-bottom-4 font-sans">
@@ -106,6 +111,7 @@ export function CitizenTickets() {
 
           {citizenPhotos.length > 0 && (
             <div className="space-y-2">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Evidencia do cidadao</p>
               <button
                 type="button"
                 onClick={() => setSelectedImage(citizenPhotos[0])}
@@ -144,6 +150,26 @@ export function CitizenTickets() {
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {resolutionEvidenceUrl && (
+            <div className="space-y-2">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Evidencia de resolucao</p>
+              <button
+                type="button"
+                onClick={() => setSelectedImage(resolutionEvidenceUrl)}
+                className="relative w-full h-48 md:h-64 overflow-hidden rounded shadow-sm border border-emerald-200 bg-emerald-50 group"
+              >
+                <img
+                  src={resolutionEvidenceUrl}
+                  alt="Evidencia de resolucao"
+                  className="w-full h-full object-cover"
+                />
+                <span className="absolute right-2 top-2 bg-white/90 text-slate-700 rounded-full p-1 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                  <ExternalLink className="w-4 h-4" />
+                </span>
+              </button>
             </div>
           )}
 
