@@ -8,7 +8,7 @@ export function AdminLayout() {
   const { currentUser, logout } = useAppContext();
   const navigate = useNavigate();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [onlineUsers, setOnlineUsers] = useState(1);
+  const [onlineUsers, setOnlineUsers] = useState(0);
   const canManageTickets = ['admin', 'secretary', 'coordinator', 'triage', 'field', 'superadmin'].includes(currentUser?.role || '');
 
   const navItems = [
@@ -38,13 +38,14 @@ export function AdminLayout() {
   useEffect(() => {
     if (!currentUser?.id) return;
 
-    const channel = supabase.channel('reportaai-online-users', {
+    const presenceScope = currentUser.role === 'superadmin' ? 'global' : currentUser.cityId || 'sem-cidade';
+    const channel = supabase.channel(`reportaai-online-users:${presenceScope}`, {
       config: { presence: { key: currentUser.id } },
     });
 
     const updatePresenceCount = () => {
       const state = channel.presenceState();
-      setOnlineUsers(Object.keys(state).length || 1);
+      setOnlineUsers(Object.keys(state).length);
     };
 
     channel
@@ -67,7 +68,7 @@ export function AdminLayout() {
       channel.untrack();
       supabase.removeChannel(channel);
     };
-  }, [currentUser?.id, currentUser?.name, currentUser?.role]);
+  }, [currentUser?.id, currentUser?.name, currentUser?.role, currentUser?.cityId]);
 
   return (
     <div className="h-screen bg-slate-50 text-slate-900 font-sans flex flex-col overflow-hidden">

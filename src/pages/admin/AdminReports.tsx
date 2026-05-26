@@ -64,6 +64,14 @@ export function AdminReports() {
     }
     doc.text(filterText, 14, 38);
 
+    if (filteredTickets.length === 0) {
+      doc.setFontSize(13);
+      doc.setTextColor(80, 80, 80);
+      doc.text('Nenhum chamado encontrado para os filtros selecionados.', 14, 55);
+      doc.save(`relatorio_${reportType}_${format(new Date(), 'yyyyMMdd_HHmm')}.pdf`);
+      return;
+    }
+
     if (reportType === 'summary') {
       // SUMMARY REPORT
       const total = filteredTickets.length;

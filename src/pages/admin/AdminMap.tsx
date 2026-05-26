@@ -61,6 +61,10 @@ export function AdminMap() {
     return filtered;
   }, [cityFilteredTickets, selectedNeighborhood, selectedCategory, statusFilter, priorityFilter]);
 
+  const validGeoTickets = useMemo(() => {
+    return filteredTickets.filter(t => Number.isFinite(Number(t.latitude)) && Number.isFinite(Number(t.longitude)));
+  }, [filteredTickets]);
+
   // Helper to map color string to hex for inline styles
   const getPinColor = (categoryColor: string) => {
     if (categoryColor.includes('orange')) return '#f97316';
@@ -229,15 +233,15 @@ export function AdminMap() {
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          <MapController tickets={filteredTickets} />
-          {filteredTickets.map(ticket => {
+          <MapController tickets={validGeoTickets} />
+          {validGeoTickets.map(ticket => {
             const cat = categories.find(c => c.id === ticket.categoryId);
             if (!cat) return null;
 
             return (
               <Marker 
                 key={ticket.id} 
-                position={[ticket.latitude, ticket.longitude]} 
+                position={[Number(ticket.latitude), Number(ticket.longitude)]} 
                 icon={createIcon(getPinColor(cat.color))}
                 eventHandlers={{
                   click: () => setSelectedTicket(ticket),

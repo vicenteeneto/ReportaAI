@@ -13,11 +13,12 @@ export function AdminDashboard() {
   const openTickets = (filter: string) => {
     if (canOpenTickets) navigate('/admin/tickets', { state: { filter } });
   };
+  const inactiveStatuses = ['resolved', 'closed', 'rejected', 'duplicated', 'canceled'];
 
   const total = tickets.length;
   const resolved = tickets.filter(t => t.status === 'resolved' || t.status === 'closed').length;
-  const pending = total - resolved;
-  const urgent = tickets.filter(t => t.priority === 'urgent' || t.priority === 'high').filter(t => t.status !== 'resolved' && t.status !== 'closed');
+  const pending = tickets.filter(t => !inactiveStatuses.includes(t.status)).length;
+  const urgent = tickets.filter(t => t.priority === 'urgent' || t.priority === 'high').filter(t => !inactiveStatuses.includes(t.status));
   const resolutionRate = total > 0 ? ((resolved/total)*100).toFixed(1) : '0.0';
 
   // Department Performance
@@ -42,7 +43,7 @@ export function AdminDashboard() {
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
   // Recent Critical Tickets
-  const criticalTickets = urgent.sort((a, b) => b.createdAt - a.createdAt).slice(0, 4);
+  const criticalTickets = [...urgent].sort((a, b) => Number(b.createdAt) - Number(a.createdAt)).slice(0, 4);
 
   return (
     <div className="flex flex-col h-full gap-4 md:gap-6 pb-2">

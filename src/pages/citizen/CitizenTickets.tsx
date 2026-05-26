@@ -6,6 +6,7 @@ import { Card, CardContent } from '../../components/ui/Card';
 import { StatusBadge } from '../../components/ui/Badge';
 import { useAppContext } from '../../context/AppContext';
 import { Ticket } from '../../data/types';
+import { fetchTicketHistory, NormalizedTicketHistory, STATUS_LABELS } from '../../lib/ticketHistory';
 
 export function CitizenTickets() {
   const location = useLocation();
@@ -16,6 +17,8 @@ export function CitizenTickets() {
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>(location.state?.filter || 'all');
+  const [ticketHistory, setTicketHistory] = useState<NormalizedTicketHistory[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   useEffect(() => {
     if (location.state?.filter) {
@@ -28,6 +31,32 @@ export function CitizenTickets() {
     const ticket = tickets.find(t => t.id === routeTicketId && t.userId === currentUser?.id);
     if (ticket) setSelectedTicket(ticket);
   }, [routeTicketId, tickets, currentUser?.id]);
+
+  useEffect(() => {
+    if (!selectedTicket) {
+      setTicketHistory([]);
+      return;
+    }
+
+    let isMounted = true;
+    const loadHistory = async () => {
+      setLoadingHistory(true);
+      try {
+        const history = await fetchTicketHistory(selectedTicket, currentUser);
+        if (isMounted) setTicketHistory(history);
+      } catch (error) {
+        console.error('Error loading ticket history:', error);
+        if (isMounted) setTicketHistory([]);
+      } finally {
+        if (isMounted) setLoadingHistory(false);
+      }
+    };
+
+    loadHistory();
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedTicket, currentUser]);
 
   const allMyTickets = tickets.filter(t => t.userId === currentUser?.id);
 
@@ -138,32 +167,44 @@ export function CitizenTickets() {
           </Card>
 
           <div className="pt-2 px-2 pb-6">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 mb-4">Evolucao do Chamado</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 mb-4">Historico do Chamado</h3>
             <div className="relative border-l-2 border-slate-200 ml-[9px] space-y-6">
-              <div className="relative -left-[9px] flex gap-4 items-start">
-                <div className="w-4 h-4 rounded bg-[#1E3A8A] ring-[3px] ring-slate-50 mt-1"></div>
-                <div>
-                  <p className="text-xs font-bold text-slate-900 uppercase tracking-tight">Registro Inicial</p>
-                  <p className="text-[10px] text-slate-500 font-mono mt-0.5">{format(new Date(selectedTicket.createdAt), 'dd/MM/yyyy HH:mm')}</p>
+              {loadingHistory ? (
+                <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
+                  <Loader2 className="w-4 h-4 animate-spin text-[#1E3A8A]" />
+                  Carregando historico...
                 </div>
-              </div>
-              {selectedTicket.status !== 'received' && (
-                <div className="relative -left-[9px] flex gap-4 items-start">
-                  <div className="w-4 h-4 rounded bg-orange-500 ring-[3px] ring-slate-50 mt-1"></div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-900 uppercase tracking-tight">Em Procedimento</p>
-                    <p className="text-[10px] text-slate-500 font-medium mt-0.5">Distribuido para {dep?.name || 'analise'}</p>
+              ) : ticketHistory.length > 0 ? (
+                ticketHistory.map((entry, index) => (
+                  <div key={entry.id} className="relative -left-[9px] flex gap-4 items-start">
+                    <div className={`w-4 h-4 rounded ring-[3px] ring-slate-50 mt-1 ${
+                      index === 0 ? 'bg-[#1E3A8A]' : ['resolved', 'closed'].includes(entry.newStatus || '') ? 'bg-emerald-500' : 'bg-orange-500'
+                    }`}></div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-xs font-bold text-slate-900 uppercase tracking-tight">{entry.action}</p>
+                        {entry.userName && (
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-500">
+                            {entry.userName}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-slate-500 font-mono mt-0.5">{format(new Date(entry.createdAt), 'dd/MM/yyyy HH:mm')}</p>
+                      {entry.oldStatus && entry.newStatus && (
+                        <p className="text-[11px] text-slate-500 font-medium mt-1">
+                          De {STATUS_LABELS[entry.oldStatus] || entry.oldStatus} para {STATUS_LABELS[entry.newStatus] || entry.newStatus}
+                        </p>
+                      )}
+                      {entry.comment && (
+                        <div className="mt-2 rounded-lg bg-white border border-slate-200 px-3 py-2">
+                          <p className="text-xs text-slate-600 whitespace-pre-wrap">{entry.comment}</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
-              {['resolved', 'closed'].includes(selectedTicket.status) && (
-                <div className="relative -left-[9px] flex gap-4 items-start">
-                  <div className="w-4 h-4 rounded bg-green-500 ring-[3px] ring-slate-50 mt-1"></div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-900 uppercase tracking-tight">Finalizacao</p>
-                    <p className="text-[10px] text-slate-500 font-medium mt-0.5">Auditoria tecnica confirmou solucao.</p>
-                  </div>
-                </div>
+                ))
+              ) : (
+                <p className="text-xs text-slate-500">Nenhuma movimentacao registrada.</p>
               )}
             </div>
           </div>

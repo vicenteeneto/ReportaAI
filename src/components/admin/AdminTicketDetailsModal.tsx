@@ -6,6 +6,13 @@ import { StatusBadge, PriorityBadge } from '../ui/Badge';
 import { format } from 'date-fns';
 import { X, Clock, MessageSquare, Upload, ExternalLink } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import {
+  fetchTicketHistory,
+  insertTicketHistory,
+  normalizeTicketHistory,
+  STATUS_LABELS,
+  NormalizedTicketHistory,
+} from '../../lib/ticketHistory';
 
 interface Props {
   ticket: Ticket;
@@ -23,80 +30,16 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
   const [newStatus, setNewStatus] = useState<TicketStatus>(ticket.status as TicketStatus);
   const [resolutionComment, setResolutionComment] = useState('');
   const [resolutionFile, setResolutionFile] = useState<File | null>(null);
-  const [ticketHistory, setTicketHistory] = useState<any[]>([]);
+  const [ticketHistory, setTicketHistory] = useState<NormalizedTicketHistory[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const statusLabels: Record<string, string> = {
-    received: 'Recebido',
-    triage: 'Triagem',
-    forwarded: 'Encaminhado',
-    analyzing: 'Em Analise',
-    scheduled: 'Agendado',
-    in_progress: 'Em Execucao',
-    resolved: 'Resolvido',
-    closed: 'Finalizado',
-    rejected: 'Indeferido',
-    duplicated: 'Duplicado',
-    waiting_info: 'Pendencia Cidadao',
-  };
-
-  const initialHistoryEntry = {
-    id: `${ticket.id}-initial`,
-    ticketId: ticket.id,
-    userId: ticket.userId,
-    userName: 'Cidadao',
-    action: 'Registro inicial do chamado',
-    oldStatus: null,
-    newStatus: 'received',
-    comment: ticket.description,
-    createdAt: ticket.createdAt || Date.now(),
-  };
-
-  const normalizeHistory = (items: any[] = []) => {
-    const normalized = items
-      .map((item) => ({
-        id: item.id || `${item.ticketId || item.ticket_id}-${item.createdAt || item.created_at || item.createdat}`,
-        ticketId: item.ticketId || item.ticket_id || item.ticketid,
-        userId: item.userId || item.user_id || item.userid,
-        userName: item.userName || item.user_name || item.username || item.authorName || item.author_name,
-        action: item.action || 'Atualizacao do chamado',
-        oldStatus: item.oldStatus || item.old_status || item.oldstatus,
-        newStatus: item.newStatus || item.new_status || item.newstatus,
-        comment: item.comment || item.comments || item.observation || item.observations || '',
-        createdAt: item.createdAt || item.created_at || item.createdat || Date.now(),
-      }))
-      .filter((item) => item.id !== initialHistoryEntry.id);
-
-    return [initialHistoryEntry, ...normalized]
-      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-  };
-
-  const enrichHistoryWithUsers = async (items: any[]) => {
-    const userIds = Array.from(new Set(items.map((item) => item.userId).filter(Boolean)));
-    if (userIds.length === 0) return items;
-
-    const { data } = await supabase.from('users').select('id,name,email').in('id', userIds);
-    const usersById = new Map((data || []).map((user: any) => [user.id, user.name || user.email]));
-
-    return items.map((item) => ({
-      ...item,
-      userName: item.userName || usersById.get(item.userId) || (item.userId === currentUser?.id ? currentUser?.name || currentUser?.email : ''),
-    }));
-  };
-
   React.useEffect(() => {
     const fetchHistory = async () => {
       setLoadingHistory(true);
-      const primary = await supabase.from('ticket_history').select('*').eq('ticketId', ticket.id).order('createdAt', { ascending: false });
-      if (primary.data && !primary.error) {
-        setTicketHistory(await enrichHistoryWithUsers(normalizeHistory(primary.data)));
-      } else {
-        const fallback = await supabase.from('ticket_history').select('*').eq('ticket_id', ticket.id).order('created_at', { ascending: false });
-        setTicketHistory(await enrichHistoryWithUsers(normalizeHistory(fallback.data || [])));
-      }
+      setTicketHistory(await fetchTicketHistory(ticket, currentUser));
       setLoadingHistory(false);
     };
     fetchHistory();
@@ -104,43 +47,17 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
 
   const saveHistory = async (status: TicketStatus, comment: string) => {
     const previousStatus = currentStatus;
-    const action = `Status alterado de ${statusLabels[previousStatus] || previousStatus} para ${statusLabels[status] || status}`;
     const userId = currentUser?.id || (await supabase.auth.getUser()).data.user?.id || null;
     const userName = currentUser?.name || currentUser?.email || 'Usuario do sistema';
-    const now = Date.now();
+    const saved = await insertTicketHistory({
+      ticket,
+      userId,
+      status,
+      previousStatus,
+      comment,
+    });
 
-    const attempts: Record<string, any>[] = [
-      {
-        ticketId: ticket.id,
-        userId,
-        action,
-        newStatus: status,
-        comment,
-        createdAt: now,
-      },
-      {
-        ticket_id: ticket.id,
-        user_id: userId,
-        action,
-        new_status: status,
-        comment,
-        created_at: now,
-      },
-    ];
-
-    for (const payload of attempts) {
-      const { error: historyError } = await supabase.from('ticket_history').insert(payload);
-      if (!historyError) {
-        return {
-          ...normalizeHistory([{ ...payload, userName, oldStatus: previousStatus }])[1],
-          userName,
-          oldStatus: previousStatus,
-        };
-      }
-      console.warn('Ticket history insert failed, trying fallback shape:', historyError);
-    }
-
-    return null;
+    return saved ? { ...saved, userName } : null;
   };
 
   const handleUpdate = async () => {
@@ -181,7 +98,7 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
 
       const savedHistory = await saveHistory(newStatus, resolutionComment.trim());
       if (savedHistory) {
-        setTicketHistory(prev => normalizeHistory([savedHistory, ...prev]));
+        setTicketHistory(prev => normalizeTicketHistory(ticket, [savedHistory, ...prev]));
       } else {
         setError('Status atualizado, mas o historico nao foi gravado no banco. Verifique a tabela ticket_history.');
       }
@@ -324,7 +241,7 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
                         </p>
                         {h.oldStatus && h.newStatus && (
                           <p className="text-[11px] text-slate-500 mt-0.5">
-                            De {statusLabels[h.oldStatus] || h.oldStatus} para {statusLabels[h.newStatus] || h.newStatus}
+                            De {STATUS_LABELS[h.oldStatus] || h.oldStatus} para {STATUS_LABELS[h.newStatus] || h.newStatus}
                           </p>
                         )}
                         {h.comment && (

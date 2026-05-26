@@ -24,6 +24,7 @@ export function AdminTickets() {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [quickFilter, setQuickFilter] = useState<string>((location.state as any)?.filter || '');
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const inactiveStatuses = ['resolved', 'closed', 'rejected', 'duplicated', 'canceled'];
 
   const neighborhoods = useMemo(() => {
     return Array.from(new Set(tickets.map(t => t.neighborhood).filter(Boolean))).sort();
@@ -43,9 +44,9 @@ export function AdminTickets() {
       quickFilter === 'resolved'
         ? ['resolved', 'closed'].includes(t.status)
         : quickFilter === 'pending'
-        ? !['resolved', 'closed', 'rejected', 'duplicated'].includes(t.status)
+        ? !inactiveStatuses.includes(t.status)
         : quickFilter === 'urgent'
-        ? ['urgent', 'high'].includes(t.priority) && !['resolved', 'closed', 'rejected', 'duplicated'].includes(t.status)
+        ? ['urgent', 'high'].includes(t.priority) && !inactiveStatuses.includes(t.status)
         : true;
     
     return belongsToDept && matchesSearch && matchesStatus && matchesDept && matchesPriority && matchesNeighborhood && matchesQuickFilter;

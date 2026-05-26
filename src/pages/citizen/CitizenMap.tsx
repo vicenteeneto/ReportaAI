@@ -29,15 +29,6 @@ export function CitizenMap() {
   const [showFilters, setShowFilters] = useState(false);
 
 
-  if (loading) {
-    return (
-      <div className="flex flex-col h-full bg-slate-50 items-center justify-center p-6 text-center">
-        <Loader2 className="w-10 h-10 text-[#1E3A8A] animate-spin mb-4" />
-        <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest">Mapeando Ocorrências</h3>
-        <p className="text-[10px] text-slate-500 font-medium mt-1">Sincronizando localização e dados...</p>
-      </div>
-    );
-  }
 
 
   const neighborhoods = useMemo(() => {
@@ -58,6 +49,20 @@ export function CitizenMap() {
     }
     return filtered;
   }, [tickets, selectedNeighborhood, selectedCategory]);
+
+  const validGeoTickets = useMemo(() => {
+    return filteredTickets.filter(t => Number.isFinite(Number(t.latitude)) && Number.isFinite(Number(t.longitude)));
+  }, [filteredTickets]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col h-full bg-slate-50 items-center justify-center p-6 text-center">
+        <Loader2 className="w-10 h-10 text-[#1E3A8A] animate-spin mb-4" />
+        <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest">Mapeando Ocorrencias</h3>
+        <p className="text-[10px] text-slate-500 font-medium mt-1">Sincronizando localizacao e dados...</p>
+      </div>
+    );
+  }
 
   const getPinColor = (categoryColor: string) => {
     if (categoryColor.includes('orange')) return '#f97316';
@@ -88,14 +93,14 @@ export function CitizenMap() {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           <ZoomControl position="bottomright" />
-          <MapController tickets={filteredTickets} />
-          {filteredTickets.map(ticket => {
+          <MapController tickets={validGeoTickets} />
+          {validGeoTickets.map(ticket => {
             const cat = categories.find(c => c.id === ticket.categoryId);
             if (!cat) return null;
             return (
               <Marker 
                 key={ticket.id} 
-                position={[ticket.latitude, ticket.longitude]} 
+                position={[Number(ticket.latitude), Number(ticket.longitude)]} 
                 icon={createIcon(getPinColor(cat.color))}
                 eventHandlers={{
                   click: () => setSelectedTicket(ticket),
