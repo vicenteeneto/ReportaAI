@@ -5,6 +5,7 @@ import { useAppContext } from '../../context/AppContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { AlertTriangle, TrendingUp, Clock, MapPin, ChevronRight, Activity, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { countOverdueTickets, getTicketSlaInfo, INACTIVE_STATUSES } from '../../lib/sla';
 
 export function AdminDashboard() {
   const { tickets, categories, departments, currentUser } = useAppContext();
@@ -13,12 +14,13 @@ export function AdminDashboard() {
   const openTickets = (filter: string) => {
     if (canOpenTickets) navigate('/admin/tickets', { state: { filter } });
   };
-  const inactiveStatuses = ['resolved', 'closed', 'rejected', 'duplicated', 'canceled'];
-
   const total = tickets.length;
   const resolved = tickets.filter(t => t.status === 'resolved' || t.status === 'closed').length;
-  const pending = tickets.filter(t => !inactiveStatuses.includes(t.status)).length;
-  const urgent = tickets.filter(t => t.priority === 'urgent' || t.priority === 'high').filter(t => !inactiveStatuses.includes(t.status));
+  const pending = tickets.filter(t => !INACTIVE_STATUSES.includes(t.status)).length;
+  const overdue = countOverdueTickets(tickets);
+  const urgent = tickets
+    .filter(t => t.priority === 'urgent' || t.priority === 'high' || getTicketSlaInfo(t).overdue)
+    .filter(t => !INACTIVE_STATUSES.includes(t.status));
   const resolutionRate = total > 0 ? ((resolved/total)*100).toFixed(1) : '0.0';
 
   // Department Performance
@@ -99,11 +101,11 @@ export function AdminDashboard() {
           className={`bg-white p-4 rounded-xl border border-red-200 shadow-sm transition-all relative overflow-hidden group ${canOpenTickets ? 'cursor-pointer hover:shadow-md hover:border-red-400' : ''}`}
         >
           <p className="text-[10px] font-bold text-red-500 uppercase tracking-wide flex items-center gap-1">
-            <AlertTriangle className="w-3 h-3" /> Atenção Imediata
+            <AlertTriangle className="w-3 h-3" /> SLA / Atenção
           </p>
           <div className="flex items-baseline gap-2 mt-1">
-            <h2 className="text-2xl font-bold text-red-600">{urgent.length}</h2>
-            <span className="text-[10px] text-red-500 font-bold">Críticos pendentes</span>
+            <h2 className="text-2xl font-bold text-red-600">{overdue}</h2>
+            <span className="text-[10px] text-red-500 font-bold">Atrasados</span>
           </div>
           <div className="absolute right-0 bottom-0 w-12 h-12 bg-red-50 rounded-tl-full opacity-50 group-hover:bg-red-100 transition-colors"></div>
         </div>
@@ -206,7 +208,7 @@ export function AdminDashboard() {
                       <div className="flex items-center justify-between mt-1">
                         <span className="text-[9px] font-medium text-slate-400 flex items-center gap-1">
                           <Clock className="w-3 h-3" /> 
-                          {format(new Date(ticket.createdAt), "dd/MM 'às' HH:mm")}
+                          {getTicketSlaInfo(ticket).label} · {format(new Date(ticket.createdAt), "dd/MM 'às' HH:mm")}
                         </span>
                         <ChevronRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-[#1E3A8A] transition-colors" />
                       </div>

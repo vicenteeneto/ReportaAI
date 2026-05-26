@@ -8,6 +8,7 @@ import { Ticket } from '../../data/types';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { AdminTicketDetailsModal } from '../../components/admin/AdminTicketDetailsModal';
+import { getTicketSlaInfo } from '../../lib/sla';
 
 function MapController({ tickets }: { tickets: any[] }) {
   const map = useMap();
@@ -31,6 +32,7 @@ export function AdminMap() {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [statusFilter, setStatusFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
+  const [slaFilter, setSlaFilter] = useState('');
 
   const cityFilteredTickets = useMemo(() => {
     return selectedCity ? tickets.filter(t => t.cityId === selectedCity) : tickets;
@@ -58,8 +60,14 @@ export function AdminMap() {
     if (priorityFilter) {
       filtered = filtered.filter(t => t.priority === priorityFilter);
     }
+    if (slaFilter === 'overdue') {
+      filtered = filtered.filter(t => getTicketSlaInfo(t).overdue);
+    }
+    if (slaFilter === 'due_soon') {
+      filtered = filtered.filter(t => getTicketSlaInfo(t).dueSoon);
+    }
     return filtered;
-  }, [cityFilteredTickets, selectedNeighborhood, selectedCategory, statusFilter, priorityFilter]);
+  }, [cityFilteredTickets, selectedNeighborhood, selectedCategory, statusFilter, priorityFilter, slaFilter]);
 
   const validGeoTickets = useMemo(() => {
     return filteredTickets.filter(t => Number.isFinite(Number(t.latitude)) && Number.isFinite(Number(t.longitude)));
@@ -114,7 +122,7 @@ export function AdminMap() {
 
       {showAdvancedFilters && (
         <Card className="p-4 border-slate-200 shadow-sm">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
             <label className="space-y-1 text-xs font-bold text-slate-500 uppercase tracking-wider">
               Status
               <select className="w-full border border-slate-300 rounded-lg p-2 text-sm bg-white font-normal normal-case tracking-normal" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
@@ -140,10 +148,19 @@ export function AdminMap() {
                 <option value="low">Baixa</option>
               </select>
             </label>
+            <label className="space-y-1 text-xs font-bold text-slate-500 uppercase tracking-wider">
+              SLA
+              <select className="w-full border border-slate-300 rounded-lg p-2 text-sm bg-white font-normal normal-case tracking-normal" value={slaFilter} onChange={(e) => setSlaFilter(e.target.value)}>
+                <option value="">Todos os prazos</option>
+                <option value="overdue">Atrasados</option>
+                <option value="due_soon">Vencendo hoje</option>
+              </select>
+            </label>
             <div className="flex gap-2">
               <Button variant="outline" className="w-full" onClick={() => {
                 setStatusFilter('');
                 setPriorityFilter('');
+                setSlaFilter('');
                 setSelectedCategory(null);
                 setSelectedNeighborhood(null);
               }}>
@@ -261,7 +278,7 @@ export function AdminMap() {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {selectedTicket.photoUrl && (
+            {selectedTicket.photoUrl && (
                 <img src={selectedTicket.photoUrl.split(',')[0]} alt="Local" className="w-full h-40 object-cover rounded-lg" />
               )}
               <div>
@@ -272,6 +289,9 @@ export function AdminMap() {
               <div className="flex flex-wrap gap-2">
                 <StatusBadge status={selectedTicket.status} />
                 <PriorityBadge priority={selectedTicket.priority} />
+                <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${getTicketSlaInfo(selectedTicket).overdue ? 'bg-red-100 text-red-700' : getTicketSlaInfo(selectedTicket).dueSoon ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
+                  {getTicketSlaInfo(selectedTicket).label}
+                </span>
               </div>
 
               <div className="pt-4 border-t border-slate-100 space-y-3">

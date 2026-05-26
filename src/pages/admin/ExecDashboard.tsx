@@ -3,6 +3,7 @@ import { useAppContext } from '../../context/AppContext';
 import { Card, CardContent } from '../../components/ui/Card';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, Cell } from 'recharts';
 import { TrendingUp, AlertCircle, CheckCircle } from 'lucide-react';
+import { countOverdueTickets } from '../../lib/sla';
 
 export function ExecDashboard() {
   const { tickets, categories } = useAppContext();
@@ -10,12 +11,7 @@ export function ExecDashboard() {
   const total = tickets.length;
   const resolved = tickets.filter(t => ['resolved', 'closed'].includes(t.status)).length;
   
-  // Real Delayed Logic: Tickets older than 7 days and NOT resolved/closed
-  const delayed = tickets.filter(t => {
-    const createdDate = new Date(t.createdAt).getTime();
-    const isOld = (Date.now() - createdDate) > (7 * 24 * 60 * 60 * 1000); 
-    return isOld && !['resolved', 'closed', 'rejected', 'duplicated'].includes(t.status);
-  }).length;
+  const delayed = countOverdueTickets(tickets);
   
   const resolutionRate = total > 0 ? Math.round((resolved / total) * 100) : 0;
 

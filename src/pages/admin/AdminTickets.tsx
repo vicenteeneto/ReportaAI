@@ -10,6 +10,7 @@ import { ArrowLeft, Search, Filter, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { AdminTicketDetailsModal } from '../../components/admin/AdminTicketDetailsModal';
 import { Ticket } from '../../data/types';
+import { getTicketSlaInfo, INACTIVE_STATUSES } from '../../lib/sla';
 
 export function AdminTickets() {
   const { tickets, categories, departments, currentUser } = useAppContext();
@@ -24,7 +25,6 @@ export function AdminTickets() {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [quickFilter, setQuickFilter] = useState<string>((location.state as any)?.filter || '');
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
-  const inactiveStatuses = ['resolved', 'closed', 'rejected', 'duplicated', 'canceled'];
 
   const neighborhoods = useMemo(() => {
     return Array.from(new Set(tickets.map(t => t.neighborhood).filter(Boolean))).sort();
@@ -44,9 +44,11 @@ export function AdminTickets() {
       quickFilter === 'resolved'
         ? ['resolved', 'closed'].includes(t.status)
         : quickFilter === 'pending'
-        ? !inactiveStatuses.includes(t.status)
+        ? !INACTIVE_STATUSES.includes(t.status)
         : quickFilter === 'urgent'
-        ? ['urgent', 'high'].includes(t.priority) && !inactiveStatuses.includes(t.status)
+        ? ['urgent', 'high'].includes(t.priority) && !INACTIVE_STATUSES.includes(t.status)
+        : quickFilter === 'overdue'
+        ? getTicketSlaInfo(t).overdue
         : true;
     
     return belongsToDept && matchesSearch && matchesStatus && matchesDept && matchesPriority && matchesNeighborhood && matchesQuickFilter;
@@ -189,6 +191,7 @@ export function AdminTickets() {
                 <th className="px-4 py-2 uppercase">Bairro</th>
                 <th className="px-4 py-2 uppercase">Abertura</th>
                 <th className="px-4 py-2 uppercase">Prioridade</th>
+                <th className="px-4 py-2 uppercase">SLA</th>
                 <th className="px-4 py-2 uppercase">Status</th>
                 <th className="px-4 py-2 uppercase text-right">Ação</th>
               </tr>
@@ -196,6 +199,7 @@ export function AdminTickets() {
             <tbody className="divide-y divide-slate-100">
               {filteredTickets.map(ticket => {
                 const category = categories.find(c => c.id === ticket.categoryId);
+                const sla = getTicketSlaInfo(ticket);
                 
                 return (
                   <tr key={ticket.id} className="hover:bg-slate-50 transition-colors">
@@ -204,6 +208,7 @@ export function AdminTickets() {
                     <td className="px-4 py-2.5 text-slate-500">{ticket.neighborhood}</td>
                     <td className="px-4 py-2.5 text-slate-500">{format(new Date(ticket.createdAt), 'dd/MM/yy')}</td>
                     <td className="px-4 py-2.5"><PriorityBadge priority={ticket.priority} /></td>
+                    <td className={`px-4 py-2.5 text-[10px] font-bold uppercase ${sla.overdue ? 'text-red-600' : sla.dueSoon ? 'text-amber-600' : 'text-slate-500'}`}>{sla.label}</td>
                     <td className="px-4 py-2.5"><StatusBadge status={ticket.status} /></td>
                     <td className="px-4 py-2.5 text-right w-16">
                       <Button variant="ghost" size="sm" icon={Eye} className="h-6 w-6 p-0" title="Ver Detalhes" onClick={() => setSelectedTicket(ticket)} />
@@ -213,7 +218,7 @@ export function AdminTickets() {
               })}
               {filteredTickets.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
                     Nenhum chamado encontrado.
                   </td>
                 </tr>
