@@ -21,6 +21,7 @@ export function SystemSettings() {
   const [newRole, setNewRole] = useState('admin');
   const [newDepartment, setNewDepartment] = useState('');
   const [newCity, setNewCity] = useState('');
+  const [systemMessage, setSystemMessage] = useState<{ type: 'success' | 'error' | 'warning'; text: string } | null>(null);
   
   const navigate = useNavigate();
 
@@ -42,50 +43,71 @@ export function SystemSettings() {
   };
 
   const handleUpdateRole = async (userId: string, newRole: string) => {
+    if (userId === currentUser?.id && newRole !== currentUser.role) {
+      setSystemMessage({ type: 'warning', text: 'Por seguranca, voce nao pode alterar o proprio perfil enquanto esta logado.' });
+      return;
+    }
+    if (newRole === 'superadmin' && !confirm('Conceder Super Admin libera acesso global ao sistema. Confirmar alteracao?')) return;
     const { error } = await supabase.from('users').update({ role: newRole }).eq('id', userId);
     if (!error) {
       setUsers(users.map(u => u.id === userId ? { ...u, role: newRole as any } : u));
+      setSystemMessage({ type: 'success', text: 'Perfil atualizado com sucesso.' });
+    } else {
+      setSystemMessage({ type: 'error', text: `Erro ao atualizar perfil: ${error.message}` });
     }
   };
 
   const handleUpdateDepartment = async (userId: string, departmentId: string) => {
-    console.log('Update department called:', userId, departmentId);
     const val = departmentId === '' ? null : departmentId;
     const { error } = await supabase.from('users').update({ departmentId: val } as any).eq('id', userId);
-    console.log('Update department error:', error);
     if (!error) {
        setUsers(users.map(u => u.id === userId ? { ...u, departmentId: val } as any : u));
+       setSystemMessage({ type: 'success', text: 'Secretaria do usuario atualizada.' });
     } else {
-       alert('Erro ao atualizar departamento: ' + error.message);
+       setSystemMessage({ type: 'error', text: `Erro ao atualizar departamento: ${error.message}` });
     }
   };
 
   const handleUpdateCity = async (userId: string, cityId: string) => {
-    console.log('Update city called:', userId, cityId);
+    if (userId === currentUser?.id) {
+      setSystemMessage({ type: 'warning', text: 'Por seguranca, voce nao pode alterar a propria cidade enquanto esta logado.' });
+      return;
+    }
     const val = cityId === '' ? null : cityId;
     const { error } = await supabase.from('users').update({ cityId: val } as any).eq('id', userId);
-    console.log('Update city error:', error);
     if (!error) {
        setUsers(users.map(u => u.id === userId ? { ...u, cityId: val } as any : u));
+       setSystemMessage({ type: 'success', text: 'Cidade do usuario atualizada.' });
     } else {
-      alert('Erro ao atualizar cidade: ' + error.message);
+      setSystemMessage({ type: 'error', text: `Erro ao atualizar cidade: ${error.message}` });
     }
   };
 
   const handleDeleteUser = async (userId: string) => {
-    if (!confirm('Tem certeza que deseja apagar este usuário do sistema? O registro do auth base ainda existirá.')) return;
+    if (userId === currentUser?.id) {
+      setSystemMessage({ type: 'warning', text: 'Voce nao pode remover o proprio usuario administrador.' });
+      return;
+    }
+    if (!confirm('Tem certeza que deseja remover este perfil do sistema? O usuario do Supabase Auth ainda existira ate a criacao da funcao administrativa segura.')) return;
     const { error } = await supabase.from('users').delete().eq('id', userId);
     if (!error) {
       setUsers(users.filter(u => u.id !== userId));
+      setSystemMessage({ type: 'success', text: 'Perfil removido da lista de usuarios.' });
     } else {
-      alert('Erro ao apagar. Pode haver dependências.');
+      setSystemMessage({ type: 'error', text: `Erro ao remover perfil: ${error.message}` });
     }
   };
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSystemMessage(null);
     const normalizedEmail = newEmail.trim().toLowerCase();
     if (!normalizedEmail || !newPassword) return;
+    if (newPassword.length < 6) {
+      setSystemMessage({ type: 'error', text: 'A senha provisoria precisa ter pelo menos 6 caracteres.' });
+      return;
+    }
+    if (newRole === 'superadmin' && !confirm('Voce esta criando um novo Super Admin com acesso global. Confirmar?')) return;
     
     setIsCreating(true);
     try {
@@ -136,10 +158,10 @@ export function SystemSettings() {
         return;
       }
 
-      alert('Usuário criado com sucesso.');
+      setSystemMessage({ type: 'success', text: 'Usuario criado com sucesso.' });
     } catch (err: any) {
       console.error(err);
-      alert('Erro ao criar usuário: ' + err.message);
+      setSystemMessage({ type: 'error', text: 'Erro ao criar usuario: ' + err.message });
     } finally {
       setIsCreating(false);
     }
@@ -155,6 +177,18 @@ export function SystemSettings() {
           <p className="text-sm text-slate-500">Gestão global de prefeituras (secretarias) e usuários - KNG Flow</p>
          </div>
       </div>
+
+      {systemMessage && (
+        <div className={`rounded-lg border px-4 py-3 text-sm font-semibold ${
+          systemMessage.type === 'success'
+            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+            : systemMessage.type === 'warning'
+              ? 'border-amber-200 bg-amber-50 text-amber-700'
+              : 'border-red-200 bg-red-50 text-red-700'
+        }`}>
+          {systemMessage.text}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         
@@ -189,6 +223,7 @@ export function SystemSettings() {
                           <select 
                             className="border border-slate-200 rounded p-1 text-sm bg-white hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-[#1E3A8A]"
                             value={user.role}
+                            disabled={user.id === currentUser?.id}
                             onChange={(e) => handleUpdateRole(user.id, e.target.value)}
                           >
                             <option value="citizen">Cidadão</option>
@@ -217,6 +252,7 @@ export function SystemSettings() {
                           <select 
                             className="border border-slate-200 rounded p-1 text-sm bg-white max-w-[150px] hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-[#1E3A8A]"
                             value={user.cityId || ''}
+                            disabled={user.id === currentUser?.id}
                             onChange={(e) => handleUpdateCity(user.id, e.target.value)}
                           >
                             <option value="">-- Todas --</option>
@@ -226,7 +262,7 @@ export function SystemSettings() {
                           </select>
                         </td>
                         <td className="px-4 py-4 text-right">
-                          {user.email !== 'contato@kngflow.com' && (
+                          {user.email !== 'contato@kngflow.com' && user.id !== currentUser?.id && (
                             <button 
                               onClick={() => handleDeleteUser(user.id)}
                               className="text-red-500 hover:text-red-700 text-xs font-bold uppercase tracking-wider py-1 px-2 rounded hover:bg-red-50 transition-colors"
