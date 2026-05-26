@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
+import { supabase } from '../../lib/supabase';
 
 export function AdminLayout() {
   const { currentUser, logout } = useAppContext();
   const navigate = useNavigate();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [onlineUsers, setOnlineUsers] = useState(1);
   const canManageTickets = ['admin', 'secretary', 'coordinator', 'triage', 'field', 'superadmin'].includes(currentUser?.role || '');
 
   const navItems = [
@@ -33,6 +35,40 @@ export function AdminLayout() {
     currentUser?.role === 'field' ? 'Campo' :
     currentUser?.role === 'citizen' ? 'Cidadao' : currentUser?.role;
 
+  useEffect(() => {
+    if (!currentUser?.id) return;
+
+    const channel = supabase.channel('reportaai-online-users', {
+      config: { presence: { key: currentUser.id } },
+    });
+
+    const updatePresenceCount = () => {
+      const state = channel.presenceState();
+      setOnlineUsers(Object.keys(state).length || 1);
+    };
+
+    channel
+      .on('presence', { event: 'sync' }, updatePresenceCount)
+      .on('presence', { event: 'join' }, updatePresenceCount)
+      .on('presence', { event: 'leave' }, updatePresenceCount)
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await channel.track({
+            id: currentUser.id,
+            name: currentUser.name,
+            role: currentUser.role,
+            onlineAt: new Date().toISOString(),
+          });
+          updatePresenceCount();
+        }
+      });
+
+    return () => {
+      channel.untrack();
+      supabase.removeChannel(channel);
+    };
+  }, [currentUser?.id, currentUser?.name, currentUser?.role]);
+
   return (
     <div className="h-screen bg-slate-50 text-slate-900 font-sans flex flex-col overflow-hidden">
       <header className="h-16 bg-[#1E3A8A] flex items-center justify-between px-6 text-white shrink-0">
@@ -48,7 +84,7 @@ export function AdminLayout() {
         <div className="flex items-center gap-6">
           <nav className="hidden md:flex gap-4 text-sm font-medium">
             <span className="opacity-100 border-b-2 border-white pb-1">Visao Administrativa</span>
-            <span className="opacity-50">Portal do Cidadao</span>
+            {currentUser?.role !== 'superadmin' && <span className="opacity-50">Portal do Cidadao</span>}
           </nav>
           <div className="flex items-center gap-3 pl-6 border-l border-white/20">
             <div className="text-right hidden sm:block">
@@ -138,10 +174,10 @@ export function AdminLayout() {
 
           {!sidebarCollapsed && <div className="mt-auto p-4 border-t border-slate-100 shrink-0">
             <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
-              <p className="text-[10px] text-blue-700 font-bold uppercase tracking-wide">Status do Sistema</p>
+              <p className="text-[10px] text-blue-700 font-bold uppercase tracking-wide">Usuários Online</p>
               <div className="flex items-center gap-2 mt-1">
                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite]"></div>
-                <span className="text-xs text-blue-800 font-medium">Servidores Online</span>
+                <span className="text-xs text-blue-800 font-medium">{onlineUsers} online agora</span>
               </div>
             </div>
           </div>}
