@@ -58,6 +58,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [cities, setCities] = useState<City[]>([]);
   const [loading, setLoading] = useState(true);
   const authLoadSeq = useRef(0);
+  const currentUserRef = useRef<User | null>(null);
+
+  useEffect(() => {
+    currentUserRef.current = currentUser;
+  }, [currentUser]);
 
   useEffect(() => {
     let authListener: any;
@@ -221,7 +226,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           return mappedTicket;
         });
 
-        const activeUser = userProfile || currentUser;
+        const activeUser = userProfile || currentUserRef.current;
         if (seq && seq !== authLoadSeq.current) return;
 
         let finalTickets = fetchedTickets;
@@ -337,7 +342,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       }
 
       const { data: authSubscription } = supabase.auth.onAuthStateChange(async (event, session) => {
-        if (event === 'TOKEN_REFRESHED') {
+        const activeUser = currentUserRef.current;
+        if (
+          session &&
+          activeUser?.id === session.user.id &&
+          ['INITIAL_SESSION', 'SIGNED_IN', 'TOKEN_REFRESHED', 'USER_UPDATED'].includes(event)
+        ) {
           return;
         }
 
