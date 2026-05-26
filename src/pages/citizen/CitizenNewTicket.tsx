@@ -348,19 +348,40 @@ export function CitizenNewTicket() {
       click(e) {
         setFormData(prev => ({ ...prev, latitude: e.latlng.lat, longitude: e.latlng.lng }));
         setLocationAccuracy('manual');
-        setLocationHint('Ponto marcado manualmente. Este será o local usado no chamado.');
+        setLocationHint('Ponto marcado manualmente. Buscando rua, número e bairro...');
         // reverse geocode upon manual click
-        fetch(`https://nominatim.openstreetmap.org/reverse?lat=${e.latlng.lat}&lon=${e.latlng.lng}&format=json&addressdetails=1`)
+        fetch(`https://nominatim.openstreetmap.org/reverse?lat=${e.latlng.lat}&lon=${e.latlng.lng}&format=json&zoom=18&addressdetails=1`, {
+          headers: { 'Accept-Language': 'pt-BR,pt;q=0.9' }
+        })
           .then(res => res.json())
           .then(data => {
             if (data && data.address) {
-              const road = data.address.road || data.address.pedestrian || '';
-              const suburb = data.address.suburb || data.address.neighbourhood || '';
+              const road = data.address.road || data.address.pedestrian || data.address.residential || data.address.path || '';
+              const houseNum = data.address.house_number || '';
+              const suburb = data.address.suburb || data.address.neighbourhood || data.address.quarter || data.address.residential || '';
+              const cityStr = data.address.city || data.address.town || data.address.village || data.address.municipality || '';
+              const matchedCity = cityStr ? cities.find(c =>
+                norm(c.name).toLowerCase() === norm(cityStr).toLowerCase()
+              ) : null;
+
+              if (road) setStreetSearch(road);
+              setHouseNumber(houseNum);
+              if (suburb) setNeighborhoodSearch(suburb);
+              if (matchedCity) setCitySearch(`${matchedCity.name} — ${matchedCity.state || CITY_STATE[matchedCity.name] || ''}`);
+
               setFormData(prev => ({
                  ...prev,
-                 address: road || prev.address,
-                 neighborhood: suburb || prev.neighborhood
+                 address: road ? (houseNum ? `${road}, ${houseNum}` : road) : prev.address,
+                 neighborhood: suburb || prev.neighborhood,
+                 cityId: matchedCity?.id || prev.cityId
               }));
+              setLocationHint(
+                road
+                  ? 'Ponto marcado manualmente. Rua, número e bairro foram atualizados conforme o mapa.'
+                  : 'Ponto marcado manualmente. Não encontramos rua próxima; confira os campos antes de enviar.'
+              );
+            } else {
+              setLocationHint('Ponto marcado manualmente. Não encontramos endereço próximo; confira os campos antes de enviar.');
             }
           }).catch(err => console.error("Erro geocoding reverso (click):", err));
       },
