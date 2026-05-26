@@ -99,6 +99,7 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
       const savedHistory = await saveHistory(newStatus, resolutionComment.trim());
       if (savedHistory) {
         setTicketHistory(prev => normalizeTicketHistory(ticket, [savedHistory, ...prev]));
+        setSuccess('Atualizacao registrada no historico do chamado.');
       } else {
         setError('Status atualizado, mas o historico nao foi gravado no banco. Verifique a tabela ticket_history.');
       }
@@ -106,7 +107,6 @@ export function AdminTicketDetailsModal({ ticket, onClose }: Props) {
       setCurrentStatus(newStatus);
       setResolutionComment('');
       setResolutionFile(null);
-      setSuccess('Atualizacao registrada no historico do chamado.');
     } catch (e) {
       console.error(e);
       setError('Nao foi possivel atualizar o chamado. Verifique o anexo e tente novamente.');

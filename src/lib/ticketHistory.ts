@@ -122,6 +122,7 @@ export const insertTicketHistory = async ({
     (previousStatus && previousStatus !== status
       ? `Status alterado de ${STATUS_LABELS[previousStatus] || previousStatus} para ${STATUS_LABELS[status] || status}`
       : `Comentario registrado em ${STATUS_LABELS[status] || status}`);
+  const actionWithComment = comment ? `${historyAction}. Comentario: ${comment}` : historyAction;
 
   const attempts: Record<string, any>[] = [
     {
@@ -134,6 +135,27 @@ export const insertTicketHistory = async ({
       createdAt: now,
     },
     {
+      ticketId: ticket.id,
+      userId,
+      action: historyAction,
+      newStatus: status,
+      comment: comment || '',
+      createdAt: now,
+    },
+    {
+      ticketId: ticket.id,
+      userId,
+      action: actionWithComment,
+      newStatus: status,
+      createdAt: now,
+    },
+    {
+      ticketId: ticket.id,
+      userId,
+      action: actionWithComment,
+      newStatus: status,
+    },
+    {
       ticket_id: ticket.id,
       user_id: userId,
       action: historyAction,
@@ -141,6 +163,27 @@ export const insertTicketHistory = async ({
       new_status: status,
       comment: comment || '',
       created_at: now,
+    },
+    {
+      ticket_id: ticket.id,
+      user_id: userId,
+      action: historyAction,
+      new_status: status,
+      comment: comment || '',
+      created_at: now,
+    },
+    {
+      ticket_id: ticket.id,
+      user_id: userId,
+      action: actionWithComment,
+      new_status: status,
+      created_at: now,
+    },
+    {
+      ticket_id: ticket.id,
+      user_id: userId,
+      action: actionWithComment,
+      new_status: status,
     },
   ];
 
